@@ -5,9 +5,13 @@
 The November 15 physical results below remain historical and source-specific.
 The restored workspace is running the default Isaac launch script; historical UAV
 raw records are absent from the checked host artifact locations. No new flight,
-scene switch, model launch or live control-binary replacement has occurred.
+live scene switch, model launch or live control-binary replacement has occurred.
 
-- Restricted marker software campaign:13/13 authored synthetic dispositions;
+- Private static renderer: six cases/18 saved frames replayed; corrected an initial
+  nominal-cube regression by replacing the default total depth-spread veto with
+  local continuity and connected-support checks. Latest synthetic campaign21/21,
+  focused regression55/55. No robot scene mutation or powered qualification.
+- Initial restricted marker software campaign:13/13 authored synthetic dispositions;
   malformed viewpoint inputs abstain. Partial connected occlusion remains an
   explicit OBSERVED/SELECTED limitation, not qualified occlusion detection.
 - Watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
@@ -18,7 +22,7 @@ scene switch, model launch or live control-binary replacement has occurred.
   against0.410m baseline. After separate mechanical lint cleanup, package7/7CTest
   pass. Both packages have aggregate zero errors/failures and two skips each.
 - Core test fixture corrected without weakening LAND admission. Latest full-dependency
-  unittest659/659pass; minimal Pydantic-only configurations also pass with explicit skips.
+  unittest679/679pass; minimal Pydantic-only configurations also pass with explicit skips.
   Optional worker YAML inspection runs when PyYAML exists and skips otherwise.
 - Fresh passive camera capture:20exact-header triples classified ABSENT; a saved
   frame was inspected. This is detector output on the current view, not scene-wide

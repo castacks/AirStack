@@ -53,3 +53,7 @@ failed output retained. Other controller-mode writers and remotely queued reques
 still require controller-side authority/generation fencing for exclusive arbitration.
 The candidate is source and isolated-test evidence, not a replacement for the live
 monitor or a requalification of November physical traces.
+
+| D27 | Total depth spread rejected the normal rendered marker cube. | Nominal front and underside span 0.402 m, with maximum adjacent step 0.092 m. The initial 0.1 m global veto is retained as an explicit optional profile; default now checks local continuity and connected valid support. Saved baseline and all 18 private-rendered inputs remain available. Development controls, no physical requalification. |
+| D28 | Kit cleanup can mask an exception with exit status zero. | Initial private capture omitted later cases despite exit0; the next attempt saved an explicit HydraTexture cleanup AttributeError. Final path-based cleanup requires a complete six-case result and no error record in addition to terminal exit0. Live processes preserved. |
+| D29 | Host GPU enumeration differs from the simulator container. | Host's single small-used-memory view did not describe active GPU0. Simulator sees four GPUs; GPU0 had approximately 44 GiB free at the process check. Resource observations must come from the process's container. |

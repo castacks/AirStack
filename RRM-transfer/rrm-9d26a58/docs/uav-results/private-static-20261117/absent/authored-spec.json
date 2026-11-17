@@ -1,0 +1,35 @@
+{
+  "schema_version": "uav-marker-fixture/v2",
+  "scenario": "absent",
+  "frame": "world",
+  "units": "metres",
+  "static_colliders": true,
+  "fixtures": [
+    {
+      "id": "blue_distractor",
+      "position": [
+        4.0,
+        -1.5,
+        1.2
+      ],
+      "color": [
+        0.02,
+        0.1,
+        1.0
+      ],
+      "size_m": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    }
+  ],
+  "reference_camera_m": [
+    0.2,
+    0.0,
+    0.02
+  ],
+  "intended_detector_status": "ABSENT",
+  "rendered_qualified": false,
+  "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+}

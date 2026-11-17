@@ -10,6 +10,42 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest continuation (14:47 UTC): completed a separate bounded private static Kit
+capture of six fixture cases, three rendered frames each. Existing live Kit210/PX4978
+retained original start times. No robot/ROS startup, live-stage change, flight or
+deployment. Actual RGB/depth/K, camera projection metadata, stages, fixtures and
+baseline/assessed source snapshots are versioned under
+`docs/uav-results/private-static-20261117/`; audit checks54raw hashes and both
+projection/optical-parameter calibration agreement. All18frame dispositions match
+the recorded development expectations. Nominal OBSERVED/SELECTED; absent/full
+ABSENT; duplicate/split AMBIGUOUS; partial DEPTH_INCONSISTENT; all non-observed
+cases abstain. Partial's edge depth discontinuity is measured, not general occlusion
+inference. Static repeated depths are not independent trials or robot-camera sync.
+
+This capture exposed a real regression in the initial global0.1m spread gate:
+nominal cube front+underside span0.401689m, yet local max step0.091806m. Replaced
+the default with one four-connected valid support patch and max adjacent depth
+step0.1m, retaining total range diagnostics and explicit optional global profile.
+A missing-depth gap separating support returns DEPTH_DISCONNECTED/no point.
+The original failed detector source and original17/20case reports remain unchanged.
+Continuous wide slopes intentionally pass now; the renamed case and a new hidden
+jump/gap give21/21synthetic dispositions. Focused55/55PASS, full optional core
+679/679PASS in robot Docker. Initial test commands omitted PYTHONPATH, then PATH
+for the standalone shebang test; failures retained and diagnosed before final run
+with isolated venv PATH/PYTHONPATH. No production test weakening for that environment.
+
+Private renderer attempt01 saved only nominal despite exit0; attempt02 captured
+HydraTexture.split cleanup AttributeError; SDK detach requires product.path.
+Final attempt03 required capture_complete, all cases, absent error file and terminal
+exit0. Kit close can mask pending exceptions, so exit alone is insufficient.
+SDK cache/projection/DLSS/texture-copy/stage-reference warnings retained locally
+and summarized with evidence. Host GPU enumeration did not match simulator's four
+GPUs; simulator GPU0 free44,576MiB at final process check. New reports are development
+controls informed by this revision, not held-out accuracy or physical qualification.
+The persistent overnight goal was found usageLimited by the runner; current-turn
+work resumed, but no automatic unlimited continuation is claimed.
+
+
 User authorized sustained autonomous work and requested discrepancies be recorded
 while useful progress continues. Branch `ore_proj`, base `1b0515ebe`. No flights,
 scene switches, service calls to the aircraft, model launches or live binary

@@ -1,0 +1,32 @@
+{
+  "capture_complete": true,
+  "cases": [
+    {
+      "case": "nominal",
+      "captured_frames": 3
+    },
+    {
+      "case": "absent",
+      "captured_frames": 3
+    },
+    {
+      "case": "duplicate-red",
+      "captured_frames": 3
+    },
+    {
+      "case": "split-occlusion",
+      "captured_frames": 3
+    },
+    {
+      "case": "partial-occlusion",
+      "captured_frames": 3
+    },
+    {
+      "case": "full-occlusion",
+      "captured_frames": 3
+    }
+  ],
+  "renderer": "RaytracedLighting",
+  "robot_or_ros_started": false,
+  "source_sha256": "87a8f0b9806f9284d423932db0de0dc39616fa91aced03bb696233567385e320"
+}

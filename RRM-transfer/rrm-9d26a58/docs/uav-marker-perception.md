@@ -76,11 +76,11 @@ channel receipt span0.01517wall seconds. Receipt alignment is not acquisition
 synchronization, and ABSENT in the current view does not establish scene-wide
 semantic absence. No flight, motion request, scene change or model inference.
 
-## Restricted surface consistency — 2026-11-17
+## Initial total-spread profile — 2026-11-17 (superseded default)
 
 A connected red component can contain incompatible ranges without RGB ambiguity.
 Baseline split-depth and central-outlier cases still returned OBSERVED. The detector
-now requires valid interior depth spread at most 0.1 m by default, configurable by
+at this earlier checkpoint required valid interior depth spread at most 0.1 m by default, configurable by
 the positive finite `max_depth_spread_m` fixture profile. This uses the same numeric
 scale as the existing temporal viewpoint depth-stability bound; it is an authored
 conservative fixture setting, not a learned threshold or real sensor noise model.
@@ -136,4 +136,34 @@ private in-memory stages, with no Kit application or live stage access. They cov
 world bounds, shaders, material bindings, colliders, pre-Kit rejection of invalid
 configuration, nominal compatibility and refusal to overwrite manifests. CLI dry-run
 and environment passthrough for both service definitions pass. These variants have
-not yet established rendered perception results or physical execution.
+subsequently received the private static-render checks below; physical execution remains unqualified.
+
+## Local depth support and private rendered controls — 2026-11-17
+
+The first rendered nominal cube falsified the total-spread default above: its front
+and underside span 0.402 m despite representing one continuous surface. The current
+default instead requires one four-connected valid interior depth patch and no
+four-neighbor depth step above 0.1 m (`max_depth_step_m`). The numeric limit was
+retained; total min/max/spread remain diagnostic. An explicit positive finite
+`max_depth_spread_m` still selects the stricter total-spread profile; its default
+is now `None`. Missing-depth gaps separating support return DEPTH_DISCONNECTED.
+Both discontinuity statuses withhold the surface point and viewpoint goal.
+
+The [saved private renderer evidence](uav-results/private-static-20261117/README.md)
+contains six cases and 18 separately rendered frames, with RGB/depth/K, projection
+metadata, stages, fixture definitions, baseline source and a replay audit. All 54
+raw input hashes and intrinsics against the renderer projection were checked.
+Nominal now observes/selects; absent/full cover abstain as ABSENT; duplicate/split
+abstain as AMBIGUOUS; partial cover abstains on its measured local depth jump.
+Partial connected occlusion with coherent depth can still pass, as the synthetic
+case explicitly demonstrates. No visibility or identity inference was added.
+
+The [updated synthetic campaign](uav-results/marker-local-depth-20261117.json)
+passes 21 dispositions. The old excessive_slope input now passes as
+continuous_wide_slope: wide continuous slopes are intentionally allowed. A missing
+stripe hiding a depth jump is newly rejected. The older 17/20-case reports retain
+their original source hashes and results. Current focused tests:55 PASS; full core
+unittest outcome is recorded in the handoff. These are development controls that
+informed the revision, not held-out accuracy or robot-camera qualification. The
+0.1 m pixel-neighbor setting depends on resolution/view and can reject steep real
+surfaces. Real noise, RGB/depth edge mismatch and general objects remain unqualified.

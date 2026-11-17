@@ -43,10 +43,40 @@ class MarkerDepthConsistencyTests(unittest.TestCase):
         self.assertEqual(observed['depth_max_m'], 3.5625)
         self.assertEqual(detect_red_surface(rgb, depth, k, max_depth_spread_m=.03125)['status'],
                          'DEPTH_INCONSISTENT')
-        for value in (None, True, 0., -1., float('nan'), float('inf'), '0.1'):
+        for value in (True, 0., -1., float('nan'), float('inf'), '0.1'):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
                     detect_red_surface(rgb, depth, k, max_depth_spread_m=value)
+
+
+class LocalSupportTests(unittest.TestCase):
+    fixture = MarkerDepthConsistencyTests.fixture
+
+    def test_continuous_wide_surface_and_disconnected_gap(self):
+        rgb, depth = self.fixture()
+        k = [100., 0., 80., 0., 100., 60., 0., 0., 1.]
+        depth += np.linspace(0., 1., 160, dtype=np.float32)[None, :]
+        result = detect_red_surface(rgb, depth, k)
+        self.assertEqual(result['status'], 'OBSERVED')
+        self.assertGreater(result['depth_spread_m'], .1)
+        self.assertLess(result['depth_max_adjacent_step_m'], .1)
+        self.assertEqual(result['depth_support_components'], 1)
+        depth[:, 79:82] = np.nan
+        result = detect_red_surface(rgb, depth, k)
+        self.assertEqual(result['status'], 'DEPTH_DISCONNECTED')
+        self.assertIsNone(result['surface_point_optical_m'])
+        self.assertEqual(select_viewpoint([result]*3, [160,120], [1.,0.,0.])['status'], 'ABSTAIN')
+
+    def test_local_limit_boundary_and_invalid_configuration(self):
+        rgb, depth = self.fixture()
+        k = [100., 0., 80., 0., 100., 60., 0., 0., 1.]
+        depth[:, 80:] += .125
+        self.assertEqual(detect_red_surface(rgb, depth, k)['status'], 'DEPTH_INCONSISTENT')
+        self.assertEqual(detect_red_surface(rgb, depth, k, max_depth_step_m=.125)['status'], 'OBSERVED')
+        for value in (None, True, 0., -1., float('nan'), float('inf'), '.1'):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    detect_red_surface(rgb, depth, k, max_depth_step_m=value)
 
 
 if __name__ == '__main__':

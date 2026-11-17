@@ -1,0 +1,15 @@
+{"phase": "before_app", "monotonic_s": 503801.450931142}
+{"phase": "app_started", "monotonic_s": 503811.785064779, "usd_version": [0, 24, 5]}
+{"phase": "case_start", "monotonic_s": 503811.785128515, "case": "nominal"}
+{"phase": "case_captured", "monotonic_s": 503812.679958844, "case": "nominal"}
+{"phase": "case_start", "monotonic_s": 503812.69536405, "case": "absent"}
+{"phase": "case_captured", "monotonic_s": 503813.512948176, "case": "absent"}
+{"phase": "case_start", "monotonic_s": 503813.528929662, "case": "duplicate-red"}
+{"phase": "case_captured", "monotonic_s": 503814.356033203, "case": "duplicate-red"}
+{"phase": "case_start", "monotonic_s": 503814.373279577, "case": "split-occlusion"}
+{"phase": "case_captured", "monotonic_s": 503815.243181029, "case": "split-occlusion"}
+{"phase": "case_start", "monotonic_s": 503815.257249028, "case": "partial-occlusion"}
+{"phase": "case_captured", "monotonic_s": 503816.518244828, "case": "partial-occlusion"}
+{"phase": "case_start", "monotonic_s": 503816.53372658, "case": "full-occlusion"}
+{"phase": "case_captured", "monotonic_s": 503817.378264018, "case": "full-occlusion"}
+{"phase": "capture_complete", "monotonic_s": 503817.396889954}

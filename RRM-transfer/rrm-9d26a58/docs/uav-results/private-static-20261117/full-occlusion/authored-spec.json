@@ -1,0 +1,71 @@
+{
+  "schema_version": "uav-marker-fixture/v2",
+  "scenario": "full-occlusion",
+  "frame": "world",
+  "units": "metres",
+  "static_colliders": true,
+  "fixtures": [
+    {
+      "id": "red_panel",
+      "position": [
+        4.0,
+        0.0,
+        1.2
+      ],
+      "color": [
+        1.0,
+        0.02,
+        0.02
+      ],
+      "size_m": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "id": "blue_distractor",
+      "position": [
+        4.0,
+        -1.5,
+        1.2
+      ],
+      "color": [
+        0.02,
+        0.1,
+        1.0
+      ],
+      "size_m": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "id": "gray_occluder",
+      "position": [
+        3.4,
+        0.0,
+        1.0988571428571428
+      ],
+      "color": [
+        0.05,
+        0.05,
+        0.05
+      ],
+      "size_m": [
+        0.1,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "reference_camera_m": [
+    0.2,
+    0.0,
+    0.02
+  ],
+  "intended_detector_status": "ABSENT",
+  "rendered_qualified": false,
+  "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+}

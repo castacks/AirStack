@@ -1,0 +1,1123 @@
+{
+  "schema_version": 1,
+  "scope": "synthetic offline software-contract development campaign",
+  "physical_execution": false,
+  "learned_reasoning": false,
+  "independent_observation_window": false,
+  "notes": [
+    "Single-frame cases repeat observations; spatial cases save three distinct authored frames.",
+    "No sensor acquisition or temporal identity is established by authored frames.",
+    "Partial connected occlusion can remain SELECTED; no visibility model is claimed.",
+    "Image/depth edits do not establish a real or simulated sensor-fault response."
+  ],
+  "versions": {
+    "python": "3.12.3",
+    "cv2": "4.6.0",
+    "numpy": "1.26.4"
+  },
+  "source_sha256": {
+    "uav_marker_abstention_campaign.py": "1c1139102c8eb51339f6a8621124ceb3ca57f9bce0a9e650c5b0ab1a87c5db95",
+    "uav_marker.py": "7507196036b7f60358b06c4e7c0cce7b67a5838236eb0750f8092a405c7ed68a",
+    "uav_viewpoint.py": "bff744031ac3cf7f6f7818611ff4eec8ddfe7c74298d8328d5672a062fb65759"
+  },
+  "input_sha256": {
+    "baseline.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "baseline.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "duplicate.png": "444f4e0374b71f2698f0d8f1538d436936859b4f114477d46957c6182962fff8",
+    "duplicate.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "absent.png": "0ce05e52e600b149cf8d4168f71d0cbf0399448a3c7021b9910f2973f4ae8e41",
+    "absent.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "occluded_split.png": "6d3025eb9e00024615b216dae63e4a1e4f4a2d7ac2ab28a04ef4bcf22594d3cb",
+    "occluded_split.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "occluded_partial.png": "6eed7ee1c39b3e3de3d063b34af2d76e2192b56dfbdccfafd041557bf13d00fc",
+    "occluded_partial.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "occluded_full.png": "852f4f362a1b735499670b9cf01728f7af7e84d21855549e0f937c116063ba7e",
+    "occluded_full.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "depth_zero.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_zero.npz": "9a4735d48141c43dd90430c91e0abe8a67c5bb5e6c5c76bdb6b6c5603360e32a",
+    "depth_nan.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_nan.npz": "08ccbdeb2eb81d7bf66424207a4bce79e204785ce735531b5deb192b8b817e5a",
+    "depth_inf.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_inf.npz": "2ba89c1eee55060d0202bb1e72ac1bae06ff29b4d12c6f5ea547dee18b31d986",
+    "depth_negative.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_negative.npz": "220529705d48d345055b723e6d787d3e18b234fafe041d5e4864046c9ac6909b",
+    "depth_far.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_far.npz": "58c30dee8f235de3f352c39b15493674efa2372f89d082faf2740465833846c0",
+    "depth_sparse.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_sparse.npz": "967f8daf5e83992a41e93dff899622558de1fff1634d3f8b1b7d9c1bdee56001",
+    "cropped.png": "68baed1cded2b9eaa15d044ceb3370179d2b7fb8148a6ebb3f337732419102ff",
+    "cropped.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "mixed_depth.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "mixed_depth.npz": "97b2b320afddd50d0f962ed98912a8e7cbbd615c1f70dae99b92ac1bb104e56b",
+    "depth_outlier.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_outlier.npz": "32e29ad7eec64614a1dde9b53ca73886aa9e823b7fde2f35535da012ff68b7c8",
+    "coherent_slope.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "coherent_slope.npz": "d08305694fecea3fe8e5e4cd9cb8efa380c8971e8cb58cee8ee232884c2e5300",
+    "continuous_wide_slope.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "continuous_wide_slope.npz": "91eca59f95738ac73b3c3ed6bf1451363ffb18748cf3b9c4376a0a238f5614fd",
+    "depth_gap.png": "416e510c5e97780b27c626784afc97fe724cbadb915fbdad5a19add2b8716a1d",
+    "depth_gap.npz": "6a9de02512d86fea2cf5ed597df1dd8cad258b72cbb3f4ad3de5311a54a464d1",
+    "spatial_disjoint-0.png": "7b89bcdbffbc6d0e1e16d295abe6eada5313893345d85d980dd06850adccc60d",
+    "spatial_disjoint-0.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_disjoint-1.png": "03a4e8e9cffa590b0a9fd06d7c12bdce0969a46ff335138a6ceab34be30b3b98",
+    "spatial_disjoint-1.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_disjoint-2.png": "92996432594102eff0fb81466206024dcb0cdf1ed947114e5c31b2bde81938ac",
+    "spatial_disjoint-2.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_jitter-0.png": "99d27c012aee6e4f941e066d8ff80653d1bab461f8001df872f67e294d11f1c6",
+    "spatial_jitter-0.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_jitter-1.png": "03a4e8e9cffa590b0a9fd06d7c12bdce0969a46ff335138a6ceab34be30b3b98",
+    "spatial_jitter-1.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_jitter-2.png": "03abce5e9b6f5808b7d19687a513b0b0056af3638beb6dbdf28ab51a56cb1900",
+    "spatial_jitter-2.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_extremes-0.png": "2fa18d2833d6e530fdae50317b23dce4bb1a4571ed7db59df6d914af8c409c09",
+    "spatial_extremes-0.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_extremes-1.png": "03a4e8e9cffa590b0a9fd06d7c12bdce0969a46ff335138a6ceab34be30b3b98",
+    "spatial_extremes-1.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134",
+    "spatial_extremes-2.png": "0ca447c024995bf6296b6829907882580bcfe11e1e10f62e72eca8e1888f12d0",
+    "spatial_extremes-2.npz": "a8f27cf272bc774a56b2910fafb5789d1a342d5873e5555f08f9f1df1ad52134"
+  },
+  "cases": [
+    {
+      "case": "baseline",
+      "expected_observation": "OBSERVED",
+      "expected_policy": "SELECTED",
+      "observation": {
+        "status": "OBSERVED",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1444,
+        "surface_point_optical_m": [
+          -0.035,
+          -0.035,
+          3.5
+        ],
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 3.5,
+        "depth_spread_m": 0.0,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 0.0,
+        "surface_pixel_uv": [
+          79,
+          59
+        ],
+        "surface_depth_z_m": 3.5
+      },
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true,
+      "limitation": "single centered red fixture"
+    },
+    {
+      "case": "duplicate",
+      "expected_observation": "AMBIGUOUS",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "AMBIGUOUS",
+        "components": 2,
+        "surface_point_optical_m": null
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "absent",
+      "expected_observation": "ABSENT",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "ABSENT",
+        "components": 0,
+        "surface_point_optical_m": null
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "occluded_split",
+      "expected_observation": "AMBIGUOUS",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "AMBIGUOUS",
+        "components": 2,
+        "surface_point_optical_m": null
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "occluded_partial",
+      "expected_observation": "OBSERVED",
+      "expected_policy": "SELECTED",
+      "observation": {
+        "status": "OBSERVED",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          55,
+          40,
+          25
+        ],
+        "centroid_uv": [
+          79.5,
+          67.0
+        ],
+        "valid_depth_samples": 874,
+        "surface_point_optical_m": [
+          -0.035,
+          0.245,
+          3.5
+        ],
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 3.5,
+        "depth_spread_m": 0.0,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 0.0,
+        "surface_pixel_uv": [
+          79,
+          67
+        ],
+        "surface_depth_z_m": 3.5
+      },
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true,
+      "limitation": "one visible component remains; partial occlusion is NOT detected"
+    },
+    {
+      "case": "occluded_full",
+      "expected_observation": "ABSENT",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "ABSENT",
+        "components": 0,
+        "surface_point_optical_m": null
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_zero",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 0,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_nan",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 0,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_inf",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 0,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_negative",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 0,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_far",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 0,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "depth_sparse",
+      "expected_observation": "DEPTH_UNKNOWN",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_UNKNOWN",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 9,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center"
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "cropped",
+      "expected_observation": "OBSERVED",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "OBSERVED",
+        "components": 1,
+        "bbox_xywh": [
+          0,
+          40,
+          25,
+          40
+        ],
+        "centroid_uv": [
+          12.0,
+          59.5
+        ],
+        "valid_depth_samples": 912,
+        "surface_point_optical_m": [
+          -2.415,
+          -0.035,
+          3.5
+        ],
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 3.5,
+        "depth_spread_m": 0.0,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 0.0,
+        "surface_pixel_uv": [
+          11,
+          59
+        ],
+        "surface_depth_z_m": 3.5
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "cropped_or_small_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "offline authored intervention"
+    },
+    {
+      "case": "mixed_depth",
+      "expected_observation": "DEPTH_INCONSISTENT",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_INCONSISTENT",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1444,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 7.0,
+        "depth_spread_m": 3.5,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 3.5
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "restricted local depth discontinuity, not semantic identity"
+    },
+    {
+      "case": "depth_outlier",
+      "expected_observation": "DEPTH_INCONSISTENT",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_INCONSISTENT",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1444,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 7.0,
+        "depth_spread_m": 3.5,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 3.5
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "restricted local depth discontinuity, not semantic identity"
+    },
+    {
+      "case": "coherent_slope",
+      "expected_observation": "OBSERVED",
+      "expected_policy": "SELECTED",
+      "observation": {
+        "status": "OBSERVED",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1444,
+        "surface_point_optical_m": [
+          -0.03624213933944702,
+          -0.03624213933944702,
+          3.624213933944702
+        ],
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.595911979675293,
+        "depth_max_m": 3.654088020324707,
+        "depth_spread_m": 0.05817604064941406,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 0.0015723705291748047,
+        "surface_pixel_uv": [
+          79,
+          59
+        ],
+        "surface_depth_z_m": 3.624213933944702
+      },
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.665055648328229,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.665055648328229,
+        "predicted_surface_depth_z_m": 2.959158285616473,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true,
+      "limitation": "continuous gradient allowed by local support rule; replaces former excessive_slope global-range rejection; no sensor noise qualification"
+    },
+    {
+      "case": "continuous_wide_slope",
+      "expected_observation": "OBSERVED",
+      "expected_policy": "SELECTED",
+      "observation": {
+        "status": "OBSERVED",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1444,
+        "surface_point_optical_m": [
+          -0.039968552589416506,
+          -0.039968552589416506,
+          3.9968552589416504
+        ],
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.883647918701172,
+        "depth_max_m": 4.116352081298828,
+        "depth_spread_m": 0.23270416259765625,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 1,
+        "depth_max_adjacent_step_m": 0.006289482116699219,
+        "surface_pixel_uv": [
+          79,
+          59
+        ],
+        "surface_depth_z_m": 3.9968552589416504
+      },
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.7334366055527917,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.7334366055527917,
+        "predicted_surface_depth_z_m": 3.2634186533888587,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true,
+      "limitation": "continuous gradient allowed by local support rule; replaces former excessive_slope global-range rejection; no sensor noise qualification"
+    },
+    {
+      "case": "depth_gap",
+      "expected_observation": "DEPTH_DISCONNECTED",
+      "expected_policy": "ABSTAIN",
+      "observation": {
+        "status": "DEPTH_DISCONNECTED",
+        "components": 1,
+        "bbox_xywh": [
+          60,
+          40,
+          40,
+          40
+        ],
+        "centroid_uv": [
+          79.5,
+          59.5
+        ],
+        "valid_depth_samples": 1330,
+        "surface_point_optical_m": null,
+        "depth_source": "simulated_depth_ground_truth",
+        "point_semantics": "observed surface, not object center",
+        "depth_min_m": 3.5,
+        "depth_max_m": 7.0,
+        "depth_spread_m": 3.5,
+        "max_depth_step_m": 0.1,
+        "max_depth_spread_m": null,
+        "depth_support_components": 2
+      },
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true,
+      "limitation": "missing-depth stripe splits support and hides a discontinuity"
+    },
+    {
+      "case": "spatial_disjoint",
+      "raw_prefixes": [
+        "spatial_disjoint-0",
+        "spatial_disjoint-1",
+        "spatial_disjoint-2"
+      ],
+      "input_mode": "three_authored_frames",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            35,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            49.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -1.085,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            49,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            65,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            79.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -0.035,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            79,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            95,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            109.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            1.015,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            109,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "expected_observation": [
+        "OBSERVED",
+        "OBSERVED",
+        "OBSERVED"
+      ],
+      "expected_policy": "ABSTAIN",
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "spatially_unstable_observation_window",
+        "delta_map_m": null,
+        "min_window_bbox_iou": 0.0,
+        "min_required_bbox_iou": 0.5
+      },
+      "passed": true,
+      "limitation": "authored spatial window, not acquired frames or identity tracking"
+    },
+    {
+      "case": "spatial_jitter",
+      "raw_prefixes": [
+        "spatial_jitter-0",
+        "spatial_jitter-1",
+        "spatial_jitter-2"
+      ],
+      "input_mode": "three_authored_frames",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            63,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            77.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -0.105,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            77,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            65,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            79.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -0.035,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            79,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            67,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            81.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            0.035,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            81,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "expected_observation": [
+        "OBSERVED",
+        "OBSERVED",
+        "OBSERVED"
+      ],
+      "expected_policy": "SELECTED",
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 0.7647058823529411,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true,
+      "limitation": "authored spatial window, not acquired frames or identity tracking"
+    },
+    {
+      "case": "spatial_extremes",
+      "raw_prefixes": [
+        "spatial_extremes-0",
+        "spatial_extremes-1",
+        "spatial_extremes-2"
+      ],
+      "input_mode": "three_authored_frames",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            57,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            71.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -0.315,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            71,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            65,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            79.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            -0.035,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            79,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            73,
+            40,
+            30,
+            30
+          ],
+          "centroid_uv": [
+            87.5,
+            54.5
+          ],
+          "valid_depth_samples": 784,
+          "surface_point_optical_m": [
+            0.245,
+            -0.21,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.5,
+          "depth_spread_m": 0.0,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.0,
+          "surface_pixel_uv": [
+            87,
+            54
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "expected_observation": [
+        "OBSERVED",
+        "OBSERVED",
+        "OBSERVED"
+      ],
+      "expected_policy": "ABSTAIN",
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "spatially_unstable_observation_window",
+        "delta_map_m": null,
+        "min_window_bbox_iou": 0.30434782608695654,
+        "min_required_bbox_iou": 0.5
+      },
+      "passed": true,
+      "limitation": "authored spatial window, not acquired frames or identity tracking"
+    }
+  ],
+  "passed": 21,
+  "total": 21
+}

@@ -27,7 +27,7 @@ def cases():
     for name in ('duplicate', 'absent', 'occluded_split', 'occluded_partial',
                  'occluded_full', 'depth_zero', 'depth_nan', 'depth_inf',
                  'depth_negative', 'depth_far', 'depth_sparse', 'cropped',
-                 'mixed_depth', 'depth_outlier', 'coherent_slope', 'excessive_slope'):
+                 'mixed_depth', 'depth_outlier', 'coherent_slope', 'continuous_wide_slope', 'depth_gap'):
         image, distance = rgb.copy(), depth.copy()
         status, policy = 'OBSERVED', 'SELECTED'
         limitation = 'offline authored intervention'
@@ -46,19 +46,22 @@ def cases():
         elif name == 'occluded_full':
             image[40:80, 60:100] = 0
             status, policy = 'ABSENT', 'ABSTAIN'
+        elif name == 'depth_gap':
+            distance[:, 80:] = 7.
+            distance[:, 79:82] = np.nan
+            status, policy = 'DEPTH_DISCONNECTED', 'ABSTAIN'
+            limitation = 'missing-depth stripe splits support and hides a discontinuity'
         elif name == 'mixed_depth' or name == 'depth_outlier':
             if name == 'mixed_depth':
                 distance[:, 80:] = 7.
             else:
                 distance[60, 80] = 7.
             status, policy = 'DEPTH_INCONSISTENT', 'ABSTAIN'
-            limitation = 'restricted static-fixture depth spread, not semantic identity'
-        elif name in ('coherent_slope', 'excessive_slope'):
+            limitation = 'restricted local depth discontinuity, not semantic identity'
+        elif name in ('coherent_slope', 'continuous_wide_slope'):
             distance += np.linspace(0., .25 if name == 'coherent_slope' else 1., 160,
                                     dtype=np.float32)[None, :]
-            if name == 'excessive_slope':
-                status, policy = 'DEPTH_INCONSISTENT', 'ABSTAIN'
-            limitation = 'authored depth gradient; no real sensor noise qualification'
+            limitation = 'continuous gradient allowed by local support rule; replaces former excessive_slope global-range rejection; no sensor noise qualification'
         elif name.startswith('depth_'):
             value = dict(depth_zero=0., depth_nan=np.nan, depth_inf=np.inf,
                          depth_negative=-1., depth_far=20., depth_sparse=np.nan)[name]

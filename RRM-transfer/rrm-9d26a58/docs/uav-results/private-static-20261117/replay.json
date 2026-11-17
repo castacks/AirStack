@@ -1,0 +1,608 @@
+{
+  "scope": "private static renderer development replay; no robot camera or flight",
+  "physical_execution": false,
+  "learned_reasoning": false,
+  "held_out": false,
+  "notes": [
+    "Partial-occlusion expectation records a measured local depth discontinuity; not general occlusion detection.",
+    "Three separately rendered frames of a static stage do not establish robot camera synchronization or identity.",
+    "Nominal control informed the local continuity revision; this is not an accuracy estimate.",
+    "Old total-spread profile rejected nominal and partial in all saved frames.",
+    "Viewpoint decision is reported independently; OBSERVED need not imply SELECTED."
+  ],
+  "cases": [
+    {
+      "case": "nominal",
+      "expected_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.484388185654,
+            90.13839662447258
+          ],
+          "valid_depth_samples": 1049,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            239,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.51310228233305,
+            90.14539306846999
+          ],
+          "valid_depth_samples": 1047,
+          "surface_point_optical_m": [
+            0.0,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            240,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.48662640207075,
+            90.23037100949094
+          ],
+          "valid_depth_samples": 1019,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            239,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.484388185654,
+            90.13839662447258
+          ],
+          "valid_depth_samples": 1049,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_spread_m": 0.1
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.51310228233305,
+            90.14539306846999
+          ],
+          "valid_depth_samples": 1047,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_spread_m": 0.1
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.48662640207075,
+            90.23037100949094
+          ],
+          "valid_depth_samples": 1019,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_spread_m": 0.1
+        }
+      ],
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      },
+      "passed": true
+    },
+    {
+      "case": "absent",
+      "expected_observation": "ABSENT",
+      "observations": [
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        }
+      ],
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true
+    },
+    {
+      "case": "duplicate-red",
+      "expected_observation": "AMBIGUOUS",
+      "observations": [
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        }
+      ],
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true
+    },
+    {
+      "case": "split-occlusion",
+      "expected_observation": "AMBIGUOUS",
+      "observations": [
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "AMBIGUOUS",
+          "components": 2,
+          "surface_point_optical_m": null
+        }
+      ],
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true
+    },
+    {
+      "case": "full-occlusion",
+      "expected_observation": "ABSENT",
+      "observations": [
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        },
+        {
+          "status": "ABSENT",
+          "components": 0,
+          "surface_point_optical_m": null
+        }
+      ],
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true
+    },
+    {
+      "case": "partial-occlusion",
+      "expected_observation": "DEPTH_INCONSISTENT",
+      "observations": [
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.5989515072084,
+            96.7129750982962
+          ],
+          "valid_depth_samples": 653,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.2786540985107422
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.57874015748033,
+            96.70866141732283
+          ],
+          "valid_depth_samples": 652,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.2786540985107422
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.5217965653897,
+            96.67107001321004
+          ],
+          "valid_depth_samples": 647,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.2786540985107422
+        }
+      ],
+      "baseline_observations": [
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.5989515072084,
+            96.7129750982962
+          ],
+          "valid_depth_samples": 653,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_spread_m": 0.1
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.57874015748033,
+            96.70866141732283
+          ],
+          "valid_depth_samples": 652,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_spread_m": 0.1
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            85,
+            32,
+            25
+          ],
+          "centroid_uv": [
+            239.5217965653897,
+            96.67107001321004
+          ],
+          "valid_depth_samples": 647,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.221346378326416,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.6803421974182129,
+          "max_depth_spread_m": 0.1
+        }
+      ],
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      },
+      "passed": true
+    }
+  ],
+  "passed": 6,
+  "total": 6,
+  "frames": 18,
+  "input_sha256": {
+    "nominal/frame-0.png": "8aae67221d43549e6d9cb9cfcca026bd133e20913cf9839eaa8854413efa648e",
+    "nominal/frame-0.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "nominal/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "nominal/frame-1.png": "7142625bc47b4924714b34da91ffeb467f5eddb0084785bcbef68de045080bd9",
+    "nominal/frame-1.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "nominal/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "nominal/frame-2.png": "f8d9eba13bf0b52bd2457af9d9c1d280d7a89f76ee430daa57a4fdb08c3c5d0d",
+    "nominal/frame-2.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "nominal/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "absent/frame-0.png": "e5df4603d590fc3cd3703c298fc08095211898f904e5c6489f3fe201649251cc",
+    "absent/frame-0.npz": "7f4c5998c196bdb00c186ef29c1af2c8a82da744d8c0636272cd83eab0d65562",
+    "absent/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "absent/frame-1.png": "da261cd1cd6621c01509ddccb1fda0105fe21ebe37aef6d2a15cfbb134ba357e",
+    "absent/frame-1.npz": "7f4c5998c196bdb00c186ef29c1af2c8a82da744d8c0636272cd83eab0d65562",
+    "absent/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "absent/frame-2.png": "e99c5af40164142ad0353f120f4ea4dcfc857563d2015f3e3278dc66cb1a8056",
+    "absent/frame-2.npz": "7f4c5998c196bdb00c186ef29c1af2c8a82da744d8c0636272cd83eab0d65562",
+    "absent/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "duplicate-red/frame-0.png": "8127d81977a1d18e8d7939fcb80bde9ad126230fd12d4151a28babc2732adea3",
+    "duplicate-red/frame-0.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "duplicate-red/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "duplicate-red/frame-1.png": "299fe44f920a88a3b7ea4875ed875645b520e159681986e164ef1146d5d81785",
+    "duplicate-red/frame-1.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "duplicate-red/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "duplicate-red/frame-2.png": "00dac8d1cea095b3462d97c90e50c405211ade92228bc114691ee17d6af79807",
+    "duplicate-red/frame-2.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "duplicate-red/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "split-occlusion/frame-0.png": "5be9f08b204e78e9040695ebdd2f061092d2e73acfcebae9fb35837c3bfc795b",
+    "split-occlusion/frame-0.npz": "b923af4332ae3c5d18849e5b8c87c6e1cd30feab0616098c16ca92616ba02e11",
+    "split-occlusion/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "split-occlusion/frame-1.png": "407047f7c583cef6e8a2057c8303c4efa783399f8ca93a02d6562831b84deb12",
+    "split-occlusion/frame-1.npz": "b923af4332ae3c5d18849e5b8c87c6e1cd30feab0616098c16ca92616ba02e11",
+    "split-occlusion/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "split-occlusion/frame-2.png": "d46b7b478ce3a6c12c4e0eb716e1fc753d8882df1d1aaf367c54b7c4f6ae133c",
+    "split-occlusion/frame-2.npz": "b923af4332ae3c5d18849e5b8c87c6e1cd30feab0616098c16ca92616ba02e11",
+    "split-occlusion/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "full-occlusion/frame-0.png": "176c569ab7cb4f62b771f780a10b693fcfa07b40065fbb61bbf1c7479c853ab2",
+    "full-occlusion/frame-0.npz": "5ecba8ad1e7050500db8b4bb2b9c531adaa7a22ee9103141b12b941219d53b3b",
+    "full-occlusion/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "full-occlusion/frame-1.png": "f5ffe53133ad039efbf1c27109877326cb82ee11b832e8ea8929af8e96fdf986",
+    "full-occlusion/frame-1.npz": "5ecba8ad1e7050500db8b4bb2b9c531adaa7a22ee9103141b12b941219d53b3b",
+    "full-occlusion/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "full-occlusion/frame-2.png": "ac3d40031fda1110dec711b1cfdcc1edac79b10ad09ab87b07b08a431ce95ac5",
+    "full-occlusion/frame-2.npz": "5ecba8ad1e7050500db8b4bb2b9c531adaa7a22ee9103141b12b941219d53b3b",
+    "full-occlusion/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "partial-occlusion/frame-0.png": "784cca19b6cc8663d02a324d9dcecd0b085fe96460ce0a8cc95a45c97f81f4a6",
+    "partial-occlusion/frame-0.npz": "b88cabf87c429d2c5e4a4e1d909b8cd2f18424db70880c8a0e6d89405e5b082a",
+    "partial-occlusion/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "partial-occlusion/frame-1.png": "0e8e6d93cbc1363844794e424dc88606d1661ca1d8e1c29a849874b33dbf888d",
+    "partial-occlusion/frame-1.npz": "b88cabf87c429d2c5e4a4e1d909b8cd2f18424db70880c8a0e6d89405e5b082a",
+    "partial-occlusion/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "partial-occlusion/frame-2.png": "507937ed875ea8ec37fa9b1ab6861d16aca4d737b9afc84ae959deb483964f87",
+    "partial-occlusion/frame-2.npz": "b88cabf87c429d2c5e4a4e1d909b8cd2f18424db70880c8a0e6d89405e5b082a",
+    "partial-occlusion/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c"
+  },
+  "source_sha256": {
+    "audit.py": "0415c0bdad992c37a6605d19aab0536e1f9b40dedb384df954d8f316a69ebd19",
+    "renderer.py": "87a8f0b9806f9284d423932db0de0dc39616fa91aced03bb696233567385e320",
+    "fixture-author.py": "bbec520b785128d69324d4e445c8cdd9584e1e303313205ae693b22f22661bd9",
+    "baseline-uav-marker.py": "313204ad7658d03e45f0608dcdd8b18c373edf14b25a701b33c1b7b1d6e4da04"
+  },
+  "detector_sha256": "7507196036b7f60358b06c4e7c0cce7b67a5838236eb0750f8092a405c7ed68a"
+}

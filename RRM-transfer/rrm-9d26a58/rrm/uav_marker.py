@@ -4,10 +4,12 @@ Not general object recognition, stereo-depth validation or world-frame grounding
 import math
 
 
-def detect_red_surface(rgb, depth, intrinsic, *, max_depth_spread_m=.1):
+def detect_red_surface(rgb, depth, intrinsic, *, max_depth_step_m=.1, max_depth_spread_m=None):
     import cv2
     import numpy as np
-    if type(max_depth_spread_m) not in (int,float) or not math.isfinite(max_depth_spread_m) or max_depth_spread_m<=0:
+    if type(max_depth_step_m) not in (int,float) or not math.isfinite(max_depth_step_m) or max_depth_step_m<=0:
+        raise ValueError('finite positive fixture depth-step limit required')
+    if max_depth_spread_m is not None and (type(max_depth_spread_m) not in (int,float) or not math.isfinite(max_depth_spread_m) or max_depth_spread_m<=0):
         raise ValueError('finite positive fixture depth-spread limit required')
     if (rgb.ndim!=3 or rgb.shape[2]!=3 or rgb.dtype!=np.uint8 or depth.ndim!=2 or depth.shape!=rgb.shape[:2] or not np.issubdtype(depth.dtype,np.floating)):
         raise ValueError('aligned RGB uint8 and depth dimensions required')
@@ -33,8 +35,23 @@ def detect_red_surface(rgb, depth, intrinsic, *, max_depth_spread_m=.1):
     if valid.sum()<9 or valid.sum()<.5*interior.sum():return result
     low,high=float(depth[valid].min()),float(depth[valid].max())
     result.update(depth_min_m=low,depth_max_m=high,depth_spread_m=high-low,
-                  max_depth_spread_m=float(max_depth_spread_m))
-    if high-low>max_depth_spread_m:
+                  max_depth_step_m=float(max_depth_step_m),
+                  max_depth_spread_m=None if max_depth_spread_m is None else float(max_depth_spread_m))
+    # A missing-depth stripe must not hide a jump between disconnected surfaces.
+    support_count=cv2.connectedComponents(valid.astype(np.uint8),connectivity=4)[0]-1
+    result['depth_support_components']=int(support_count)
+    if support_count!=1:
+        result['status']='DEPTH_DISCONNECTED'
+        return result
+    steps=[]
+    for first,second,both in (
+            (depth[:,1:],depth[:,:-1],valid[:,1:] & valid[:,:-1]),
+            (depth[1:,:],depth[:-1,:],valid[1:,:] & valid[:-1,:])):
+        # Index before subtraction: invalid/background values may be infinite.
+        if both.any():steps.append(float(np.abs(first[both]-second[both]).max()))
+    max_step=max(steps,default=0.)
+    result['depth_max_adjacent_step_m']=max_step
+    if max_step>max_depth_step_m or (max_depth_spread_m is not None and high-low>max_depth_spread_m):
         result['status']='DEPTH_INCONSISTENT'
         return result
     vs,us=np.nonzero(valid)

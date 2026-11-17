@@ -1,0 +1,53 @@
+{
+  "schema_version": "uav-marker-fixture/v2",
+  "scenario": "duplicate-red",
+  "frame": "world",
+  "units": "metres",
+  "static_colliders": true,
+  "fixtures": [
+    {
+      "id": "red_panel",
+      "position": [
+        4.0,
+        0.0,
+        1.2
+      ],
+      "color": [
+        1.0,
+        0.02,
+        0.02
+      ],
+      "size_m": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "id": "red_competitor",
+      "position": [
+        4.0,
+        -1.5,
+        1.2
+      ],
+      "color": [
+        1.0,
+        0.02,
+        0.02
+      ],
+      "size_m": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    }
+  ],
+  "reference_camera_m": [
+    0.2,
+    0.0,
+    0.02
+  ],
+  "intended_detector_status": "AMBIGUOUS",
+  "rendered_qualified": false,
+  "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+}
