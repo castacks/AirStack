@@ -21,7 +21,7 @@ its own notes. -->
 
 - Nothing yet.
 
-## 0.20.9 — 2026-11-17
+## 0.20.11 — 2026-11-17
 
 - **MAVROS is pinned to 2.16.0 in the robot and GCS images, and its launch
   namespace is empty.** MAVROS 2.15.0 creates its plugin nodes without the
@@ -35,6 +35,15 @@ its own notes. -->
   `mavlink` from the ROS snapshot of 2026-10-05, because 2.15.0 and 2.15.1
   drop the `px4_config.yaml` plugin settings. Remove the pin once newer
   MAVROS releases are verified.
+
+## 0.20.10 — 2026-11-17
+
+- **The test requirements pin pytest below 9.2.** pytest 9.2.0 stops at
+  collection with an `INTERNALERROR` in `tests/harness/collection.py`
+  (`pytest_collection_modifyitems`) before any test runs, so the Python unit
+  and harness contracts check failed on every pull request.
+  `tests/requirements.txt` now installs `pytest<9.2`. Remove the pin once
+  `collection.py` works with pytest 9.2 and later.
 
 ## 0.20.8 — 2026-09-04
 
