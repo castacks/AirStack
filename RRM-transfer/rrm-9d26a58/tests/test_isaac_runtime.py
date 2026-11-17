@@ -89,7 +89,7 @@ class RuntimeAdmissionTests(unittest.TestCase):
             "task_servers": {"takeoff": ["task_msgs/action/TakeoffTask"],
                              "land": ["task_msgs/action/LandTask"]},
             "missing_state": [], "stale_state": [], "connected": True,
-            "airborne": True, "frame_id": "map", "child_frame_id": "base_link",
+            "airborne": True, "armed": True, "frame_id": "map", "child_frame_id": "base_link",
             "position": {"x": 0., "y": 0., "z": 1.}, "yaw_rad": 0.,
             "clock_epoch_consistent": True,
         }
@@ -122,6 +122,26 @@ class RuntimeAdmissionTests(unittest.TestCase):
         probe.assert_not_called()
         plan = json.loads((self.output / saved["request_id"] / "command-plan.json").read_text())
         self.assertEqual(plan["isaac_runtime"]["status"], "LAND_EXEMPT")
+
+    def test_land_missing_or_nonboolean_armed_blocks_before_staging(self):
+        for value in ('missing', None, 'true', 1):
+            with self.subTest(armed=value):
+                saved = self.app.save('Land.')
+                discovery = dict(self.discovery)
+                if value == 'missing':
+                    discovery.pop('armed')
+                else:
+                    discovery['armed'] = value
+                with patch.object(self.app, 'discover_tasks', return_value=discovery), \
+                     patch('rrm_command_console.probe_isaac_runtime') as probe, \
+                     patch.object(self.app, '_launch_staged_command') as launch, \
+                     self.assertRaisesRegex(RuntimeError, 'Fresh canonical AirStack flight state'):
+                    self.app.stage_command_mission(saved['request_id'])
+                probe.assert_not_called()
+                launch.assert_not_called()
+                self.assertFalse((self.output/saved['request_id']/'command-plan.json').exists())
+                self.assertEqual(self.app.store.get_run(saved['request_id'])['execution_state'],
+                                 'NOT_DISPATCHED')
 
     def test_model_adapter_blocks_before_dependency_mutation(self):
         proposal = DroneTaskProposal(task_id="t", action_id="a", kind="TAKEOFF",

@@ -67,6 +67,15 @@ the local ordering repair cannot establish exclusive authority or cancel a remot
 queued request. Fresh observations and a process restart do not prove remote
 cancellation. No automatic LAND or live/physical qualification was added.
 
+Core validation follow-up:corrected the mocked airborne LAND success fixture to
+include canonical armed=True; production admission remains unchanged. New regression
+withholds missing/None/string/integer armed values before plan staging or launch.
+Full optional-dependency unittest run651/651PASS. Minimal Pydantic-only environment
+then exposed unguarded PyYAML use in one worker workflow-inspection test; now only
+that test explicitly skips without PyYAML. Minimal run655tests,634PASS/21explicit
+skips,zero failures/errors; full-dependency worker tests16/16PASS with YAML inspection
+still exercised. Earlier single-fixture and missing-YAML failures remain retained.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

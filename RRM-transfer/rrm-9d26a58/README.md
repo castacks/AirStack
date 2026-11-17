@@ -74,6 +74,10 @@ system Python. Do not run the suite with bare host `python3`: a host Python with
 Pydantic will fail before test collection. The script does not start or alter Docker,
 OSMO, Isaac, GPUs, or robot state.
 
+Optional UAV suites skip explicitly without their NumPy/OpenCV/pytest dependencies;
+the worker workflow YAML-inspection test similarly skips when PyYAML is absent.
+Neither optional dependency set is added to the minimal Pydantic-only core.
+
 To run just the original CPU-only Oracle demonstration after bootstrap, use the
 interpreter selected by the bootstrap:
 
