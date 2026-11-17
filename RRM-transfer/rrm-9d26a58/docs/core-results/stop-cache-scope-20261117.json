@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "285249666",
+  "scope": "one-run mock stop cache and admission-generation binding",
+  "baseline": "four failing scope/reset subcases; same-dispatch duplicate remained idempotent",
+  "validation": {
+    "focused_core_before_final_reset_case": 71,
+    "full_minimal": {
+      "run": 675,
+      "passed": 654,
+      "skipped": 21,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "source_sha256": {
+    "rrm/contracts.py": "e80dc62784d4b7474c09706a334fc94e0ad614da1c567d1a454d9740afb05ef6",
+    "rrm/core_stop.py": "e722bc92800531b2ad4d85e9708e52e534bfa532c8217857c2433b8e26ff8b9e",
+    "tests/test_core_stop_cache.py": "ddc24c8c28cf49f12fa7169cd481103124481d9b7e9afeaa2a2b3f22fc713c09"
+  },
+  "limits": [
+    "Cached outcome remains historical, not fresh physical proof",
+    "Does not implement multi-stop resumption",
+    "Caller still serializes reset/context changes with execution",
+    "No live control, ROS or scene changes"
+  ]
+}

@@ -89,6 +89,7 @@ class CoreStopSupervisor:
 
     @property
     def outcome(self) -> StopOutcome | None:
+        """Return the first historical outcome, not a current safe-state proof."""
         with self._lock:
             return self._outcome
 
@@ -101,6 +102,10 @@ class CoreStopSupervisor:
             if self._world is None or self._tracer is None:
                 raise RuntimeError("stop supervisor is not bound")
             if self._outcome is not None:
+                if not self.guard.retain_stop(generation=self._outcome.generation):
+                    raise RuntimeError("stop generation changed; use a new run supervisor")
+                if dispatch_id != self._outcome.dispatch_id:
+                    raise ValueError("cached stop outcome belongs to a different dispatch")
                 return self._outcome
             intervention_id = uuid4().hex
             previous_generation = self.guard.generation

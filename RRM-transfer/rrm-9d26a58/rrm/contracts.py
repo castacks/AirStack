@@ -284,12 +284,29 @@ class AdmissionGuard:
             self._generation += 1
             return self._generation
 
+    def retain_stop(self, *, generation: int) -> bool:
+        """Check a cached latch atomically; re-inhibit a reset guard on mismatch.
+
+        True preserves only an existing admission latch, never physical safe state.
+        Reset and execution still require the caller's context serialization.
+        """
+        if type(generation) is not int or generation < 0:
+            raise ValueError("invalid stop generation")
+        with self._lock:
+            if self._stopped and self._generation == generation:
+                return True
+            if not self._stopped:
+                self._stopped = True
+                self._generation += 1
+            return False
+
     def reset(self, *, generation: int, authorized: bool,
               safe_confirmed: bool, evidence_ref: str) -> bool:
         """Inputs must come from trusted supervision and fresh adapter evidence."""
         with self._lock:
-            if (generation != self._generation or authorized is not True
-                    or safe_confirmed is not True or not evidence_ref.strip()):
+            if (type(generation) is not int or generation != self._generation
+                    or authorized is not True or safe_confirmed is not True
+                    or not isinstance(evidence_ref, str) or not evidence_ref.strip()):
                 return False
             if self._stopped:
                 # Reset must not revive permits issued while admission was closed.

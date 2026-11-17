@@ -173,6 +173,25 @@ changes, while preserving the reference supervisor's one-run scope rather than
 silently introducing multi-stop resumption. Keep source-only/isolated scope unless
 a new bounded physical case and fresh recorder/readiness evidence are declared.
 
+Cached-outcome follow-up:baseline returned the previous confirmed result for a
+different dispatch and after reset/new stop generations (four failing subcases).
+Same-dispatch duplicate requests remain idempotent. Added atomic retain_stop:
+checks the existing admission latch, re-inhibits an opened/reset guard on mismatch,
+and refuses reuse outside the old generation. Different dispatches cannot borrow
+old confirmation. The outcome property is explicitly historical. Reset now rejects
+Boolean/float generation aliases and malformed evidence references without opening
+admission. This preserves one-run scope; it does not implement multi-stop resumption
+or physical safety. Caller serialization of reset/context and execution remains
+required. No ROS/scene/flight/live-binary change.
+
+Cache validation:71focused passes before final malformed-reset test; final minimal
+suite675tests,654PASS/21explicit skips,zero failures/errors. Compact source-hashed
+report:`docs/core-results/stop-cache-scope-20261117.json`. All source changes are
+checkpointed locally; remote backup/push remains unverified. Next:revisit original
+perception/control qualification priorities and D14 CLI readiness/dry-run discrepancy
+using non-actuating inspection. Restored host has the shared CLI helper present;
+do not assume the historical missing-helper failure persists without reproducing it.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

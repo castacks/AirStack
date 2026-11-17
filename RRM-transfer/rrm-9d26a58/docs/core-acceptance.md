@@ -71,6 +71,20 @@ final query. One new fixed 17-case campaign verified with 17 expectation matches
 16 complete/replay-qualified attempts, and intentional evidence loss still UNKNOWN.
 It is a new source checkpoint, not a controlled performance comparison.
 
+## Cached stop scope
+
+The reference supervisor supports one run and one stopped dispatch. Repeated
+requests for that same dispatch return the first historical outcome only while
+its admission-stop generation remains latched. Another dispatch cannot borrow
+that confirmation. After a guard reset or newer stop generation, cached reuse is
+refused; a reset guard is atomically re-inhibited before refusal. Use a new run
+supervisor rather than treating this as multi-stop resumption support.
+
+`AdmissionGuard.retain_stop` checks an admission latch, not physical safety.
+Reset/execution context changes still require caller serialization. Malformed
+reset generation types and evidence references return False without opening the
+guard. Reading `supervisor.outcome` returns history, never a fresh safe-state sample.
+
 ## Export
 
 After the standard CPU bootstrap, export to a new directory:
