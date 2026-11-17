@@ -46,11 +46,26 @@ dependencies, then a no-pip/system-site-packages venv for standalone subprocesse
 Copied missing static scenes.yaml into the robot container for read-only console
 tests; no scene was loaded or selected by that copy.
 
-Next investigation: monitor drive_pause currently waits on an unresolved operator
-resume/rewind RPC before dispatching PAUSE. Reproduce with isolated actual binary
-and mock controller before repair. Integer-mode service lacks controller-side
-generation/authority fencing; a local scheduling fix cannot establish exclusive
-authority or cancel a remotely queued request. Keep physical stopping unqualified.
+Watchdog investigation now reproduced and repaired in source, using a separate
+`/tmp/watchdog-preemption-20261117` build/install tree. Original installed binary
+remains unchanged. Baseline actual-binary DDS197 tests held resume/rewind responses:
+all three protective PAUSE priority checks failed, and operator timeout discarded
+the future while readiness could stay true. Candidate sends PAUSE concurrently,
+retains the operator future beyond its deadline, blocks readiness while superseded,
+and requires a causally newer PAUSE after late operator completion. No automatic
+operator retry. Lost response remains unconfirmed. A cached-time comparison in the
+first candidate delayed timeout-triggered PAUSE by a timer tick; corrected with
+failed outputs preserved. Final measured request-receipt delays:explicit resume/
+PAUSE0.00059s,rewind/PAUSE0.00119s,stale-source0.16599s,operator-timeout0.81388s.
+These are one isolated development run's wall receipt timings, not hard real-time
+guarantees or physical stopping. Package8/8CTestPASS (aggregate18,zero failures/
+errors,two skips); final non-vacuous readiness-sampling harness and its lint checks
+3/3PASS. Compact hashed report:`docs/uav-results/watchdog-operator-preemption-20261117.json`.
+
+Integer-mode service still lacks controller-side generation/authority fencing;
+the local ordering repair cannot establish exclusive authority or cancel a remotely
+queued request. Fresh observations and a process restart do not prove remote
+cancellation. No automatic LAND or live/physical qualification was added.
 
 ## Earlier saved checkpoint; resume later — 2026-11-15
 

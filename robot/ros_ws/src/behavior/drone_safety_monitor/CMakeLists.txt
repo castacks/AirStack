@@ -38,6 +38,12 @@ if(BUILD_TESTING)
     COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=197 ${Python3_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_watchdog.py)
   set_tests_properties(isolated_watchdog_contract PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
+  add_test(NAME isolated_operator_preemption_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=197 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_operator_preemption.py
+      --executable $<TARGET_FILE:drone_safety_monitor>)
+  set_tests_properties(isolated_operator_preemption_contract
+    PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)

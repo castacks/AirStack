@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "4f3226b2b",
+  "scope": "isolated actual binaries, mock controller; no physical stopping or exclusive authority",
+  "baseline": {
+    "verdict": "FAIL",
+    "checks": {
+      "startup_positive_pause": true,
+      "resume_pause_operator_received": true,
+      "resume_pause_pause_before_operator_reply": false,
+      "resume_pause_unresolved_operator_blocks_readiness": true,
+      "resume_pause_pause_after_late_operator_apply": true,
+      "rewind_pause_operator_received": true,
+      "rewind_pause_pause_before_operator_reply": false,
+      "rewind_pause_unresolved_operator_blocks_readiness": true,
+      "rewind_pause_pause_after_late_operator_apply": true,
+      "resume_stale_operator_received": true,
+      "resume_stale_pause_before_operator_reply": false,
+      "resume_stale_unresolved_operator_blocks_readiness": true,
+      "resume_stale_pause_after_late_operator_apply": true,
+      "resume_timeout_operator_received": true,
+      "resume_timeout_pause_before_operator_reply": false,
+      "resume_timeout_unresolved_operator_blocks_readiness": false,
+      "resume_timeout_pause_after_late_operator_apply": false
+    },
+    "scope": "actual binary, mock controller, no physical stopping or exclusive authority",
+    "executable_sha256": "cb74a06f287b65545ba521af467a647a55a258b42919dc144e3bd860fb1dc909",
+    "harness_sha256": "5e2f89e3e4e95c8ea81d12a073487043553dd63994bf7ff6290bf2fd08d7cae5"
+  },
+  "candidate": {
+    "verdict": "PASS",
+    "checks": {
+      "startup_positive_pause": true,
+      "resume_pause_operator_received": true,
+      "resume_pause_pause_before_operator_reply": true,
+      "resume_pause_unresolved_operator_blocks_readiness": true,
+      "resume_pause_pause_after_late_operator_apply": true,
+      "rewind_pause_operator_received": true,
+      "rewind_pause_pause_before_operator_reply": true,
+      "rewind_pause_unresolved_operator_blocks_readiness": true,
+      "rewind_pause_pause_after_late_operator_apply": true,
+      "resume_stale_operator_received": true,
+      "resume_stale_pause_before_operator_reply": true,
+      "resume_stale_unresolved_operator_blocks_readiness": true,
+      "resume_stale_pause_after_late_operator_apply": true,
+      "resume_timeout_operator_received": true,
+      "resume_timeout_pause_before_operator_reply": true,
+      "resume_timeout_unresolved_operator_blocks_readiness": true,
+      "resume_timeout_pause_after_late_operator_apply": true
+    },
+    "scope": "actual binary, mock controller; no physical stop or exclusive authority",
+    "executable_sha256": "a701729e0cbe1da71674626d4b0031d614f0e471c37859defdaf4dc1b4603870",
+    "harness_sha256": "9a1fca255bc54bca0f128c05941af36790354a919b236dbbc7d40532213a16e3"
+  },
+  "pause_request_receipt_delay_wall_s": {
+    "resume_pause": 0.0005931449704803526,
+    "rewind_pause": 0.0011864500120282173,
+    "resume_stale": 0.16598829795839265,
+    "resume_timeout": 0.8138849759707227
+  },
+  "source_sha256": {
+    "robot/ros_ws/src/behavior/drone_safety_monitor/src/drone_safety_monitor.cpp": "8ef3339d32fa24983bddda1842b44bcc3cdfd1f369e4a92d05fe9fae471ee3f3",
+    "robot/ros_ws/src/behavior/drone_safety_monitor/test/isolated_operator_preemption.py": "f3299adddd3fbed4adda2ff6f3fb58d824ebe9c9ceed31a50137fe346a338931",
+    "robot/ros_ws/src/behavior/drone_safety_monitor/CMakeLists.txt": "e3072e5587fbb69b7233440d98f71aef1d482f3db6cf42b5b945bc71ffc501bc"
+  },
+  "validation": {
+    "full_package_ctest": "8/8 PASS",
+    "aggregate": "18 tests, zero errors/failures, two skips",
+    "final_harness_and_lints": "3/3 PASS"
+  },
+  "limits": [
+    "No live binary replacement or flight",
+    "Installed baseline source identity not attested; executable hash retained",
+    "Final harness adds a timeout case and non-vacuous readiness sampling",
+    "Remote request cancellation and exclusive controller authority not established"
+  ]
+}

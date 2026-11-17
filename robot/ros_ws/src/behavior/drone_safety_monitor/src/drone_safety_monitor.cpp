@@ -76,6 +76,8 @@ private:
   bool fault_active_{false};
   bool pause_pending_{false};
   bool pause_acknowledged_{false};
+  bool operator_superseded_{false};
+  bool operator_timed_out_{false};
   std::string invalid_reason_{"waiting_for_state"};
   std::string reported_reason_;
   std::optional<rclcpp::Client<Mode>::FutureAndRequestId> pause_future_;
@@ -116,6 +118,9 @@ private:
 
   void latch_pause()
   {
+    // PAUSE may overtake an operator RPC locally, but cannot cancel it remotely.
+    // Keep its future so a late mode change can be followed by a new PAUSE.
+    if (operator_future_) {operator_superseded_ = true;}
     // A new fault needs a new acknowledgement; duplicate PAUSE does not discard an RPC.
     if (!pause_pending_) {
       pause_pending_ = true;
@@ -186,7 +191,7 @@ private:
 
   void drive_pause()
   {
-    const auto now = Steady::now();
+    auto now = Steady::now();
     if (operator_future_) {
       if (operator_future_->future.wait_for(0s) == std::future_status::ready) {
         try {
@@ -196,22 +201,38 @@ private:
           RCLCPP_WARN(get_logger(), "Operator mode reply failed: %s", e.what());
         }
         operator_future_.reset();
-      } else if (std::chrono::duration<double>(now - operator_request_wall_).count() >=
+        operator_timed_out_ = false;
+        if (operator_superseded_) {
+          operator_superseded_ = false;
+          // A PAUSE sent before this operator completion may have applied first.
+          // Discard its local response and require a causally newer PAUSE reply.
+          if (pause_future_) {
+            mode_client_->remove_pending_request(pause_future_->request_id);
+            pause_future_.reset();
+          }
+          pause_pending_ = false;
+          latch_pause();
+        }
+      } else if (!operator_timed_out_ &&
+        std::chrono::duration<double>(now - operator_request_wall_).count() >=
         response_timeout_s_)
       {
-        mode_client_->remove_pending_request(operator_future_->request_id);
-        operator_future_.reset();
-        RCLCPP_WARN(get_logger(), "Operator mode response timed out; no automatic retry");
+        operator_timed_out_ = true;
+        latch_pause();
+        RCLCPP_WARN(get_logger(),
+          "Operator mode response timed out; retained for reconciliation, PAUSE required");
       }
     }
-    if (operator_future_) {return;}
+    // latch_pause may have set next_attempt_ during operator reconciliation.
+    // Compare against a fresh instant so a newly required PAUSE is not deferred.
+    now = Steady::now();
     if (pause_future_) {
       if (pause_future_->future.wait_for(0s) == std::future_status::ready) {
         try {
           const bool success = pause_future_->future.get()->success;
           if (success) {
             pause_pending_ = false;
-            pause_acknowledged_ = true;
+            pause_acknowledged_ = !operator_superseded_;
             RCLCPP_INFO(get_logger(), "PAUSE acknowledged by controller; physical stop unverified");
           } else {
             RCLCPP_WARN(get_logger(), "PAUSE rejected; intervention remains pending");
@@ -273,6 +294,7 @@ private:
     try {
       operator_future_.emplace(mode_client_->async_send_request(request));
       operator_request_wall_ = Steady::now();
+      operator_timed_out_ = false;
     } catch (const std::exception & e) {
       RCLCPP_WARN(get_logger(), "Operator mode submission failed: %s", e.what());
     }
@@ -285,17 +307,18 @@ private:
     if (fault && !fault_active_) {latch_pause();}
     fault_active_ = fault;
     drive_pause();
-    const auto published_reason = !fault && pause_pending_ ? "pause_pending" : reason;
+    const auto published_reason = !fault && operator_superseded_ ? "operator_request_unresolved" :
+      (!fault && pause_pending_ ? "pause_pending" : reason);
     if (published_reason != reported_reason_) {
       RCLCPP_WARN(get_logger(), "State health: %s", published_reason.c_str());
       reported_reason_ = published_reason;
     }
     std_msgs::msg::Bool timeout;
     // Existing task consumers must not treat fresh state as intervention readiness.
-    timeout.data = fault || pause_pending_;
+    timeout.data = fault || pause_pending_ || operator_superseded_;
     timed_out_pub_->publish(timeout);
     std_msgs::msg::Bool ack;
-    ack.data = pause_acknowledged_ && !pause_pending_;
+    ack.data = pause_acknowledged_ && !pause_pending_ && !operator_superseded_;
     pause_ack_pub_->publish(ack);
     std_msgs::msg::String detail;
     detail.data = published_reason;

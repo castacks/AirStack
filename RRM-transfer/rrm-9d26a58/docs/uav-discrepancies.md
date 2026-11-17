@@ -32,3 +32,22 @@ The source/acknowledgement monitor changes add a wall health timer and explicit 
 Automatic-stop timing starts at fault injection, not at the later controller acknowledgement. Initial assessment field names inherited from operator PAUSE were clarified in a separate final output; both outputs and original assessor source are retained. Final physical metrics:0.31397m/s at injection, max extra travel0.140849m, stable stop3.04970wallseconds including1s dwell. No contact-policy violations or unknown contacts in this episode. Live-stream snapshots are exact complete JSONL prefixes, hashed and checked against original prefixes; no stream-tail completeness claim beyond snapshot bounds.
 
 The marker viewpoint model predicted area ratio1.5; observed ratio was1.40741 with physical displacement0.55496m versus planned0.63547m. The inverse-depth-squared ratio from measured depths was1.42368. Do not identify a unique cause or equate the difference of displacement magnitudes to a calibrated tracking error. Optional UAV test imports are guarded so absent pytest/NumPy/OpenCV does not break the dependency-light core runner; four missing-dependency module skips were verified separately.
+
+## Restored-workspace development — 2026-11-17
+
+| ID | Finding | Evidence / disposition |
+| --- | --- | --- |
+| D20 | Historical UAV raw evidence is absent from checked restored-host artifact locations. | Old compact results remain versioned; current Isaac process runs the default launch script. No historical raw-flight reproduction or current ground-state claim. |
+| D21 | Restricted segmentation cannot detect every occlusion. | Fixed offline campaign retains partial connected occlusion as OBSERVED/SELECTED; split/full cover abstain. Software disposition evidence only. |
+| D22 | Malformed viewpoint payloads could raise instead of abstaining. | Container/field validation now returns ABSTAIN/no goal. Nominal geometry and detector unchanged; focused47tests pass. |
+| D23 | Watchdog PAUSE waited behind an outstanding operator resume/rewind response. | Isolated installed binary on DDS197 failed all three400ms priority checks. Candidate built separately sends PAUSE concurrently and requires post-operator-completion acknowledgement. No live deployment or physical-stop claim. |
+| D24 | Operator timeout discarded the future and could leave readiness true despite a remotely pending mode change. | Isolated baseline retained; candidate keeps the single future, requests PAUSE and reports operator_request_unresolved until reconciliation and renewed PAUSE. A lost response remains uncertainty, not successful cancellation. |
+
+The watchdog candidate's full eight-check package suite passes (aggregate18tests,
+zero errors/failures,two skips). Existing source-clock/service-fault contracts remain
+passing. The first candidate's operator-timeout test exposed a cached steady-time
+comparison delaying a newly latched PAUSE until another timer tick; corrected and
+failed output retained. Other controller-mode writers and remotely queued requests
+still require controller-side authority/generation fencing for exclusive arbitration.
+The candidate is source and isolated-test evidence, not a replacement for the live
+monitor or a requalification of November physical traces.
