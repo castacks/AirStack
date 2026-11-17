@@ -1,0 +1,960 @@
+[
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512708.82593855,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.261487,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512708.875852793,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.311422,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512708.925782951,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.361504,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512708.975691025,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.411434,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.025729906,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.461426,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.075826485,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.511439,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.125798326,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.561444,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.175851499,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.611476,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.225681275,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.661446,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.275696431,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.71144,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.325841542,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.76145,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_replace_negative_seconds_startup",
+    "monotonic": 512709.375619029,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935158.811429,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_negative_seconds_startup",
+    "monotonic": 512712.986790713,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935162.422524,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_negative_seconds_startup",
+    "monotonic": 512713.036795985,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935162.472536,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_negative_seconds_startup",
+    "monotonic": 512713.086932383,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935162.522559,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_negative_seconds_startup",
+    "monotonic": 512713.136899005,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935162.572546,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_negative_seconds_startup",
+    "monotonic": 512713.186893118,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935162.622528,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_startup",
+    "monotonic": 512715.981347695,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.416199,
+      "mode": 1,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_invalid",
+    "monotonic": 512715.993434324,
+    "value": {
+      "event": "merge",
+      "sim_s": 1794935165.429356,
+      "merged": true,
+      "input_waypoints": 5,
+      "before": 0,
+      "after": 5,
+      "virtual_time": 0.0,
+      "duration": 1.0
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_invalid",
+    "monotonic": 512716.030644315,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.466199,
+      "mode": 3,
+      "virtual_time": 0.05,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_invalid",
+    "monotonic": 512716.080617206,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.516197,
+      "mode": 3,
+      "virtual_time": 0.099999,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_invalid",
+    "monotonic": 512716.130425709,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.56619,
+      "mode": 3,
+      "virtual_time": 0.149992,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_invalid",
+    "monotonic": 512716.180493615,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.6162,
+      "mode": 3,
+      "virtual_time": 0.200002,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_valid_zero_stamp",
+    "monotonic": 512716.202056332,
+    "value": {
+      "event": "merge",
+      "sim_s": 1794935165.637931,
+      "merged": false,
+      "input_waypoints": 5,
+      "before": 5,
+      "after": 5,
+      "virtual_time": 0.200002,
+      "duration": 1.0
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_valid_zero_stamp",
+    "monotonic": 512716.230695401,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.6662,
+      "mode": 3,
+      "virtual_time": 0.250001,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_valid_zero_stamp",
+    "monotonic": 512716.280514772,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.716196,
+      "mode": 3,
+      "virtual_time": 0.299997,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_valid_zero_stamp",
+    "monotonic": 512716.330549716,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.76621,
+      "mode": 3,
+      "virtual_time": 0.350011,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_noncanonical_nanoseconds_valid_zero_stamp",
+    "monotonic": 512716.380779085,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935165.816297,
+      "mode": 3,
+      "virtual_time": 0.400096,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_negative_seconds_startup",
+    "monotonic": 512717.040712423,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935166.476264,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_negative_seconds_startup",
+    "monotonic": 512717.090431411,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935166.526208,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_negative_seconds_startup",
+    "monotonic": 512717.140596332,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935166.57621,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_negative_seconds_startup",
+    "monotonic": 512717.190966083,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935166.626302,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_negative_seconds_startup",
+    "monotonic": 512717.240424237,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935166.676174,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_replace_noncanonical_nanoseconds_startup",
+    "monotonic": 512719.995993676,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.431443,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.342437071,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.777852,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.39224296,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.827859,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.442165054,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.877837,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.492196915,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.927818,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.542248345,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935169.977836,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.592246504,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.027889,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.642143941,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.077835,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.692131664,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.127814,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.742082492,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.177801,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.792076796,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.227823,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.842388458,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.278034,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_negative_seconds_startup",
+    "monotonic": 512720.891993214,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935170.327842,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.674377457,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.109596,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.724124127,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.159677,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.773872588,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.209603,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.823833521,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.259604,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.873888086,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.309607,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.923933476,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.359631,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512722.975520173,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.411199,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.023845967,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.459606,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.074896846,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.509714,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.124484275,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.559644,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.174909088,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.609647,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.224206359,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.65964,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_startup",
+    "monotonic": 512723.274032208,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.709777,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fenced_prepare_noncanonical_nanoseconds_invalid",
+    "monotonic": 512723.324166102,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794935172.7596,
+      "mode": 2,
+      "virtual_time": 0.049823,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  }
+]

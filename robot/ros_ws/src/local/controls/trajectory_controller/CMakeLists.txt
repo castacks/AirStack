@@ -100,6 +100,12 @@ if(BUILD_TESTING)
       --executable $<TARGET_FILE:trajectory_controller> --paused-clock)
   set_tests_properties(isolated_command_lease_contract isolated_paused_clock_lease_contract
     PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE)
+  add_test(NAME isolated_invalid_stamp_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=190 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_invalid_stamps.py
+      --executable $<TARGET_FILE:trajectory_controller>)
+  set_tests_properties(isolated_invalid_stamp_contract
+    PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights

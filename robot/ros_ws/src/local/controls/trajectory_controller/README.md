@@ -326,3 +326,10 @@ simulation time is paused. They do not authenticate a caller, prove safe state,
 implement full C06 authorization, guarantee hard execution timing, or provide
 durable cross-process deduplication. The profile remains disabled in the running
 simulation. Isolated tests cover normal/paused clocks and an RPC held until expiry.
+
+All trajectory construction paths reject negative command-stamp seconds and
+nanoseconds at or above1e9 before invoking the trajectory library. This includes
+legacy replacement/append and fenced execution/preparation. Zero command stamps
+remain valid; this format check establishes neither source freshness nor clock
+identity. The isolated malformed-stamp contract covers rejection and subsequent
+valid commands without restarting the process.

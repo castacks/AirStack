@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-17",
+  "base_revision": "08c465459",
+  "scope": "actual controller command-stamp format containment, isolated DDS190",
+  "verdict": "PASS",
+  "physical_execution": false,
+  "baseline_process_aborts": [
+    "legacy_replace_negative_seconds",
+    "legacy_append_negative_seconds",
+    "fenced_replace_negative_seconds",
+    "fenced_prepare_negative_seconds"
+  ],
+  "baseline_discovery_incomplete": [
+    "legacy_replace_noncanonical_nanoseconds",
+    "fenced_replace_noncanonical_nanoseconds"
+  ],
+  "baseline_summary": {
+    "verdict": "FAIL",
+    "passed": 0,
+    "total": 8,
+    "cases": [
+      {
+        "case": "legacy_replace_negative_seconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "wire_file": "legacy_replace_negative_seconds.cdr",
+        "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+        "process_exit_before_cleanup": -6
+      },
+      {
+        "case": "legacy_replace_noncanonical_nanoseconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "error": "RuntimeError('private controller unavailable')",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "legacy_append_negative_seconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "wire_file": "legacy_append_negative_seconds.cdr",
+        "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+        "process_exit_before_cleanup": -6
+      },
+      {
+        "case": "legacy_append_noncanonical_nanoseconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "legacy_append_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_replace_negative_seconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "wire_file": "fenced_replace_negative_seconds.cdr",
+        "wire_sha256": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+        "invalid_success": null,
+        "invalid_reason": null,
+        "process_exit_before_cleanup": -6
+      },
+      {
+        "case": "fenced_replace_noncanonical_nanoseconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "error": "RuntimeError('private controller unavailable')",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_prepare_negative_seconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": false,
+        "wire_file": "fenced_prepare_negative_seconds.cdr",
+        "wire_sha256": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+        "invalid_success": null,
+        "invalid_reason": null,
+        "process_exit_before_cleanup": -6
+      },
+      {
+        "case": "fenced_prepare_noncanonical_nanoseconds",
+        "rejected_without_exit": false,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "fenced_prepare_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+        "invalid_success": true,
+        "invalid_reason": "accepted",
+        "process_exit_before_cleanup": null
+      }
+    ],
+    "recorded_baseline": true,
+    "scope": "actual controller malformed-stamp containment; synthetic odometry",
+    "physical_execution": false,
+    "executable_sha256": "1861401f6c1eef0d7cc788034c8a6999cd59740f4091adefe0d06af903a16d26",
+    "harness_sha256": "a0530229d7e278058ae9eb32c82a7c6d90ced8332c0225e742303a6ae51f6a0b"
+  },
+  "candidate_summary": {
+    "verdict": "PASS",
+    "passed": 8,
+    "total": 8,
+    "cases": [
+      {
+        "case": "legacy_replace_negative_seconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "legacy_replace_negative_seconds.cdr",
+        "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "legacy_replace_noncanonical_nanoseconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "legacy_replace_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "1d3ffc2aeebad57e5b753af2514cb623944000db4f2d9621b70e176355a13e26",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "legacy_append_negative_seconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "legacy_append_negative_seconds.cdr",
+        "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "legacy_append_noncanonical_nanoseconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "legacy_append_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_replace_negative_seconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "fenced_replace_negative_seconds.cdr",
+        "wire_sha256": "db261b8c0201ed199d0e2cca6e0bdb7693f4d5d30303dea1d5f38a3b7a292575",
+        "invalid_success": false,
+        "invalid_reason": "invalid_trajectory",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_replace_noncanonical_nanoseconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "fenced_replace_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+        "invalid_success": false,
+        "invalid_reason": "invalid_trajectory",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_prepare_negative_seconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "fenced_prepare_negative_seconds.cdr",
+        "wire_sha256": "db261b8c0201ed199d0e2cca6e0bdb7693f4d5d30303dea1d5f38a3b7a292575",
+        "invalid_success": false,
+        "invalid_reason": "invalid_trajectory",
+        "process_exit_before_cleanup": null
+      },
+      {
+        "case": "fenced_prepare_noncanonical_nanoseconds",
+        "rejected_without_exit": true,
+        "valid_zero_stamp_accepted": true,
+        "wire_file": "fenced_prepare_noncanonical_nanoseconds.cdr",
+        "wire_sha256": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+        "invalid_success": false,
+        "invalid_reason": "invalid_trajectory",
+        "process_exit_before_cleanup": null
+      }
+    ],
+    "recorded_baseline": false,
+    "scope": "actual controller malformed-stamp containment; synthetic odometry",
+    "physical_execution": false,
+    "executable_sha256": "28b6e83edb13cd7236ee64ed960c42c3616f52569ee9d4adceb0a1993d65eaa9",
+    "harness_sha256": "a0530229d7e278058ae9eb32c82a7c6d90ced8332c0225e742303a6ae51f6a0b"
+  },
+  "package": {
+    "controller_ctest": [
+      12,
+      12
+    ],
+    "aggregate_tests": 31,
+    "errors": 0,
+    "failures": 0,
+    "skips": 2
+  },
+  "source_sha256": {
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp": "bf7d376666859eb74ec305e4e2c1c65ea9eac040afd5745a69d76a3a91057cbe",
+    "robot/ros_ws/src/local/controls/trajectory_controller/test/isolated_invalid_stamps.py": "a0530229d7e278058ae9eb32c82a7c6d90ced8332c0225e742303a6ae51f6a0b",
+    "robot/ros_ws/src/local/controls/trajectory_controller/CMakeLists.txt": "4be8376f9a3b915bb6554cfd7fbf0a31874f9fcf58293dd588ff40c802224a3e"
+  },
+  "input_sha256": {
+    "harness.py": "a0530229d7e278058ae9eb32c82a7c6d90ced8332c0225e742303a6ae51f6a0b",
+    "baseline/fenced_replace_negative_seconds.cdr": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+    "baseline/events.json": "096786c1ac6fc295cf0c378502802248cbbffa2f12c49a9fb1b375a509f8e656",
+    "baseline/legacy_append_noncanonical_nanoseconds.cdr": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+    "baseline/legacy_replace_negative_seconds.cdr": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+    "baseline/fenced_prepare_noncanonical_nanoseconds.cdr": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+    "baseline/fenced_prepare_negative_seconds.cdr": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+    "baseline/summary.json": "890703abed046f44752384533732f604bcc3a790652800d9fcaf8609ed948e7b",
+    "baseline/legacy_append_negative_seconds.cdr": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+    "candidate/fenced_replace_negative_seconds.cdr": "db261b8c0201ed199d0e2cca6e0bdb7693f4d5d30303dea1d5f38a3b7a292575",
+    "candidate/events.json": "706874f6509b8d6e866b64abbd967cf2a5e8a0bd0a32c91bb884a7e0a5af2a37",
+    "candidate/legacy_append_noncanonical_nanoseconds.cdr": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+    "candidate/fenced_replace_noncanonical_nanoseconds.cdr": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+    "candidate/legacy_replace_negative_seconds.cdr": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+    "candidate/fenced_prepare_noncanonical_nanoseconds.cdr": "dcb13d761d39a56083ea0b8ecb750da8bcaec0360396cca1948a4628a1205b77",
+    "candidate/fenced_prepare_negative_seconds.cdr": "db261b8c0201ed199d0e2cca6e0bdb7693f4d5d30303dea1d5f38a3b7a292575",
+    "candidate/legacy_replace_noncanonical_nanoseconds.cdr": "1d3ffc2aeebad57e5b753af2514cb623944000db4f2d9621b70e176355a13e26",
+    "candidate/summary.json": "1dfacdf860ea3abf318cd6e4e0b2cae511f7c607a817264bd1a6c2dfa44fbe85",
+    "candidate/legacy_append_negative_seconds.cdr": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f"
+  },
+  "notes": [
+    "Negative stamp seconds caused actual baseline process abort on all four construction surfaces.",
+    "Some baseline nanosecond cases were discovery-incomplete; retained without claiming a result. Other baseline traces demonstrate noncanonical acceptance.",
+    "Candidate all8cases reject without process exit or buffer change and admit valid zero stamps.",
+    "Format validation does not establish freshness or clock identity.",
+    "Earlier standalone lease default-budget process produced a core coincident with SIGINT cleanup; preserved locally, root cause uninvestigated; harness cleanup exit statuses need follow-up.",
+    "Live simulation and installed binaries were not replaced."
+  ]
+}

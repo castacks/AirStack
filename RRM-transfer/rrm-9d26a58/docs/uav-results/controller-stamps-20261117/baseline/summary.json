@@ -1,0 +1,80 @@
+{
+  "verdict": "FAIL",
+  "passed": 0,
+  "total": 8,
+  "cases": [
+    {
+      "case": "legacy_replace_negative_seconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "wire_file": "legacy_replace_negative_seconds.cdr",
+      "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+      "process_exit_before_cleanup": -6
+    },
+    {
+      "case": "legacy_replace_noncanonical_nanoseconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "error": "RuntimeError('private controller unavailable')",
+      "process_exit_before_cleanup": null
+    },
+    {
+      "case": "legacy_append_negative_seconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "wire_file": "legacy_append_negative_seconds.cdr",
+      "wire_sha256": "be99b1f37d93b15c2399dd33f1eb391aad5ff7114e024bdc73c2b9033ebf007f",
+      "process_exit_before_cleanup": -6
+    },
+    {
+      "case": "legacy_append_noncanonical_nanoseconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": true,
+      "wire_file": "legacy_append_noncanonical_nanoseconds.cdr",
+      "wire_sha256": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+      "process_exit_before_cleanup": null
+    },
+    {
+      "case": "fenced_replace_negative_seconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "wire_file": "fenced_replace_negative_seconds.cdr",
+      "wire_sha256": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+      "invalid_success": null,
+      "invalid_reason": null,
+      "process_exit_before_cleanup": -6
+    },
+    {
+      "case": "fenced_replace_noncanonical_nanoseconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "error": "RuntimeError('private controller unavailable')",
+      "process_exit_before_cleanup": null
+    },
+    {
+      "case": "fenced_prepare_negative_seconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": false,
+      "wire_file": "fenced_prepare_negative_seconds.cdr",
+      "wire_sha256": "4b59ca7026a565e95ab1d563c792f0ef9a9a1febfc7036f90364b56e83f471b6",
+      "invalid_success": null,
+      "invalid_reason": null,
+      "process_exit_before_cleanup": -6
+    },
+    {
+      "case": "fenced_prepare_noncanonical_nanoseconds",
+      "rejected_without_exit": false,
+      "valid_zero_stamp_accepted": true,
+      "wire_file": "fenced_prepare_noncanonical_nanoseconds.cdr",
+      "wire_sha256": "a4d9f4316d0783025f22a3f034610030cc2305d828038ffbe084328663704c33",
+      "invalid_success": true,
+      "invalid_reason": "accepted",
+      "process_exit_before_cleanup": null
+    }
+  ],
+  "recorded_baseline": true,
+  "scope": "actual controller malformed-stamp containment; synthetic odometry",
+  "physical_execution": false,
+  "executable_sha256": "1861401f6c1eef0d7cc788034c8a6999cd59740f4091adefe0d06af903a16d26",
+  "harness_sha256": "a0530229d7e278058ae9eb32c82a7c6d90ced8332c0225e742303a6ae51f6a0b"
+}

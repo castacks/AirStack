@@ -137,6 +137,10 @@ private:
     const std::shared_ptr<Fenced::Request> req,
     std::shared_ptr<Fenced::Response> res);
   bool valid_fenced_trajectory(const airstack_msgs::msg::TrajectoryXYZVYaw & message);
+  static bool valid_trajectory_stamp(const airstack_msgs::msg::TrajectoryXYZVYaw & message)
+  {
+    return message.header.stamp.sec >= 0 && message.header.stamp.nanosec < 1000000000U;
+  }
   void prepare_fenced_control(
     const std::shared_ptr<Fenced::Request> req,
     std::shared_ptr<Fenced::Response> res);
@@ -776,7 +780,8 @@ void TrajectoryControlNode::fenced_stop()
 bool TrajectoryControlNode::valid_fenced_trajectory(
   const airstack_msgs::msg::TrajectoryXYZVYaw & message)
 {
-  if (message.header.frame_id != target_frame || message.waypoints.size() < 2 ||
+  if (!valid_trajectory_stamp(message) || message.header.frame_id != target_frame ||
+    message.waypoints.size() < 2 ||
     message.waypoints.size() > 1024)
   {
     return false;
@@ -967,6 +972,11 @@ void TrajectoryControlNode::traj_seg_to_add_callback(
   const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj)
 {
   if (require_fenced_control) {return;}
+  if (!valid_trajectory_stamp(*traj)) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+      "Rejected invalid trajectory command stamp");
+    return;
+  }
   if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT) {
     const auto before = trajectory->get_num_waypoints();
     const bool merged = trajectory->merge(Trajectory(this, *traj), virtual_time);
@@ -990,6 +1000,11 @@ void TrajectoryControlNode::traj_override_callback(
   const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj)
 {
   if (require_fenced_control) {return;}
+  if (!valid_trajectory_stamp(*traj)) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+      "Rejected invalid trajectory command stamp");
+    return;
+  }
   if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
                              "Ignored trajectory override while PAUSE is active");

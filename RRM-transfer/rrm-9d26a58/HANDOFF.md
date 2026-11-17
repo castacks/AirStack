@@ -10,6 +10,28 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+STOPPING CHECKPOINT — user requested stop/commit and resume later, overriding the
+previous work-through17:16:24UTC request. No further feature work after this commit.
+Next resume priority: investigate the isolated lease-test SIGINT-cleanup core and
+make harness teardown exit status explicit. Core preserved locally outside Git;
+ELF identifies the temporary controller binary, mtime16:57:14.5788UTC coincides with
+default-budget run SIGINT16:57:14.4685UTC. Contract had passed but teardown status was
+not asserted; root cause unknown. No live controller crash identified.
+
+Latest completed fix: shared trajectory-stamp guard rejects negative seconds and
+nanosec>=1e9 before constructor on legacy replacement/append and fenced replacement/
+lease-preparation. Actual baseline four process aborts from negative seconds;
+noncanonical acceptance observed in other baseline cases. Two final baseline cases
+remain service-discovery-incomplete, retained without a claim. Candidate all8cases
+reject without exit/mutation and admit valid zero stamps after rejection. Zero is
+allowed for command stamps; no freshness/evidence interpretation. Full controller
+12/12CTestPASS; aggregate31tests,zero failures/errors,two skips, includes prior message
+results. Raw CDR/events/harnesses/compact report at
+`docs/uav-results/controller-stamps-20261117/` and sibling JSON. No live profile or
+installed binary changes, no flight. Earlier incomplete baseline attempts remain
+in local experiment records. Default stack still legacy; new fenced/lease profiles
+remain opt-in and do not implement full C06/C08 permission/physical proof.
+
 Latest local-expiry increment (17:00 UTC): optional `require_fenced_command_lease`
 (defaultfalse, requires fenced profile) adds server-steady admission expiry via
 `prepare_fenced_control`, using the extended FencedControl type. Preparation binds
