@@ -30,6 +30,12 @@ request-generation fencing, physical regression of the new code, learned groundi
 and general occlusion handling remain open. The running simulation is preserved;
 its current arming/ground/readiness state is not inferred from the old checkpoint.
 
+A later [read-only readiness check](uav-results/readiness-20261117.json) passes six
+gates but fails actuation readiness: effective thrust scaling is double 1.0,
+`actuation_ready` is false. Received PX4 samples report disarmed/on ground; the
+initializer failure reason is not established. No live repair or restart occurred.
+Historical CLI dry-run failure D14 does not reproduce in the restored workspace.
+
 ## November 15 physical checkpoint
 
 2026-11-15, `ore_proj`, source based on `07ff1dcbb` with the UAV checkpoint changes. Simulation only; one GPU; Cosmos deferred.

@@ -192,6 +192,18 @@ perception/control qualification priorities and D14 CLI readiness/dry-run discre
 using non-actuating inspection. Restored host has the shared CLI helper present;
 do not assume the historical missing-helper failure persists without reproducing it.
 
+Read-only CLI revalidation (04:23–04:25 America/New_York):dry-run resolves the
+configuration and validates successfully, so historical D14 does not reproduce
+in this restore. Readiness JSON parses and exits1: six gates pass; actuation fails.
+Direct readback is double thrust_scaling1.0 while actuation_ready=False. Received
+PX4 samples show connected/disarmed/AUTO.LOITER and landed_state1. These are
+observations, not physical stop or complete motion-admission proof. Existing guard
+documentation explicitly requires verified startup plus fresh readback, so a correct
+parameter alone cannot clear the gate. Failure reason remains unestablished.
+No parameter write, repair, restart, mode change or flight. Compact hashed report:
+`docs/uav-results/readiness-20261117.json`. Next:read-only startup/readback log
+diagnosis or isolated existing interface tests; preserve viewer and admission rules.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

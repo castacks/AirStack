@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "50e62945a",
+  "scope": "non-actuating restored-workspace CLI/readiness observation",
+  "dry_run": "configuration validated; no services started",
+  "historical_missing_env_helper_reproduced": false,
+  "readiness": {
+    "ready": false,
+    "elapsed_s": 22,
+    "gates": {
+      "px4_actuation_robot_1": "failed",
+      "px4_ready_robot_1": "ok",
+      "clock_epoch": "ok",
+      "containers": "ok",
+      "px4_connected_robot_1": "ok",
+      "nodes_robot_1": "ok",
+      "sim_clock": "ok"
+    }
+  },
+  "readiness_exit": 1,
+  "actuation_detail": {
+    "effective_thrust_scaling": 1.0,
+    "actuation_ready": false
+  },
+  "px4_samples": {
+    "connected": true,
+    "armed": false,
+    "mode": "AUTO.LOITER",
+    "landed_state": 1
+  },
+  "limits": [
+    "Samples are not a physical stop or complete motion-admission proof",
+    "Why actuation readiness is false remains unestablished",
+    "No live repair, parameter writes, restarts or flight"
+  ],
+  "source_sha256": {
+    "airstack.sh": "a371375b9a0e806e9eb6b5704021b929bcda1beae6446be498941a0a3cc270d9",
+    ".airstack/modules/_lib.sh": "5fd60eb2d05c3b22832ea2e04e6f7515e189bd2dcb7bf2d90f38ab22a8686717",
+    ".airstack/modules/ready.sh": "86ee455655d0fc34c5e51194cb468d2169f471f015ed8d8fa1223c57f7067238"
+  },
+  "evidence_sha256": {
+    "ready-01.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "actuation-detail-01.log": "92d58c3e23806185dfa069f8bfbde4021559c906653365ff6f72174d97554b31",
+    "ready-01.log": "fc836535826e95ac014bbc0d0353515e6a5cf3e938ce536fc0bc5b2950d827b1",
+    "px4-state-01.log": "aa0f34de5e2fcbda74b8ba7cf159d79f6bb89418c5381f10f576ae51dd3b810c",
+    "px4-landed-01.log": "cfc374987f2bc5e643e0da77407906b9850c04cb12b0870327504537cb9ed9aa",
+    "dry-run-01.log": "fe94b27204fd20cca51e97f546a2bd435d1d9d2ec9b1ef2b366e562094a83532",
+    "ready-01.json": "018ea191ff23ef6b325b23e04d7e6c15e6bedbf326aab113fa7d433a0d686274"
+  }
+}
