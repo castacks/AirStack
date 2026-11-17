@@ -27,7 +27,11 @@ ROBOT_DOMAIN = 1
 
 def airstack_cmd(*args: str, env_overrides: dict | None = None,
                  timeout: float = 900.0) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
+    import safe_core.utils.config as safe_config
+    # SAFE's runner exports the policy's pov_env for its provenance record. Those keys reach
+    # Isaac only through the bring-up profile's agent_env, so a stack policy's camera record
+    # never reconfigures the ZED.
+    env = {k: v for k, v in os.environ.items() if k not in safe_config.POV_ENV_APPLIED}
     env.update({k: str(v) for k, v in (env_overrides or {}).items()})
     result = subprocess.run(
         [os.path.join(AIRSTACK_ROOT, "airstack.sh"), *args],

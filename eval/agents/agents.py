@@ -37,7 +37,23 @@ class DROAN(Policy):
     trajectory controller → PX4. Launched by the default AirStack bring-up
     (role full), so no extra commands are needed."""
 
-    sensors = ["full_state"]
+    sensors = ["odometry", "goal", "stereo"]
+    # The ZED X pair AirStack's Isaac scene spawns, recorded for SAFE's provenance and replay
+    # sensor strip and never sent to the launcher: 480 x 300 from the frame_width and
+    # frame_height defaults of Pegasus's add_zed_stereo_camera_subgraph (spawn_zed_camera.py),
+    # rendered once per 1/60 s RENDER_DT frame of safe_eval_launch_script.py, and each eye of
+    # ZED_X.usdc has a 2.208 mm focal length over a 5.76 mm horizontal aperture, giving
+    # 2 atan(2.88 / 2.208) = 105.0476 deg and 480 x 2.208 / 5.76 = 184 px, with the eyes at
+    # y = +-0.06 m for a 0.12 m baseline.
+    pov_env = {
+        "SAFE_POV_WIDTH": "480",
+        "SAFE_POV_HEIGHT": "300",
+        "SAFE_POV_HFOV_DEG": "105.0476",
+        "SAFE_POV_HZ": "60",
+        "SAFE_STEREO_BASELINE_M": "0.12",
+        "SAFE_STEREO_SENSOR_WIDTH_PX": "480",
+        "SAFE_STEREO_FOCAL_PX": "184",
+    }
 
     def act(self, obs: dict) -> np.ndarray:
         return np.zeros(3, dtype=np.float32)
