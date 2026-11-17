@@ -21,6 +21,15 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.10 — 2026-11-17
+
+- **The test requirements pin pytest below 9.2.** pytest 9.2.0 stops at
+  collection with an `INTERNALERROR` in `tests/harness/collection.py`
+  (`pytest_collection_modifyitems`) before any test runs, so the Python unit
+  and harness contracts check failed on every pull request.
+  `tests/requirements.txt` now installs `pytest<9.2`. Remove the pin once
+  `collection.py` works with pytest 9.2 and later.
+
 ## 0.20.8 — 2026-09-04
 
 - **Docs builds no longer copy AirSim scene binaries.** The `same-dir`
