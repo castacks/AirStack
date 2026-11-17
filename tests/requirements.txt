@@ -1,4 +1,4 @@
-pytest
+pytest<9.2
 pytest-timeout
 pytest-dependency
 pyyaml
