@@ -631,7 +631,9 @@ void TrajectoryControlNode::timer_callback()
 
     // publish completion percentage
   std_msgs::msg::Float32 trajectory_completion_percentage;
-  trajectory_completion_percentage.data = virtual_time / trajectory->get_duration() * 100.f;
+  const double completion_duration = trajectory->get_duration();
+  trajectory_completion_percentage.data = completion_duration > 0 ?
+    virtual_time / completion_duration * 100.f : 0.f;
   trajectory_completion_percentage_pub->publish(trajectory_completion_percentage);
 
     // publish current trajectory time

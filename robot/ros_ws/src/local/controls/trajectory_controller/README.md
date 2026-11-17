@@ -287,3 +287,10 @@ and the API does not implement action expiry, durable cross-restart deduplicatio
 or the complete RRM C06/C08 envelope. The existing safety/permission boundary must
 remain in front of any real dispatcher. This profile does not establish exclusive
 authority over downstream actuator interfaces or physical stopping.
+
+The combined `isolated_monitor_fencing_contract` runs actual monitor/controller
+binaries on DDS193. It holds an in-flight reset across a newer monitor PAUSE,
+checks generation rejection, then covers fresh commands, automatic stale-source
+reference freeze, outage escalation and restart. Its odometry is synthetic;
+reference freeze is not physical stopping. Empty-buffer completion is0 rather
+than an undefined percentage. These semantics do not imply task completion.

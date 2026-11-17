@@ -10,6 +10,26 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest combined integration (16:46 UTC): actual monitor plus strict-profile controller
+on DDS193 passes25/25checks. A real reset RPC is held in a proxy while a newer
+stale-source fault makes monitor PAUSE advance controller generation; delayed reset
+then rejects and latch remains. Exact held CDR and causal ordering saved. Fresh
+explicit commands work after recovery; fault during reference advance freezes
+reference/zeros feedforward; controller outage escalates; restart changes identity,
+old reset rejects, fresh monitor PAUSE resolves escalation but leaves controller
+latched. Legacy monitor resume remains incompatible with strict release, as intended.
+No live profile/binary changes or flight; synthetic odometry, no physical stop claim.
+
+Added finite0 completion for empty buffer (old0/0 emitted34NaN samples in precursor).
+Positive fixture corrected from default0.3speed clamp to earlier unit fixture's0.1,
+and awaits unchanged0.02m/nonzero-feedforward criterion within2s rather than assuming
+post-PAUSE ramp crosses it in0.4s. Failures preserved. Controller9/9CTestPASS;
+aggregate26tests,zero failures/errors,two skips. Combined test declares monitor test
+dependency. Raw events/CDR/harnesses and compact source/hash report versioned under
+`docs/uav-results/monitor-fenced-20261117/` and sibling JSON. Controller expiry without
+a new stop remains an open next boundary; C06 reset admission/authentication remain
+external to this controller-local profile.
+
 Latest controller source increment (16:35 UTC, user-authorized hour starts16:16:24UTC):
 added opt-in read-only `require_fenced_control` profile, defaultfalse, plus configured
 caller label and typed `FencedControl` service. Strict profile gates modes and both

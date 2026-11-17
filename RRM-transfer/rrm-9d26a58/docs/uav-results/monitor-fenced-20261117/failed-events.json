@@ -1,0 +1,4839 @@
+[
+  {
+    "kind": "fault",
+    "phase": "startup",
+    "monotonic": 511070.062031949,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "startup",
+    "monotonic": 511070.062501317,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "startup",
+    "monotonic": 511070.062882232,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 2,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0999843,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "startup",
+    "monotonic": 511070.06353687,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "startup",
+    "monotonic": 511070.063812856,
+    "value": "waiting_for_state"
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 511070.09553667,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 511070.096032157,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.530404,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "startup",
+    "monotonic": 511070.096634386,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "escalation",
+    "phase": "startup",
+    "monotonic": 511070.112278229,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "startup",
+    "monotonic": 511070.112938284,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 3,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.149995,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "startup",
+    "monotonic": 511070.113674905,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "startup",
+    "monotonic": 511070.113976892,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "startup",
+    "monotonic": 511070.11426832,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 511070.145096063,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "startup",
+    "monotonic": 511070.145537839,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 511070.145772433,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.580323,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "startup",
+    "monotonic": 511070.161921048,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "startup",
+    "monotonic": 511070.162321152,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "startup",
+    "monotonic": 511070.162473081,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "startup",
+    "monotonic": 511070.162603407,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "startup",
+    "monotonic": 511070.162749086,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 4,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.199999,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "controller_response",
+    "phase": "startup",
+    "monotonic": 511070.18471639,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 2,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "proxy_received",
+    "phase": "startup",
+    "monotonic": 511070.18575615,
+    "generation": 2,
+    "sequence": 1,
+    "operation": 2,
+    "wire_file": "held-request-0.cdr",
+    "wire_sha256": "fcbe09c749032727f38bfd123bf9de5c5aec93a4443e5376ad51540c3ee63b4d"
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 511070.194627994,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "startup",
+    "monotonic": 511070.194784551,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 511070.194912064,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.630343,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault_injected",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.194924972,
+    "source_age_added_s": 10
+  },
+  {
+    "kind": "escalation",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.211762196,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.21199702,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 5,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.016509,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.212337373,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.21246716,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.212571086,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "controller_response",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.234592231,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 3,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "release_proxy",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.234610529,
+    "generation": 3
+  },
+  {
+    "kind": "proxy_forwarding",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.234824831,
+    "generation": 2,
+    "sequence": 1
+  },
+  {
+    "kind": "proxy_reply",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.235744699,
+    "success": false,
+    "reason": "stop_generation_mismatch",
+    "generation": 3,
+    "latched": true
+  },
+  {
+    "kind": "reference",
+    "phase": "new_fault_before_reset_delivery",
+    "monotonic": 511070.244654862,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.244930759,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.680318,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.245268819,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.261842755,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.262115867,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 6,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.262431894,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.262536842,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.262630484,
+    "value": "healthy"
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.295651995,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.295990085,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.296159922,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.730442,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.316273588,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.316543846,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.316680022,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.316782737,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.316903008,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 7,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.344691694,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.344943444,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.780341,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.345273913,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.362404759,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.362686164,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.362820036,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.362936622,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.363117304,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 8,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.394834719,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.395048561,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.395181642,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.83033,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.411753474,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.411963631,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.412097113,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.412191425,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.41234057,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 9,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.444789057,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.445133747,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.445451416,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.880412,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.461860745,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.462065834,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.462171334,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.462261369,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.462376372,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 10,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.494732991,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.494986944,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.495219685,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.930358,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.511689293,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.511856977,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.511957218,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.512049176,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.51216447,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 11,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.5446012,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.544778357,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.544997567,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933519.98031,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.561724855,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.561945388,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 12,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.562241175,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.562340894,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.562429418,
+    "value": "healthy"
+  },
+  {
+    "kind": "reference",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.594684825,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "controller_response",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.594717894,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 3,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "completion",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.594947421,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.595085358,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.030313,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "controller_response",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.607025593,
+    "operation": 2,
+    "success": true,
+    "reason": "accepted",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 3,
+    "sequence": 2,
+    "mode": 0,
+    "latched": false
+  },
+  {
+    "kind": "escalation",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.61160978,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.611935992,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.612090595,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.612189504,
+    "value": "healthy"
+  },
+  {
+    "kind": "intervention",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.612308714,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 13,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "controller_response",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.622608965,
+    "operation": 3,
+    "success": true,
+    "reason": "accepted",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 3,
+    "sequence": 3,
+    "mode": 2,
+    "latched": false
+  },
+  {
+    "kind": "controller_response",
+    "phase": "state_recovered_still_latched",
+    "monotonic": 511070.634786978,
+    "operation": 4,
+    "success": true,
+    "reason": "accepted",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 3,
+    "sequence": 4,
+    "mode": 2,
+    "latched": false
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.644889751,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.645196194,
+    "finite": true,
+    "value": 0.0
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.645355514,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.080324,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.661759573,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.661965815,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.662548424,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.662802057,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.662932623,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 14,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.695792331,
+    "position": [
+      0.00030283193923117855,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.696404384,
+    "finite": true,
+    "value": 0.10094398260116577
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.696649114,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.130796,
+      "mode": 2,
+      "virtual_time": 0.001009,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.711822827,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.712015368,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.712131123,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.712220667,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.712334369,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 15,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.744682034,
+    "position": [
+      0.000896999013950509,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.744957719,
+    "finite": true,
+    "value": 0.2989996671676636
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.74515637,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.180309,
+      "mode": 2,
+      "virtual_time": 0.00299,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.761666119,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.761957888,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.762106643,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.762216078,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.762352995,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 16,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.794850386,
+    "position": [
+      0.0017976216138200249,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.795221055,
+    "finite": true,
+    "value": 0.5992072224617004
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.795437181,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.230345,
+      "mode": 2,
+      "virtual_time": 0.005992,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.812054433,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.812850243,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.812979419,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.813102454,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.81324576,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 17,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.845915611,
+    "position": [
+      0.0030214852424645406,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.846125957,
+    "finite": true,
+    "value": 1.0071617364883423
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.847012415,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.28134,
+      "mode": 2,
+      "virtual_time": 0.010072,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.862044655,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.86293586,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.863243584,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.863445709,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.863669266,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 18,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.895211566,
+    "position": [
+      0.004492941414758913,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.895670719,
+    "finite": true,
+    "value": 1.4976471662521362
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.896102481,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.330388,
+      "mode": 2,
+      "virtual_time": 0.014976,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.911766694,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.911972975,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.912152587,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.912525429,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.912848317,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 19,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.9448905,
+    "position": [
+      0.006291280150907333,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.945345356,
+    "finite": true,
+    "value": 2.097093343734741
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.945519389,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.380342,
+      "mode": 2,
+      "virtual_time": 0.020971,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511070.962632289,
+    "value": false
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511070.962842414,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511070.962994395,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 20,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511070.963279234,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511070.963378674,
+    "value": "healthy"
+  },
+  {
+    "kind": "reference",
+    "phase": "reference_advancing",
+    "monotonic": 511070.996079201,
+    "position": [
+      0.00842695221268564,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "reference_advancing",
+    "monotonic": 511070.996421197,
+    "finite": true,
+    "value": 2.8089840412139893
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reference_advancing",
+    "monotonic": 511070.996605816,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.431191,
+      "mode": 2,
+      "virtual_time": 0.02809,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "reference_advancing",
+    "monotonic": 511071.01163382,
+    "value": false
+  },
+  {
+    "kind": "escalation",
+    "phase": "reference_advancing",
+    "monotonic": 511071.011937197,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "reference_advancing",
+    "monotonic": 511071.012220105,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 21,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.066554,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "reference_advancing",
+    "monotonic": 511071.012772378,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "reference_advancing",
+    "monotonic": 511071.013028344,
+    "value": "healthy"
+  },
+  {
+    "kind": "fault_injected",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.044463501,
+    "source_age_added_s": 10
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.045321916,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.480333,
+      "mode": 2,
+      "virtual_time": 0.035953,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.046141012,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.046367204,
+    "finite": true,
+    "value": 3.59525728225708
+  },
+  {
+    "kind": "escalation",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.061940961,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.062775189,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 22,
+      "generation": 3,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0164051,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.063386211,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.063750472,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.064188582,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "controller_response",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.087435427,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "d556dc4b6b416a876b098992b2c600cb",
+    "generation": 4,
+    "sequence": 4,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "reference",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.095048873,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.095482597,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.095737141,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.530345,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.111852155,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.112264257,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.112440913,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "escalation",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.112591781,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.112761798,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 23,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.144985696,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.145575926,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.146308451,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.580383,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.161994788,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.162422273,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.162583366,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 24,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.162952653,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.16306989,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "reference",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.195166867,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.195679862,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.195923429,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.630382,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.211666611,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.211839612,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.211964761,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 25,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.212230092,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "fault_while_advancing",
+    "monotonic": 511071.212332907,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.24509724,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.245348419,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.245575661,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.680663,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.261643534,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.261962545,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.262093243,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.262188206,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.262304101,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 26,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.294650023,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.295048975,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.295599024,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.730313,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.311666617,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.311813179,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.311935553,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 27,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.312193092,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.312290128,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.345719014,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.346166579,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.347156352,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.781177,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.361658022,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.361831294,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.361953137,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 28,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.362215223,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.3623126,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.39577759,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.396222111,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.396382753,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.830352,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.411741606,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.412029401,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.412147628,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.412253559,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.412385567,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 29,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.445384145,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.445571187,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.446075068,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.880282,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.461792691,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.462122468,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.462293717,
+    "value": "stale_source_stamp"
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.462666068,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.462986983,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 30,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped_reference",
+    "monotonic": 511071.494855285,
+    "position": [
+      0.01078577197227967,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "stopped_reference",
+    "monotonic": 511071.495314538,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped_reference",
+    "monotonic": 511071.495607489,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933520.930348,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "stopped_reference",
+    "monotonic": 511071.511659378,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "stopped_reference",
+    "monotonic": 511071.511914903,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 31,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "stopped_reference",
+    "monotonic": 511071.5122573,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "stopped_reference",
+    "monotonic": 511071.512388207,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "stopped_reference",
+    "monotonic": 511071.512489651,
+    "value": "healthy"
+  },
+  {
+    "kind": "controller_stopped",
+    "phase": "controller_outage",
+    "monotonic": 511071.522787187
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.688527199,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.688702183,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.688800421,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.68887909,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.688985521,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 32,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.689281627,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.68936973,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.68944298,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.689517804,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.689768792,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 33,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.690184499,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.690269018,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.690365502,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.690753148,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.69083469,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 34,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0663809,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.712297221,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.712448851,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.712552007,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.71263411,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.712736885,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 35,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0232591,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.762115827,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.762520777,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.762678426,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.762792739,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.762930366,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 36,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0734507,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.811760979,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.812066189,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 37,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.123274,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.81241125,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.81253701,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.812638012,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.862183335,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.862632172,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.862778873,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.862870261,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.863025014,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 38,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.173286,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.911987798,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.912281921,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.912389653,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.912475863,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.912602865,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 39,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.223451,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511071.961841875,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511071.962182178,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511071.96230246,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511071.962401249,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511071.963887542,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 40,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.273271,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.011839119,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.012210198,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.012390331,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.012522,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.012670844,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 41,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.323249,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.06183396,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.062210297,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.062376538,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.062492622,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.062624061,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 42,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.373275,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.111732143,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.112040469,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.112163444,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.11228628,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 43,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.423277,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.112598791,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.161808817,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.162257595,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.162377085,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.162470095,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.162576816,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 44,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.473358,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.211877949,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.212198243,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.21233533,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.212431404,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.212554681,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 45,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.523272,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.261858638,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.262564053,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.262763383,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.26286745,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.262986009,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 46,
+      "generation": 4,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.573283,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_outage",
+    "monotonic": 511072.311823794,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_outage",
+    "monotonic": 511072.312157157,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_outage",
+    "monotonic": 511072.312280723,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_outage",
+    "monotonic": 511072.312372562,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_outage",
+    "monotonic": 511072.312487104,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 47,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.623275,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.361995531,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.362351497,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.362513973,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.362626283,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.362751722,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 48,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.673394,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.411885332,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.412302232,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.412959503,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.413126145,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.413278614,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 49,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.723294,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.461759171,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.462065071,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.462213406,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.462330863,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.46246774,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 50,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.773256,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.481905837,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.482268334,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933521.917121,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.482616559,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.511816515,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.51210534,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.512230589,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.51231738,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.512445063,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 51,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.823308,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.531821257,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.532194701,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.532338157,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933521.967162,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.563561426,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.563937733,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.564077965,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.564168331,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.564285968,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 52,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.873285,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.581595604,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.581858492,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.58199715,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.017148,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.611842961,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.612079328,
+    "value": true
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.612279559,
+    "value": "pause_pending"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.612411007,
+    "value": true
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.612642857,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 53,
+      "generation": 4,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.923407,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.631582342,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.631820772,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.067179,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.632113895,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.662302522,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.662771118,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.662906522,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.663023239,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.663148097,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 54,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.681846759,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.682374134,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.682651123,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.117163,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.711850077,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.712270522,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.712438755,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.712551104,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.712742264,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 55,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.731918055,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.732260972,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.732398239,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.167343,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.761829845,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.762182137,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.762371852,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.762508277,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.762673808,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 56,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.782224385,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.782573392,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.217205,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.782941718,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.812052298,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.81247105,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.812596039,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.812737101,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.812860678,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 57,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.831575183,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.831848626,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.267174,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.832167367,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.863152977,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.863471487,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.863604848,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.863707654,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.863833764,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 58,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.881310962,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.881483924,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.317102,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.881764257,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.912340789,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.91267213,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.912849807,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.912988687,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.913168528,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 59,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.933045989,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.93342511,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.933687606,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.367109,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511072.962035407,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511072.962582201,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511072.962747891,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511072.962857627,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511072.963014144,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 60,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511072.981710301,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511072.982086809,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.417116,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511072.982664841,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511073.011713368,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511073.011893331,
+    "value": false
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511073.011994012,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511073.012131139,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 61,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511073.012407867,
+    "value": "healthy"
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511073.031671501,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511073.031983021,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.467185,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511073.032444006,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511073.062039489,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511073.062399622,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511073.0625641,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511073.062776691,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511073.063086088,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 62,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511073.081638499,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511073.082097441,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511073.082287518,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.517141,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511073.112246239,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511073.11272462,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511073.113008669,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511073.113179697,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511073.113343935,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 63,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "controller_restarted",
+    "monotonic": 511073.131655412,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "completion",
+    "phase": "controller_restarted",
+    "monotonic": 511073.13191237,
+    "finite": false,
+    "value": null
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "controller_restarted",
+    "monotonic": 511073.132127575,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933522.567168,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.3
+    }
+  },
+  {
+    "kind": "controller_response",
+    "phase": "controller_restarted",
+    "monotonic": 511073.142787518,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "a9fb933f5d750adabcdad2075e3fcfa2",
+    "generation": 2,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "controller_response",
+    "phase": "controller_restarted",
+    "monotonic": 511073.155391674,
+    "operation": 2,
+    "success": false,
+    "reason": "controller_instance_mismatch",
+    "instance": "a9fb933f5d750adabcdad2075e3fcfa2",
+    "generation": 2,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  },
+  {
+    "kind": "ack",
+    "phase": "controller_restarted",
+    "monotonic": 511073.162023461,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "controller_restarted",
+    "monotonic": 511073.162539428,
+    "value": false
+  },
+  {
+    "kind": "reason",
+    "phase": "controller_restarted",
+    "monotonic": 511073.162850769,
+    "value": "healthy"
+  },
+  {
+    "kind": "escalation",
+    "phase": "controller_restarted",
+    "monotonic": 511073.163052534,
+    "value": false
+  },
+  {
+    "kind": "intervention",
+    "phase": "controller_restarted",
+    "monotonic": 511073.1632098,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "2a4a5dbce44c73002585cc68657bc867",
+      "sequence": 64,
+      "generation": 4,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.973497,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "controller_response",
+    "phase": "controller_restarted",
+    "monotonic": 511073.173813429,
+    "operation": 0,
+    "success": true,
+    "reason": "query",
+    "instance": "a9fb933f5d750adabcdad2075e3fcfa2",
+    "generation": 2,
+    "sequence": 0,
+    "mode": 0,
+    "latched": true
+  }
+]

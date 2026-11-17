@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-17",
+  "base_revision": "7e83f8a16",
+  "scope": "actual monitor/controller on DDS193, synthetic odometry, delayed RPC proxy",
+  "verdict": "PASS",
+  "physical_execution": false,
+  "authenticated_authority": false,
+  "live_binary_replaced": false,
+  "checks": {
+    "startup_monitor_acknowledged_and_healthy": true,
+    "monitor_startup_pause_latches_controller": true,
+    "reset_submitted_and_held": true,
+    "stale_source_detected": true,
+    "new_fault_advances_controller_generation": true,
+    "held_reset_reply_arrives": true,
+    "old_inflight_reset_cannot_release_new_stop": true,
+    "fresh_state_recovers_monitor_health": true,
+    "legacy_monitor_resume_cannot_release_strict_latch": true,
+    "fresh_fenced_reset_accepted": true,
+    "fresh_fenced_mode_accepted": true,
+    "fresh_fenced_path_accepted": true,
+    "reference_advances_with_fresh_commands": true,
+    "second_fault_detected": true,
+    "fault_while_advancing_latches_pause": true,
+    "protective_reference_frozen_and_zero_feedforward": true,
+    "healthy_before_controller_outage": true,
+    "controller_outage_escalates": true,
+    "outage_unacknowledged_faulted": true,
+    "restart_changes_controller_identity": true,
+    "pre_restart_reset_rejected": true,
+    "monitor_acknowledges_new_controller_pause": true,
+    "deadline_history_retained_after_restart_ack": true,
+    "restarted_controller_remains_latched": true,
+    "empty_buffer_completion_is_finite": true
+  },
+  "checks_passed": 25,
+  "nonfinite_completion_samples": 0,
+  "failed_precursor_nonfinite_completion_samples": 34,
+  "retained_failed_checks": [
+    "reference_advances_with_fresh_commands",
+    "empty_buffer_completion_is_finite"
+  ],
+  "controller_executable_sha256": "433fb1962c95cd7292721b056a64aef83a2e39b3e72540c49040d5b96d9d5075",
+  "monitor_executable_sha256": "9727d1081884d6063cb6fc1b9f9ea67aafb2d0873ffb0cbe357afb822460dc48",
+  "package": {
+    "controller_ctest": [
+      9,
+      9
+    ],
+    "aggregate_tests": 26,
+    "errors": 0,
+    "failures": 0,
+    "skips": 2
+  },
+  "source_sha256": {
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp": "4e417549f47ae93c7bc8c255864032b5adcc4c97e5806f3870d40a9d75e3af9c",
+    "robot/ros_ws/src/local/controls/trajectory_controller/test/isolated_monitor_fencing.py": "17ef738c2a3d292ab075b9579299597a6a26c7e2dfb662f254aa650c5c0a3240",
+    "robot/ros_ws/src/local/controls/trajectory_controller/CMakeLists.txt": "ff84963277e4fa151f2f8a00f750e8eba6284d52bd491b5a1e1f40fabbb1a4c7",
+    "robot/ros_ws/src/behavior/drone_safety_monitor/src/drone_safety_monitor.cpp": "72dced2613dba6faf5ef820ee7b95e2f2486d34eed7be7a8bc03e2741d62c8f5"
+  },
+  "input_sha256": {
+    "events.json": "69b78f175fd8256f37f6c12304ab283ad993c6f94a52bdc16e7c60cdb38fbb1a",
+    "held-request-0.cdr": "46cba29dda8433320a0b7c94a49786d27e0c060e1ffc10a611f83851b80e1101",
+    "failed-harness.py": "90fa9e84913aa827ce7507221c739aeb039186ca9121197b36389862a32175ab",
+    "harness.py": "17ef738c2a3d292ab075b9579299597a6a26c7e2dfb662f254aa650c5c0a3240",
+    "failed-events.json": "1834a177503bb75e46b95489adb1bf47a0dec5d238bf4bfde142fd96eee16b19",
+    "summary.json": "1bff3b62d223d874ae2397be7682d465e50c337376b62be3de9647affb7f6818",
+    "failed-summary.json": "b094e7be36370ac1ecaf08a89b7f9f1ad1fc63175a99bbf249d69001388d588c"
+  },
+  "notes": [
+    "Old reset was actually submitted and held as an RPC, then forwarded only after newer monitor PAUSE advanced generation.",
+    "Raw held request CDR hash and receive/release/forward/reply ordering are retained.",
+    "Monitor legacy PAUSE remains independent protective path; legacy resume cannot release strict latch.",
+    "Outage escalates; restarted controller gets fresh process identity and remains latched after PAUSE acknowledgement.",
+    "Empty buffer completion now reports finite0 instead of0/0NaN; precursor34nonfinite samples retained.",
+    "Positive fixture uses explicit0.1low-speed floor and awaits the original0.02m plus nonzero feedforward within2s; controller ramp and motion threshold unchanged.",
+    "No flight, independent physical stop evidence, authenticated caller or C06 reset admission is claimed."
+  ]
+}

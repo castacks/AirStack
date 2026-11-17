@@ -66,3 +66,5 @@ monitor or a requalification of November physical traces.
 
 | D33 | Integer mode RPCs and untagged trajectory topics cannot reject delayed commands by stop generation. | New opt-in controller-local profile gates all three paths with process/generation/sequence. Actual isolated60-check contract and both package suites pass. Default stack unchanged; caller labels are unauthenticated and full admission remains open. |
 | D34 | Tiny requested trajectory speeds are silently raised by the library timing floor. | A precursor control expecting overflow instead accepted1e-308m/s and replaced the path. Final fenced profile rejects speeds below the existing0.01m/s floor; boundary and separate true overflow checks pass. Failed trace/source preserved. |
+
+| D35 | Empty trajectory buffers published NaN completion from0/0. | Actual combined monitor/controller precursor retained34nonfinite samples. Empty buffer now publishes0; final25-check combined contract and full controller package pass.0 denotes no path progress, not successful task completion. |

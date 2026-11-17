@@ -81,6 +81,15 @@ if(BUILD_TESTING)
       --executable $<TARGET_FILE:trajectory_controller>)
   set_tests_properties(isolated_fenced_control_contract
     PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
+  find_package(drone_safety_monitor REQUIRED)
+  get_filename_component(monitor_prefix "${drone_safety_monitor_DIR}/../../.." ABSOLUTE)
+  add_test(NAME isolated_monitor_fencing_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=193 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_monitor_fencing.py
+      --controller $<TARGET_FILE:trajectory_controller>
+      --monitor "${monitor_prefix}/lib/drone_safety_monitor/drone_safety_monitor")
+  set_tests_properties(isolated_monitor_fencing_contract
+    PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights
