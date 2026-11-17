@@ -26,7 +26,7 @@ class MarkerCampaignTests(unittest.TestCase):
             result = CAMPAIGN.run(output)
             self.assertEqual(result, json.loads((output/'report.json').read_text()))
             self.assertEqual(result['passed'], result['total'])
-            self.assertEqual(result['total'], 17)
+            self.assertEqual(result['total'], 20)
             for name, digest in (result['input_sha256'] | result['source_sha256']).items():
                 self.assertEqual(hashlib.sha256((output/name).read_bytes()).hexdigest(), digest)
             records = {case['case']: case for case in result['cases']}
@@ -35,6 +35,10 @@ class MarkerCampaignTests(unittest.TestCase):
                 self.assertIsNone(records[name]['decision']['delta_map_m'])
             self.assertEqual(records['occluded_partial']['decision']['status'], 'SELECTED')
             self.assertIn('NOT detected', records['occluded_partial']['limitation'])
+            self.assertEqual(records['spatial_jitter']['decision']['status'], 'SELECTED')
+            for name in ('spatial_disjoint', 'spatial_extremes'):
+                self.assertEqual(records[name]['decision']['status'], 'ABSTAIN')
+                self.assertEqual(len(set(records[name]['raw_prefixes'])), 3)
             self.assertFalse(result['physical_execution'])
             self.assertFalse(result['independent_observation_window'])
             before = (output/'report.json').read_bytes()

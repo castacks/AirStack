@@ -96,6 +96,37 @@ def run(output):
                             decision=decision, passed=passed, limitation=limitation))
         for path in (png, npz):
             hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for name, positions, expected_policy in (
+            ('spatial_disjoint', (35, 65, 95), 'ABSTAIN'),
+            ('spatial_jitter', (63, 65, 67), 'SELECTED'),
+            ('spatial_extremes', (57, 65, 73), 'ABSTAIN')):
+        observations = []
+        prefixes = []
+        for index, x in enumerate(positions):
+            rgb = np.zeros((120, 160, 3), np.uint8)
+            rgb[40:70, x:x+30] = [255, 0, 0]
+            depth = np.full((120, 160), 3.5, np.float32)
+            prefix = name+'-'+str(index)
+            prefixes.append(prefix)
+            png, npz = output/(prefix+'.png'), output/(prefix+'.npz')
+            if not cv2.imwrite(str(png), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)):
+                raise RuntimeError('image write failed')
+            np.savez_compressed(npz, depth_m=depth, intrinsic=np.array(intrinsic))
+            image = cv2.cvtColor(cv2.imread(str(png)), cv2.COLOR_BGR2RGB)
+            with np.load(npz, allow_pickle=False) as saved:
+                observations.append(detect_red_surface(image, saved['depth_m'],
+                                                        saved['intrinsic'].tolist()))
+            for path in (png, npz):
+                hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        decision = select_viewpoint(observations, [160, 120], [1., 0., 0.])
+        passed = (all(observation['status'] == 'OBSERVED' for observation in observations)
+                  and decision['status'] == expected_policy
+                  and (expected_policy != 'ABSTAIN' or decision['delta_map_m'] is None))
+        results.append(dict(case=name, raw_prefixes=prefixes,
+                            input_mode='three_authored_frames', observations=observations,
+                            expected_observation=['OBSERVED']*3, expected_policy=expected_policy,
+                            decision=decision, passed=passed,
+                            limitation='authored spatial window, not acquired frames or identity tracking'))
     source_hashes = {}
     for obj in (run, detect_red_surface, select_viewpoint):
         path = Path(inspect.getfile(obj))
@@ -105,7 +136,8 @@ def run(output):
     report = dict(schema_version=1, scope='synthetic offline software-contract development campaign',
                   physical_execution=False, learned_reasoning=False,
                   independent_observation_window=False,
-                  notes=['Three repeated observations exercise disposition propagation only.',
+                  notes=['Single-frame cases repeat observations; spatial cases save three distinct authored frames.',
+                         'No sensor acquisition or temporal identity is established by authored frames.',
                          'Partial connected occlusion can remain SELECTED; no visibility model is claimed.',
                          'Image/depth edits do not establish a real or simulated sensor-fault response.'],
                   versions=dict(python=platform.python_version(), cv2=cv2.__version__, numpy=np.__version__),

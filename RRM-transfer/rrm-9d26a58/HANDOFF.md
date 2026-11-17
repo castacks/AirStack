@@ -249,6 +249,22 @@ to its original detector source, not silently reassessed. Next:qualify spatial
 stability across the three-observation viewpoint window; current checks compare
 depth and area but not whether the red component jumps between disjoint image regions.
 
+Spatial-window continuation:baseline accepted disjoint red-region jumps and a
+window whose first/last bboxes disagree while both overlap the middle (four failing
+subcases). Policy now requires all pairwise bbox IoU>=0.5, alongside existing
+range/area/centering/standoff gates. Minimum overlap is recorded. Static fixture/
+camera assumption is explicit; this is not semantic identity tracking or motion
+compensation. Coherent partial occlusion and same-position replacements remain
+unresolved. Focused52testsPASS; full optional core676PASS. Expanded20-case campaign
+20expected dispositions with original17unchanged; three spatial cases each save
+three distinct authored frames. All55input/source hashes verified. Record:
+`docs/uav-results/viewpoint-spatial-20261117.json`. No actual sensor acquisition
+claim for authored sequences, no scene/model/flight/live control change.
+Next:prepare passive Isaac fixture variants for rendered ambiguity/occlusion,
+preserving default scene behavior and keeping unlaunched fixtures explicitly
+unqualified. The running default scene has no arbitrary request gateway in its
+entry-script/PegasusApp source; do not assume scene mutation is available or needed.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

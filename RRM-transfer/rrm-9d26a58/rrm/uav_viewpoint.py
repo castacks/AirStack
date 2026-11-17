@@ -39,6 +39,7 @@ def select_viewpoint(observations, image_size, optical_axis_map):
         return abstain('unqualified_camera_orientation')
     areas = []
     depths = []
+    boxes = []
     for observation in observations:
         if not isinstance(observation, Mapping):
             return abstain('invalid_observation')
@@ -61,8 +62,20 @@ def select_viewpoint(observations, image_size, optical_axis_map):
             return abstain('off_center_target')
         areas.append(width*height)
         depths.append(depth)
+        boxes.append((x, y, width, height))
     if max(depths)-min(depths) > .1 or max(areas)/min(areas) > 1.25:
         return abstain('unstable_observation_window')
+    min_iou = 1.0
+    for index, (x, y, width, height) in enumerate(boxes):
+        for other_x, other_y, other_width, other_height in boxes[index+1:]:
+            overlap_width = max(0, min(x+width, other_x+other_width)-max(x, other_x))
+            overlap_height = max(0, min(y+height, other_y+other_height)-max(y, other_y))
+            intersection = overlap_width*overlap_height
+            union = width*height+other_width*other_height-intersection
+            min_iou = min(min_iou, intersection/union)
+    if min_iou < .5:
+        return dict(**abstain('spatially_unstable_observation_window'),
+                    min_window_bbox_iou=min_iou, min_required_bbox_iou=.5)
     index = min(range(3), key=lambda i: abs(areas[i]-statistics.median(areas)))
     z = depths[index]
     horizontal = math.hypot(*optical_axis_map[:2])
@@ -78,5 +91,7 @@ def select_viewpoint(observations, image_size, optical_axis_map):
                              step*optical_axis_map[1]/horizontal, 0.0],
                 translation_m=step, predicted_surface_depth_z_m=predicted_z,
                 predicted_bbox_area_ratio=predicted_ratio,
-                limits=dict(max_translation_m=.75, min_optical_standoff_m=2.5),
+                min_window_bbox_iou=min_iou,
+                limits=dict(max_translation_m=.75, min_optical_standoff_m=2.5,
+                            min_window_bbox_iou=.5),
                 scope='static red fixture, oracle depth, frontal pinhole resolution proxy')

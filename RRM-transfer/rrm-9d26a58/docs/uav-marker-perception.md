@@ -99,3 +99,24 @@ split depth and one outlier. Original 13 case dispositions remain unchanged;
 No physical flight or real sensor qualification. The earlier passive-sample audit
 must still use its matching detector revision (`230348184`); its source hashes and
 historical results were not rewritten for this new detector.
+
+## Static-window spatial consistency — 2026-11-17
+
+The viewpoint policy now requires pairwise bbox intersection-over-union at least
+0.5 across all three observations, alongside existing area, depth, centering and
+standoff checks. The declared threshold is an authored conservative static-camera/
+static-fixture setting. A location jump can no longer pass merely because area
+and range agree. The minimum overlap is reported on selection and spatial rejection.
+Small jitter and the exact 0.5 overlap boundary pass; disjoint windows and windows
+whose extremes disagree abstain without a goal.
+
+This is spatial consistency, not semantic tracking, motion compensation or proof
+that the same physical object persisted. Identical-looking replacements at the
+same image position remain undetected. Coherent partial occlusion still can pass.
+Moving-camera or moving-target use is outside this restricted policy's qualification.
+
+The [spatial campaign](uav-results/viewpoint-spatial-20261117.json) passes 20 authored
+dispositions with the original 17 unchanged. Its three spatial cases each retain
+three distinct authored PNG/depth inputs; they are not timestamped acquisitions.
+All 52 input and three source hashes were verified. Focused regression: 52 tests
+pass, including existing raw-viewpoint assessment. No scene change or flight.
