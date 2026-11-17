@@ -50,6 +50,28 @@ It sends no flight commands. See the [restricted marker-perception scope](../../
 and [bounded task execution](../../../RRM-transfer/rrm-9d26a58/docs/uav-task-execution.md)
 for sensor provenance, physical limits and evaluation gaps.
 
+`UAV_MARKER_SCENARIO` selects `nominal` (the original geometry), `absent`,
+`duplicate-red`, `split-occlusion`, `partial-occlusion` or `full-occlusion`.
+The last three add an authored gray occluder. Their reference-camera projection
+is a planning assumption, not a rendered result or measured robot camera pose.
+Variants require zero diagnostic pitch; the nominal fixture retains its existing
+tilted diagnostic option. `UAV_FIXTURE_MANIFEST` selects a new manifest path inside
+the simulator container; existing output is refused. Fixture settings are passed
+through both simulator service definitions, but only the marker launcher uses them.
+
+For configuration validation only, without changing a running simulator:
+
+```bash
+UAV_MARKER_SCENARIO=duplicate-red \
+ISAAC_SIM_SCRIPT_NAME=uav_marker_qualification.py \
+airstack up --dry-run --sim isaac
+```
+
+Private USD-stage tests validate geometry, material bindings and static colliders.
+They do not qualify renderer visibility, acquisition synchronization, perception
+accuracy or flight. Full launch/camera evidence remains a separate declared case;
+do not replace the running scene merely to validate configuration.
+
 ## Optional bounded physics diagnostics
 
 The existing `rrm_office_visual_eval.py` launcher selects the Office marker fixture

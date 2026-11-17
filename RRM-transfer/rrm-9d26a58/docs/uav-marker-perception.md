@@ -120,3 +120,20 @@ dispositions with the original 17 unchanged. Its three spatial cases each retain
 three distinct authored PNG/depth inputs; they are not timestamped acquisitions.
 All 52 input and three source hashes were verified. Focused regression: 52 tests
 pass, including existing raw-viewpoint assessment. No scene change or flight.
+
+## Prepared passive scene variants
+
+`uav_marker_fixtures.py` defines six source-controlled scenarios for the existing
+marker launcher: nominal, absent, duplicate-red, split/partial/full occlusion.
+Nominal geometry/colors are preserved. All fixtures remain static colliders outside
+the authored 2 m flight radius; this geometric placement is not contact qualification.
+Occluder coverage is checked analytically against a declared reference camera,
+not treated as actual camera truth. Intended detector labels are evaluation metadata
+and are never passed to the observer. Manifests explicitly say `rendered_qualified=false`.
+
+Six tests pass using the installed USD 24.5 libraries in a separate process and
+private in-memory stages, with no Kit application or live stage access. They cover
+world bounds, shaders, material bindings, colliders, pre-Kit rejection of invalid
+configuration, nominal compatibility and refusal to overwrite manifests. CLI dry-run
+and environment passthrough for both service definitions pass. These variants have
+not yet established rendered perception results or physical execution.

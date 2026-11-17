@@ -52,6 +52,10 @@ services:
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      # Optional passive fixture launcher; ignored by normal launch scripts.
+      - UAV_MARKER_SCENARIO=${UAV_MARKER_SCENARIO:-nominal}
+      - UAV_FIXTURE_MANIFEST=${UAV_FIXTURE_MANIFEST:-}
+      - UAV_DIAGNOSTIC_PITCH_RAD=${UAV_DIAGNOSTIC_PITCH_RAD:-0}
       # Fleet spawner input: fleet_spawn.py maps the robot-container
       # path onto this container's /isaac-sim/AirStack checkout mount.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}

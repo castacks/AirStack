@@ -265,6 +265,32 @@ preserving default scene behavior and keeping unlaunched fixtures explicitly
 unqualified. The running default scene has no arbitrary request gateway in its
 entry-script/PegasusApp source; do not assume scene mutation is available or needed.
 
+Prepared passive Isaac variants:nominal,absent,duplicate-red,split/partial/full
+occlusion via the existing PegasusApp hook and a pure scenario helper. Nominal
+red/blue geometry/colors preserved; per-fixture dimensions support gray occluders.
+Manifestv2 explicitly marks intended labels as authored/unrendered, uses world/metre
+metadata and refuses overwrite. Unknown scenarios, nonzero diagnostic pitch for
+controlled variants, and reused manifest output fail before Kit import. Compose
+passes fixture settings into both service definitions; defaults remain nominal.
+
+Six testsPASS using installed USD24.5 in a separate Python process/private stages:
+actual bounds, material/shader bindings, static colliders, nominal compatibility,
+manifest integrity and pre-Kit input rejection. Bare SDK imports initially lacked
+pxr/shared libraries; explicit USD extension Python/bin paths resolve this without
+starting Kit. CPU robot tests4PASS/1USDskip before final preflight method. CLI dry-run
+passes. Initial compose check omitted the livestream profile; corrected config-only
+inspection confirms both services receive settings, without co-launching them.
+Record:`docs/uav-results/passive-fixtures-prepared-20261117.json`. No renderer,
+acquisition,physics or flight qualification yet; no live stage or lifecycle change.
+
+User explicitly said continue on November17 at08:51America/New_York. Authorization
+remains active. Rechecked live containers/processes:Kit PID210 and PX4 PID978 still
+live. Host GPU query reports RTX PRO5000Blackwell with about48GiB free; this is a
+resource observation, not a render guarantee. Next investigate a separate bounded
+private renderer with no Pegasus/PX4/DDS setup to obtain static camera evidence
+without replacing the viewer. Verify process/resource isolation and retain failures;
+never infer rendered success from USD authoring alone.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

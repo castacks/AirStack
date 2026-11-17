@@ -1,0 +1,381 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "daaab4fc1",
+  "scope": "prepared passive scenarios and private USD-stage authoring only",
+  "usd_version": "0.24.5",
+  "validation": {
+    "private_stage_tests_passed": 6,
+    "robot_cpu_tests_passed": 4,
+    "robot_usd_skipped": 1,
+    "cli_dry_run": "PASS",
+    "compose_passthrough": "both service definitions verified; not co-launched"
+  },
+  "scenarios": [
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "nominal",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "red_panel",
+          "position": [
+            4.0,
+            0.0,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "blue_distractor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            0.02,
+            0.1,
+            1.0
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "OBSERVED",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    },
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "absent",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "blue_distractor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            0.02,
+            0.1,
+            1.0
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "ABSENT",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    },
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "duplicate-red",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "red_panel",
+          "position": [
+            4.0,
+            0.0,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "red_competitor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "AMBIGUOUS",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    },
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "split-occlusion",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "red_panel",
+          "position": [
+            4.0,
+            0.0,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "blue_distractor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            0.02,
+            0.1,
+            1.0
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "gray_occluder",
+          "position": [
+            3.4,
+            0.0,
+            1.0988571428571428
+          ],
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ],
+          "size_m": [
+            0.1,
+            0.8,
+            0.12
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "AMBIGUOUS",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    },
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "partial-occlusion",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "red_panel",
+          "position": [
+            4.0,
+            0.0,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "blue_distractor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            0.02,
+            0.1,
+            1.0
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "gray_occluder",
+          "position": [
+            3.4,
+            0.0,
+            1.2817142857142856
+          ],
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ],
+          "size_m": [
+            0.1,
+            0.8,
+            0.3
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "OBSERVED",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    },
+    {
+      "schema_version": "uav-marker-fixture/v2",
+      "scenario": "full-occlusion",
+      "frame": "world",
+      "units": "metres",
+      "static_colliders": true,
+      "fixtures": [
+        {
+          "id": "red_panel",
+          "position": [
+            4.0,
+            0.0,
+            1.2
+          ],
+          "color": [
+            1.0,
+            0.02,
+            0.02
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "blue_distractor",
+          "position": [
+            4.0,
+            -1.5,
+            1.2
+          ],
+          "color": [
+            0.02,
+            0.1,
+            1.0
+          ],
+          "size_m": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "id": "gray_occluder",
+          "position": [
+            3.4,
+            0.0,
+            1.0988571428571428
+          ],
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ],
+          "size_m": [
+            0.1,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "reference_camera_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_detector_status": "ABSENT",
+      "rendered_qualified": false,
+      "expectation_scope": "authored geometry only; actual camera/renderer unverified"
+    }
+  ],
+  "source_sha256": {
+    "uav_marker_fixtures.py": "bbec520b785128d69324d4e445c8cdd9584e1e303313205ae693b22f22661bd9",
+    "uav_marker_qualification.py": "410ad1cb6e25d8d789cc5aec7290744733cfc09f8fd89a0b2dbeeea311a1d0c3",
+    "test/test_uav_marker_fixtures.py": "76d68073d428afa5c27191107fd0914d604f8757a484214cf71a65733d4c8c71"
+  },
+  "limits": [
+    "No rendered visibility or acquisition qualification",
+    "Reference camera is authored, not measured robot TF",
+    "No live stage access, simulator restart, actuation or flight",
+    "Initial bare SDK imports failed until USD extension library paths were configured",
+    "Initial compose check omitted livestream profile; corrected config check passes"
+  ]
+}
