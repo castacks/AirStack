@@ -15,12 +15,12 @@ at proof check. Old/future samples remain recorded with `evidence_fresh=false` a
 
 Replay independently checks window clock, ordering, configured budget, trace-time
 bounds and the freshness verdict before reconstructing stop status. Trace envelope
-times are rounded to microseconds, so only their bounding comparisons use a1µs
+times are rounded to microseconds, so only their bounding comparisons use a 1 µs
 rounding tolerance; the actual sample/window and age checks have no added slack.
 Malformed stop identities/timestamps and oversized window fields are rejected without
 turning invalid input into a confirmation or crashing replay.
 
-Baseline tests reproduced stale10-second and future10-second synthetic samples
+Baseline tests reproduced synthetic samples stamped 10 seconds in the past or future
 incorrectly earning `SAFE_CONFIRMED_MOCK`. The new checks close this mock reporting
 gap; they do not establish physical stopping, remote-clock synchronization or
 authenticated observations. Existing `adapter_report` evidence still cannot earn
@@ -31,16 +31,45 @@ evidence. Use their original reader for historical reconstruction.
 Proof age is sampled after the pending-execution check, not merely when the
 observation callback returns. A slow later status query cannot silently turn an
 old sample into a fresh confirmation. The observation window and proof-check
-instant are separate recorded bounds. Pending-status callback liveness remains
-a separate concern from this timestamp check.
+instant are separate recorded bounds. Pending-status callback liveness is covered
+by the bounded-query contract below.
 
 The [November 17 development record](core-results/stop-freshness-20261117.json)
-retains source hashes and all17campaign attempts:17/17authored expectation matches,
-16/17complete/replay-qualified attempts, and the intentional evidence-write-loss
-case still UNKNOWN. Only3/17verified goal outcomes were true; expected refusals and
-aborts are not goal achievement. Focused core60tests and full-dependency core659
+retains source hashes and all 17 campaign attempts: 17/17 authored expectation matches,
+16/17 complete/replay-qualified attempts, and the intentional evidence-write-loss
+case still UNKNOWN. Only 3/17 verified goal outcomes were true; expected refusals and
+aborts are not goal achievement. Focused core 60 tests and full-dependency core 659
 tests pass. This is one fixed mock campaign with no resampling, not learned reasoning
 or comparative performance evidence. Raw campaign files remain local.
+
+## Bounded read-only pending status — 2026-11-17
+
+Pending-status hooks now use the existing declared `stop_s` callback budget on both
+the request and proof paths. Hooks are read-only observations and must return actual
+Booleans. Timeout, exception or malformed output is UNKNOWN, conservatively encoded
+as pending=true with `pending_status_known=false`. This prevents missing/empty/zero
+status from being interpreted as evidence of no pending execution. A known positive
+pending result already suffices to block confirmation without querying other hooks.
+
+Both stop events record knowledge status and any `pending_status` deadline. Replay
+checks the configured budget and requires unknown/timeout results to remain pending;
+only a known False at the final proof check can support confirmation. An initially
+unknown status may be resolved by a new, timely final observation. A late response
+to an expired read-only query cannot update the cached outcome.
+
+The baseline reproduced roughly 1 second waits with 0.05 second query budgets and
+five falsey non-Boolean outputs earning mock confirmation. These caller-wait and
+reporting checks do not terminate callback threads or establish an end-to-end
+real-time/physical stop guarantee. No default deadline was widened. Older traces
+without knowledge/deadline fields retain their original source-pinned reader.
+
+The [bounded-query record](core-results/pending-status-20261117.json) retains 66
+focused passes, a full minimal-core run of 669 tests (648 passed, 21 explicit skips),
+and 14 final targeted runtime/replay passes. The later integration cases cover
+timeout, malformed status, exceptions and initial uncertainty resolved by a fresh
+final query. One new fixed 17-case campaign verified with 17 expectation matches,
+16 complete/replay-qualified attempts, and intentional evidence loss still UNKNOWN.
+It is a new source checkpoint, not a controlled performance comparison.
 
 ## Export
 

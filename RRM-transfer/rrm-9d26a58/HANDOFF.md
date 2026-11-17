@@ -146,6 +146,33 @@ Raw campaign remains local. No flight, scene change, live deployment or learned-
 execution. Next concrete audit:pending-status callbacks themselves are currently
 unbounded and can delay mock cancellation despite admission already being latched.
 
+Pending-status audit now completed in the next source increment. Both hook locations
+previously took about1.002seconds despite0.05-second callback budgets; five falsey
+non-Boolean results incorrectly permitted mock confirmation. Queries now use the
+existing stop callback budget and require actual Booleans. Timeout/error/malformed
+status is UNKNOWN, conservatively pending=True, with separate knowledge/deadline
+fields on request and proof. Replay checks those joins independently. Hooks are
+read-only; timed-out threads may continue, but late completion cannot upgrade the
+cached outcome. Initial uncertainty can be resolved by a fresh, timely final query.
+No default deadline widened. The proof-age test fixture now keeps each callback
+within budget while combined sample age exceeds it, avoiding a timeout masking
+the freshness assertion.
+
+Validation:66focused core testsPASS,669full minimal unittest (648PASS/21explicit
+skips,zero errors/failures),14final targeted runtime/replay testsPASS. Four integration
+subcases cover timeout, exception, malformed output and later resolution. The last
+integration method was added after the full run and tested separately; runtime
+code did not change afterward. One new fixed17-case mock campaign verified:
+17expectation matches,16complete/replay-qualified,one intentional evidence-loss
+UNKNOWN,3verified goal outcomes. No resampling/threshold relaxation. Compact report:
+`docs/core-results/pending-status-20261117.json`; raw campaign remains local.
+
+Autonomous authorization remains active until the user stops work. Next useful
+audit:check cached stop outcomes against explicit AdmissionGuard reset/generation
+changes, while preserving the reference supervisor's one-run scope rather than
+silently introducing multi-stop resumption. Keep source-only/isolated scope unless
+a new bounded physical case and fresh recorder/readiness evidence are declared.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

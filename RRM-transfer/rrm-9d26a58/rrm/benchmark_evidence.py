@@ -235,6 +235,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             "begin_dispatch": limits.adapter_s, "apply": limits.adapter_s,
             "end_dispatch": limits.adapter_s, "cancel_dispatch": limits.stop_s,
             "observe_safe_state": limits.stop_s, "trace_write": limits.evidence_s,
+            "pending_status": limits.stop_s,
         }
         return bool(record.get("call") in configured
                     and (label is None or record.get("call") == label)
@@ -1084,6 +1085,17 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
             findings.append(f"invalid_stop_chain:sequence={sequence}")
             continue
         evidence = safe.get("evidence")
+        for event, field in ((request, "pending_execution_at_request"), (safe, "pending_execution")):
+            known = event.get("pending_status_known")
+            pending_flag = event.get(field)
+            pending_deadline = event.get("pending_status_deadline")
+            if type(known) is not bool or type(pending_flag) is not bool \
+                    or (known is False and pending_flag is not True):
+                findings.append(f"invalid_pending_status:sequence={sequence}")
+            if pending_deadline is not None and (
+                    not deadline_valid(pending_deadline, "pending_status")
+                    or known is not False or pending_flag is not True):
+                findings.append(f"invalid_pending_status_deadline:sequence={sequence}")
         for event, label in ((cancel, "cancel_dispatch"), (safe, "observe_safe_state")):
             if event.get("deadline") is not None and not deadline_valid(event["deadline"], label):
                 findings.append(f"invalid_stop_deadline:sequence={sequence}")
@@ -1131,6 +1143,7 @@ def replay_trace(path: Path, *, expected_task_id: str | None = None) -> EpisodeR
                 or safe["evidence_fresh"] != evidence_fresh:
             findings.append(f"stop_freshness_mismatch:sequence={sequence}")
         confirmed = bool(safe.get("pending_execution") is False
+                         and safe.get("pending_status_known") is True
                          and cancel["acknowledged"] and observed is not None and evidence_fresh
                          and observed.dispatch_id == dispatch_id
                          and observed.generation == generation

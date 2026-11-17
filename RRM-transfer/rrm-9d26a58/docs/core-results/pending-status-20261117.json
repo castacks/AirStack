@@ -1,0 +1,243 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "986ef19cf",
+  "scope": "bounded read-only pending status in mock stop supervisor",
+  "validation": {
+    "focused_core": 66,
+    "full_minimal_unittest": {
+      "run": 669,
+      "passed": 648,
+      "skipped": 21,
+      "failures": 0,
+      "errors": 0
+    },
+    "final_targeted_runtime_replay_tests": 14
+  },
+  "baseline": {
+    "stalled_total_s": [
+      1.0019956100150011,
+      1.0014753740397282
+    ],
+    "query_budget_s": 0.05,
+    "falsey_nonboolean_mock_confirmations": 5
+  },
+  "campaign": {
+    "attempted_runs": 17,
+    "expectation_match_rate": {
+      "denominator": 17,
+      "numerator": 17,
+      "value": 1.0
+    },
+    "evidence_complete_rate": {
+      "denominator": 17,
+      "numerator": 16,
+      "value": 0.9411764705882353
+    },
+    "replay_qualified_acceptance_rate": {
+      "denominator": 17,
+      "numerator": 16,
+      "value": 0.9411764705882353
+    },
+    "verified_goal_rate": {
+      "denominator": 17,
+      "numerator": 3,
+      "value": 0.17647058823529413
+    },
+    "unknown_goal_outcomes": 1,
+    "source_unchanged": true,
+    "campaign_expectations_met": true,
+    "attempts": [
+      {
+        "scenario_id": "nominal-pick",
+        "attempt_id": "nominal-pick-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": true,
+        "findings": []
+      },
+      {
+        "scenario_id": "nominal-place",
+        "attempt_id": "nominal-place-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": true,
+        "findings": []
+      },
+      {
+        "scenario_id": "unsafe-before-dispatch",
+        "attempt_id": "unsafe-before-dispatch-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "recoverable-effect",
+        "attempt_id": "recoverable-effect-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": true,
+        "findings": []
+      },
+      {
+        "scenario_id": "persistent-effect",
+        "attempt_id": "persistent-effect-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "active-human",
+        "attempt_id": "active-human-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "displaced-target",
+        "attempt_id": "displaced-target-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "weak-evidence",
+        "attempt_id": "weak-evidence-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "stale-coverage",
+        "attempt_id": "stale-coverage-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "observation-loss",
+        "attempt_id": "observation-loss-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "numeric-rejection",
+        "attempt_id": "numeric-rejection-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "policy-stall",
+        "attempt_id": "policy-stall-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "application-exception",
+        "attempt_id": "application-exception-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_CONFIRMED_MOCK",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "planning-stall",
+        "attempt_id": "planning-stall-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "replanning-stall",
+        "attempt_id": "replanning-stall-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "NOT_REQUESTED",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "cancel-unconfirmed",
+        "attempt_id": "cancel-unconfirmed-r001",
+        "expectation_match": true,
+        "evidence_complete": true,
+        "replay_valid": true,
+        "stop_status": "SAFE_UNCONFIRMED",
+        "goal_met": false,
+        "findings": []
+      },
+      {
+        "scenario_id": "evidence-write-loss",
+        "attempt_id": "evidence-write-loss-r001",
+        "expectation_match": true,
+        "evidence_complete": false,
+        "replay_valid": false,
+        "stop_status": "UNKNOWN",
+        "goal_met": null,
+        "findings": [
+          "missing_episode_end",
+          "episode_end_count:0"
+        ]
+      }
+    ]
+  },
+  "campaign_file_sha256": {
+    "attempts.jsonl": "8bc051b2faccecb880791a42b6b1c91a0abc121449c00bd6aab389085dab7f6a",
+    "summary.json": "37235950dcc24a847a3a1d6c715631a223c79098f6e4eead10e19c20604b5405",
+    "manifest.json": "6225a5934df830ef550b7cc9bc671cf0a62ddda8cbd7fd2410fb68fe08e6e8c4",
+    "campaign.json": "74e085a999837c30712fe491c9a5da0518fa1823a841cb76a0a8d2482ac67f35"
+  },
+  "source_sha256": {
+    "rrm/core_stop.py": "9a34953eaf4bab7797e23ca72b7284e893866879ebd9607b758a6aa23859ad34",
+    "rrm/benchmark_evidence.py": "71699daad4fde24e23b6a961c444644dd6a8e6b52b8f046f26d857fb62f18bc7",
+    "tests/test_core_pending_status.py": "fe88d16f48f0a1113a5d2181808aa6f0626f89ee043b7c56b3218ef55d1fa273",
+    "tests/test_core_stop_evidence.py": "7b52797771af3a0c8b7b6d3389e0d6a3638c911b970aa0af1697b0d749bd9fd6"
+  },
+  "limits": [
+    "Read-only status callbacks can continue after timeout; no late outcome upgrade",
+    "No default deadlines widened or physical stop/real-time qualification",
+    "Final targeted integration method was added after full minimal run; no runtime change afterward",
+    "Raw campaign local; no verified external backup or push"
+  ]
+}

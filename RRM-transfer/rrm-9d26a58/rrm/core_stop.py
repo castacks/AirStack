@@ -107,12 +107,26 @@ class CoreStopSupervisor:
             generation = self.guard.stop()
             trace_complete = True
 
-            def pending() -> bool:
+            def pending() -> tuple[bool, bool, dict | None]:
+                def read_status() -> bool:
+                    # These hooks observe status only; they must never issue motion.
+                    for callback in (self._pending_actuation, pending_execution):
+                        if callback is None:
+                            continue
+                        value = callback()
+                        if type(value) is not bool:
+                            raise ValueError("pending-status callback must return a Boolean")
+                        if value:
+                            return True
+                    return False
+
                 try:
-                    return bool((self._pending_actuation and self._pending_actuation())
-                                or (pending_execution and pending_execution()))
+                    value = bounded_call("pending_status", self.limits.stop_s, read_status)
+                    return value, True, None
+                except CoreCallTimeout as error:
+                    return True, False, error.record()
                 except Exception:
-                    return True
+                    return True, False, None
 
             def record(kind: str, **fields) -> None:
                 nonlocal trace_complete
@@ -124,9 +138,11 @@ class CoreStopSupervisor:
                 except Exception:
                     trace_complete = False
 
+            pending_at_request, pending_known, pending_deadline = pending()
             record("stop_request", reason=reason,
                    previous_generation=previous_generation,
-                   pending_execution_at_request=pending())
+                   pending_execution_at_request=pending_at_request,
+                   pending_status_known=pending_known, pending_status_deadline=pending_deadline)
             cancel_deadline = None
             try:
                 acknowledged = bounded_call(
@@ -154,7 +170,7 @@ class CoreStopSupervisor:
                     or safe_state.dispatch_id != dispatch_id \
                     or safe_state.generation != generation:
                 safe_state = None
-            execution_pending = pending()
+            execution_pending, pending_known, pending_deadline = pending()
             proof_checked = time.monotonic()
             evidence_fresh = bool(
                 safe_state is not None
@@ -162,7 +178,8 @@ class CoreStopSupervisor:
                 and proof_checked-safe_state.observed_at_monotonic <= self.limits.stop_s
             )
             confirmed = bool(
-                not execution_pending and acknowledged and safe_state is not None and evidence_fresh
+                not execution_pending and pending_known and acknowledged
+                and safe_state is not None and evidence_fresh
                 and safe_state.motion_stopped
                 and not safe_state.active_motion_command
                 and safe_state.safe_condition_met
@@ -172,6 +189,7 @@ class CoreStopSupervisor:
             record("stop_safe_state", evidence=(asdict(safe_state)
                                                 if safe_state is not None else None),
                    status=status, pending_execution=execution_pending, deadline=safe_deadline,
+                   pending_status_known=pending_known, pending_status_deadline=pending_deadline,
                    evidence_fresh=evidence_fresh,
                    observation_window=dict(clock="process_monotonic/v1",
                                            started_s=observation_started,

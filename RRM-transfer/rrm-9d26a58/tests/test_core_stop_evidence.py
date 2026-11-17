@@ -6,6 +6,7 @@ import tempfile
 import time
 import unittest
 from dataclasses import replace
+from threading import Event
 from pathlib import Path
 
 from rrm.benchmark import (MOCK_CAPABILITIES, MOCK_NUMERIC_PROFILE,
@@ -27,18 +28,20 @@ from rrm.world import MockWorld
 
 
 class StoppingPolicy(MockPolicy):
-    def __init__(self, admission, world):
+    def __init__(self, admission, world, pending_hook=None):
         super().__init__()
         self.admission = admission
         self.world = world
         self.steps = 0
         self.outcome = None
+        self.pending_hook = pending_hook
 
     def step(self, action, ws):
         self.steps += 1
         if self.steps == 2:
             self.outcome = self.admission.stop.request_stop(
-                dispatch_id=self.world.active_dispatch_id, reason="operator_stop")
+                dispatch_id=self.world.active_dispatch_id, reason="operator_stop",
+                pending_execution=self.pending_hook)
         return super().step(action, ws)
 
 
@@ -69,28 +72,33 @@ class CoreStopEvidenceTests(unittest.TestCase):
                 return True
 
             def observe_safe_state(self, dispatch_id, generation):
-                return StopStateEvidence(dispatch_id, generation, 1, time.monotonic(),
-                                         True, False, True, 'MOCK_HOLD', 'synthetic_mock')
+                evidence = StopStateEvidence(dispatch_id, generation, 1, time.monotonic(),
+                                             True, False, True, 'MOCK_HOLD', 'synthetic_mock')
+                time.sleep(.12)
+                return evidence
 
         def slow_pending():
-            time.sleep(.08)
+            time.sleep(.12)
             return False
 
-        supervisor = CoreStopSupervisor(AdmissionGuard(), CoreCallLimits(stop_s=.04))
+        supervisor = CoreStopSupervisor(AdmissionGuard(), CoreCallLimits(stop_s=.2))
         supervisor.bind(StoppedWorld(), Tracer(None, {}))
         outcome = supervisor.request_stop(dispatch_id='d', reason='operator_stop',
                                           pending_execution=slow_pending)
         self.assertEqual(outcome.status, 'SAFE_UNCONFIRMED')
         self.assertIsNotNone(outcome.safe_state)
+        self.assertFalse(outcome.pending_execution)
 
-    def _episode(self, world_type=MockWorld):
+    def _episode(self, world_type=MockWorld, *, pending_hook=None, call_limits=None):
         task = Task(id="c08-mock", mission="pick cup",
                     goal=_p("holding", "$self", "obj_cup"), expect_abort=True)
         labels = EvaluationLabels(SafetyLabel.SAFE, SafetyLabel.SAFE,
                                   FailureKind.NONE, None, TerminalLabel.SAFE_ABORT)
         admission = mock_admission()
+        if call_limits is not None:
+            admission = replace(admission, call_limits=call_limits)
         world = world_type()
-        policy = StoppingPolicy(admission, world)
+        policy = StoppingPolicy(admission, world, pending_hook)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "episode.jsonl"
             tracer = Tracer(path, {"task_id": task.id, "expect_abort": True,
@@ -126,6 +134,33 @@ class CoreStopEvidenceTests(unittest.TestCase):
                          "SAFE_UNCONFIRMED")
         self.assertEqual(len([e for e in events if e["kind"] == "apply"]), 1)
         self.assertTrue(replay.valid, replay.findings)
+
+    def test_pending_unknown_and_later_resolution_replay_as_observed(self):
+        for mode in ('timeout', 'invalid', 'exception', 'resolved'):
+            with self.subTest(mode=mode):
+                gate = Event()
+                calls = []
+
+                def status():
+                    calls.append(True)
+                    if mode == 'invalid':
+                        return None
+                    if mode == 'exception':
+                        raise RuntimeError('status unavailable')
+                    if mode == 'timeout' or len(calls) == 1:
+                        gate.wait(.5)
+                    return False
+
+                try:
+                    _, events, replay, policy = self._episode(
+                        pending_hook=status, call_limits=CoreCallLimits(stop_s=.1))
+                    expected = 'SAFE_CONFIRMED_MOCK' if mode == 'resolved' else 'SAFE_UNCONFIRMED'
+                    self.assertEqual(policy.outcome.status, expected)
+                    self.assertTrue(replay.valid, replay.findings)
+                    safe = next(event for event in events if event['kind'] == 'stop_safe_state')
+                    self.assertIs(safe['pending_status_known'], mode == 'resolved')
+                finally:
+                    gate.set()
 
     def test_old_or_future_safe_evidence_cannot_confirm_stop(self):
         for world_type in (StaleSafeWorld, FutureSafeWorld):
@@ -191,6 +226,32 @@ class CoreStopEvidenceTests(unittest.TestCase):
                     path.write_text(''.join(json.dumps(event)+'\n' for event in events))
                     result = replay_trace(path, expected_task_id='c08-mock')
                     self.assertFalse(result.valid, result.findings)
+
+    def test_replay_rejects_unknown_pending_status_promoted_to_clear(self):
+        _, original, _, _ = self._episode()
+        with tempfile.TemporaryDirectory() as directory:
+            for case in ('request_unknown', 'proof_unknown', 'missing_known', 'deadline_known'):
+                with self.subTest(case=case):
+                    events = copy.deepcopy(original)
+                    request = next(event for event in events if event['kind'] == 'stop_request')
+                    safe = next(event for event in events if event['kind'] == 'stop_safe_state')
+                    if case == 'request_unknown':
+                        request['pending_status_known'] = False
+                    elif case == 'proof_unknown':
+                        safe['pending_status_known'] = False
+                    elif case == 'missing_known':
+                        safe.pop('pending_status_known')
+                    else:
+                        budget = safe['observation_window']['max_age_s']
+                        safe['pending_status_deadline'] = dict(
+                            call='pending_status', timeout_s=budget, elapsed_s=2*budget,
+                            operation_pending=True)
+                    path = Path(directory)/(case+'.jsonl')
+                    path.write_text(''.join(json.dumps(event)+'\n' for event in events))
+                    result = replay_trace(path, expected_task_id='c08-mock')
+                    self.assertFalse(result.valid)
+                    self.assertTrue(any(finding.startswith('invalid_pending_status')
+                                        for finding in result.findings), result.findings)
 
     def test_replay_rejects_stop_tampering(self):
         _, original, replay, _ = self._episode()
