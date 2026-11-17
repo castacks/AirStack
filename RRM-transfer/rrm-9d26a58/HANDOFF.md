@@ -215,6 +215,25 @@ MAVROS on emptyDDS198 in a separate install. Keep startup/admission thresholds,
 one-attempt policy and live runtime unchanged; improve diagnosis rather than bypass
 the false readiness signal.
 
+Actuation diagnostic source increment completed: new actuation_status String
+distinguishes waiting/service/query states, config rejection, unsafe-before-init,
+startup deadline, failed startup transaction, ready and invalid/stale readback.
+Boolean readiness/admission, one-attempt policy and deadlines unchanged. Candidate
+plugin built in /tmp/actuation-reasons-20261117; actual installed robot_interface
+executable loads it only in emptyDDS198 with mock MAVROS. Initial18-scenario contract
+passed; final test requires latest terminal reason, not historical presence, and
+all18scenarios pass again including readback regression. Live plugin hash remains
+unchanged (2a5b0cc7...); candidate9c0416b7.... No parameter repair, restart or flight.
+
+Full mavros_interface package remains unclean:132aggregate tests,124failures,zero
+errors,two skips; actual interface contract passes. Test-file flake8 findings match
+the29-finding unchanged baseline; original guard header also fails style. Remaining
+aggregate lint findings were not individually attributed; no clean-package claim.
+Source hashes and all scenario outcomes:`docs/uav-results/actuation-reasons-20261117.json`.
+Next: return to controlled perception qualification, or inspect unqualified
+interface cases in isolation. Do not conflate source diagnostic availability with
+deployment into the still-running simulation.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

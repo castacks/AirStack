@@ -1,0 +1,483 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "38846b888",
+  "scope": "actual isolated interface plugin with mock MAVROS on empty DDS198",
+  "contract": {
+    "status": "PASS",
+    "domain": 198,
+    "scenarios": [
+      {
+        "case": "success",
+        "writes": 1,
+        "gets": 39,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ],
+          [
+            "arm",
+            true
+          ],
+          [
+            "arm",
+            true
+          ],
+          [
+            "mode",
+            "OFFBOARD"
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "READY",
+          "READBACK_UNVERIFIED"
+        ]
+      },
+      {
+        "case": "reject_set",
+        "writes": 1,
+        "gets": 0,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      },
+      {
+        "case": "bad_readback",
+        "writes": 1,
+        "gets": 1,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      },
+      {
+        "case": "integer",
+        "writes": 1,
+        "gets": 1,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      },
+      {
+        "case": "delay_set",
+        "writes": 1,
+        "gets": 0,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      },
+      {
+        "case": "delay_get",
+        "writes": 1,
+        "gets": 1,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      },
+      {
+        "case": "missing_state",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "WAITING_FOR_SAFE_STARTUP",
+          "STARTUP_DEADLINE"
+        ]
+      },
+      {
+        "case": "missing_ground",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "WAITING_FOR_SAFE_STARTUP",
+          "STARTUP_DEADLINE"
+        ]
+      },
+      {
+        "case": "armed",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "UNSAFE_BEFORE_INITIALIZATION"
+        ]
+      },
+      {
+        "case": "airborne",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "UNSAFE_BEFORE_INITIALIZATION"
+        ]
+      },
+      {
+        "case": "invalid_config",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "CONFIG_REJECTED"
+        ]
+      },
+      {
+        "case": "missing_child",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "WAITING_FOR_PARAMETER_SERVICE",
+          "STARTUP_DEADLINE"
+        ]
+      },
+      {
+        "case": "armed_then_ground",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "UNSAFE_BEFORE_INITIALIZATION"
+        ]
+      },
+      {
+        "case": "airborne_then_ground",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "UNSAFE_BEFORE_INITIALIZATION"
+        ]
+      },
+      {
+        "case": "config_quoted",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "CONFIG_REJECTED"
+        ]
+      },
+      {
+        "case": "config_integer",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "CONFIG_REJECTED"
+        ]
+      },
+      {
+        "case": "config_wrong",
+        "writes": 0,
+        "gets": 0,
+        "events": [
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "CONFIG_REJECTED"
+        ]
+      },
+      {
+        "case": "missing_get",
+        "writes": 1,
+        "gets": 0,
+        "events": [
+          [
+            "set",
+            1.0
+          ],
+          [
+            "mode",
+            "AUTO.LAND"
+          ],
+          [
+            "arm",
+            false
+          ],
+          [
+            "mode",
+            "AUTO.LOITER"
+          ]
+        ],
+        "statuses": [
+          "STARTUP_NOT_VERIFIED"
+        ]
+      }
+    ]
+  },
+  "validation": {
+    "initial_contract": "PASS",
+    "final_terminal_reason_contract": "PASS",
+    "full_package": {
+      "tests": 132,
+      "errors": 0,
+      "failures": 124,
+      "skips": 2
+    },
+    "test_file_flake8": {
+      "baseline": 29,
+      "final": 29
+    }
+  },
+  "live_plugin_sha256": "2a5b0cc7ae1c28b7b2a216eb3adac7c4ded36090b11d55a72cf843ce65cd37b2",
+  "candidate_plugin_sha256": "9c0416b7c2bb773887e81aa144341f12866ec8b4b75a30abc2f3e70586cb772c",
+  "source_sha256": {
+    "include/mavros_interface/px4_actuation_guard.hpp": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+    "test/isolated_actuation_admission.py": "13639fe14bf807841ab3ffb0c480a53149efe854ee420d44e7051159506b01b2",
+    "CMakeLists.txt": "0dc6f489ad00661a5644bea9322541520a81d8bd6045d01a0df221cda27fb1e2",
+    "package.xml": "ddc5a03a72185d6dbd53683fc1df466cae8e2490aec0736485e7bc8b0b9ff8af"
+  },
+  "limits": [
+    "Live plugin unchanged; diagnostics not deployed",
+    "No admission rule, default timeout or one-attempt policy changed",
+    "Full package not clean; not all aggregate lint findings individually attributed",
+    "No physical stopping or flight qualification"
+  ]
+}

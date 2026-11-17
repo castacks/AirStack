@@ -9,6 +9,7 @@
 #include <rcl_interfaces/srv/set_parameters.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <yaml-cpp/yaml.h>
 #include <atomic>
 #include <chrono>
@@ -29,6 +30,8 @@ class Px4ActuationGuard {
   rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;
   rclcpp::Subscription<mavros_msgs::msg::ExtendedState>::SharedPtr ground_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ready_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
+  std::string startup_reason_ = "WAITING_FOR_SAFE_STARTUP";
   rclcpp::TimerBase::SharedPtr timer_;
   std::mutex state_mutex_;
   std::timed_mutex query_mutex_;
@@ -77,19 +80,28 @@ class Px4ActuationGuard {
     return valid;
   }
 
+  void publish_status(const std::string &reason) {
+    std_msgs::msg::String message;
+    message.data = reason;
+    status_pub_->publish(message);
+  }
+
   void tick() {
     try {
       std::unique_lock<std::timed_mutex> query_lock(query_mutex_, std::try_to_lock);
-      if (!query_lock.owns_lock()) { return; }
+      if (!query_lock.owns_lock()) { publish_status("QUERY_BUSY"); return; }
       if (config_valid_ && !attempted_) {
         if (unsafe_seen_ || std::chrono::duration<double>(Clock::now() - started_).count() >= startup_timeout_) {
           attempted_ = true;
-          RCLCPP_ERROR(node_.get_logger(), "Actuation NOT_READY: no safe startup evidence before deadline");
+          startup_reason_ = unsafe_seen_ ? "UNSAFE_BEFORE_INITIALIZATION" : "STARTUP_DEADLINE";
+          RCLCPP_ERROR(node_.get_logger(), "Actuation NOT_READY: %s", startup_reason_.c_str());
         } else if (safe_to_configure()) {
           // Wait for service before the final safety check; no delayed write after
           // waiting on discovery. This guard never writes again after an attempt.
-          if (!set_->wait_for_service(std::chrono::milliseconds(250))) { return; }
-          if (!safe_to_configure()) { return; }
+          if (!set_->wait_for_service(std::chrono::milliseconds(250))) {
+            publish_status("WAITING_FOR_PARAMETER_SERVICE"); return;
+          }
+          if (!safe_to_configure()) { publish_status("WAITING_FOR_SAFE_STARTUP"); return; }
           attempted_ = true;
           auto request = std::make_shared<Set::Request>();
           rcl_interfaces::msg::Parameter parameter;
@@ -100,6 +112,7 @@ class Px4ActuationGuard {
           auto response = call<Set>(set_, request, true);
           initialized_ = response && response->results.size() == 1 &&
             response->results[0].successful && readback() && safe_to_configure();
+          startup_reason_ = initialized_ ? "INITIALIZED" : "STARTUP_NOT_VERIFIED";
           RCLCPP_INFO(node_.get_logger(), "PX4 actuation startup: %s",
             initialized_ ? "VERIFIED" : "NOT_READY (restart required)");
         }
@@ -108,11 +121,13 @@ class Px4ActuationGuard {
       }
     } catch (const std::exception &error) {
       attempted_ = true; initialized_ = false;
+      startup_reason_ = "EXCEPTION";
       RCLCPP_ERROR(node_.get_logger(), "Actuation NOT_READY: %s", error.what());
     }
     std_msgs::msg::Bool message;
     message.data = ready();
     ready_pub_->publish(message);
+    publish_status(initialized_ ? (message.data ? "READY" : "READBACK_UNVERIFIED") : startup_reason_);
   }
 
 public:
@@ -135,6 +150,7 @@ public:
       if (!config_valid_) { throw std::runtime_error("invalid normalized PX4 actuation profile"); }
     } catch (const std::exception &error) {
       config_valid_ = false; attempted_ = true;
+      startup_reason_ = "CONFIG_REJECTED";
       RCLCPP_ERROR(node_.get_logger(), "Actuation config rejected: %s", error.what());
     }
     clients_group_ = node_.create_callback_group(rclcpp::CallbackGroupType::Reentrant);
@@ -158,6 +174,7 @@ public:
         }
       });
     ready_pub_ = node_.create_publisher<std_msgs::msg::Bool>("actuation_ready", 10);
+    status_pub_ = node_.create_publisher<std_msgs::msg::String>("actuation_status", 10);
     timer_ = node_.create_wall_timer(std::chrono::milliseconds(200),
       [this]() { tick(); }, timer_group_);
   }

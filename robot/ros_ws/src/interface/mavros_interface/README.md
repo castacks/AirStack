@@ -36,6 +36,28 @@ was verified and the last good readback is at most0.5s old. `airstack ready` req
 both effective double1.0 and this positive report. A failed initializer cannot be
 made ready merely by a one-off manual parameter set.
 
+`actuation_status` (`std_msgs/String`) explains the guard's current diagnostic
+state. It does not grant command admission or replace a fresh `actuation_ready`
+sample and per-command readback.
+
+| Reason | Meaning |
+| --- | --- |
+| `WAITING_FOR_SAFE_STARTUP` | Required safe startup observations are not yet sufficient. |
+| `WAITING_FOR_PARAMETER_SERVICE` | Safe startup evidence was seen, but the child setter is unavailable. |
+| `UNSAFE_BEFORE_INITIALIZATION` | Armed/in-air evidence latched the initializer closed. |
+| `STARTUP_DEADLINE` | Safe initialization did not begin before the configured deadline. |
+| `CONFIG_REJECTED` | Startup profile or timeout configuration was rejected. |
+| `STARTUP_NOT_VERIFIED` | The one attempted configuration/readback/safe-state transaction did not verify. |
+| `EXCEPTION` | Initialization or monitoring raised an exception; the guard stays uninitialized. |
+| `READY` | The same readiness predicate used for the Boolean is true. |
+| `READBACK_UNVERIFIED` | Initialization succeeded earlier, but current readback freshness/validity is insufficient. |
+| `QUERY_BUSY` | Another guarded query owns the lock; this tick did not refresh its readback. |
+
+These reasons distinguish observations from permission. A terminal startup reason
+persists until restart; later safe telemetry or a correct parameter alone does not
+repair it. Monitoring after initialization remains read-only. Existing startup
+and command deadlines, one-attempt policy and admission decisions are unchanged.
+
 This is a command-interface guard, not permission enforcement on direct MAVROS/PX4
 clients. The GUI does not independently query it before launching a mission;
 commands routed through this interface are guarded. It does not qualify thrust

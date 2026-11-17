@@ -16,7 +16,7 @@ from mavros_msgs.msg import ExtendedState, State
 from mavros_msgs.srv import CommandBool, SetMode
 from rcl_interfaces.msg import ParameterType, ParameterValue, SetParametersResult
 from rcl_interfaces.srv import GetParameters, SetParameters
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 
 rclpy.init()
 node = rclpy.create_node('admission_probe', namespace='/fleet_alpha/interface')
@@ -29,6 +29,7 @@ ground = node.create_publisher(ExtendedState, 'mavros/extended_state', 10)
 case = {}
 events = []
 ready = []
+statuses = []
 authority = []
 get_times = []
 
@@ -75,6 +76,8 @@ set_service = node.create_service(SetParameters, 'mavros/setpoint_raw/set_parame
 node.create_service(SetMode, 'mavros/set_mode', mode)
 node.create_service(CommandBool, 'mavros/cmd/arming', arm)
 node.create_subscription(Bool, 'actuation_ready', lambda message: ready.append(message.data), 10)
+node.create_subscription(String, 'actuation_status',
+                         lambda message: statuses.append(message.data), 10)
 node.create_subscription(Bool, 'has_control', lambda message: authority.append(message.data), 10)
 command = node.create_client(RobotCommand, 'robot_command')
 
@@ -112,6 +115,7 @@ for name in names:
     if name == 'airborne_then_ground':
         case['airborne'] = True
     events.clear(); ready.clear(); get_times.clear(); authority.clear()
+    statuses.clear()
     if name == 'missing_child':
         node.destroy_service(set_service)
     if name == 'missing_get':
@@ -144,6 +148,7 @@ for name in names:
         writes = sum(event[0] == 'set' for event in events)
         if name == 'success':
             assert any(ready) and writes == 1, (name, events, ready)
+            assert 'READY' in statuses, (name, statuses)
             # Actual plugin telemetry: auto-disarm can retain OFFBOARD mode.
             # No DISARM service is called for this transition.
             for armed_value, mode_value, expected in (
@@ -179,6 +184,8 @@ for name in names:
             assert invoke(RobotCommand.Request.LAND)
             assert invoke(RobotCommand.Request.DISARM)
             assert sum(event[0] == 'set' for event in events) == 1, events
+            pump(.4)
+            assert 'READBACK_UNVERIFIED' in statuses, statuses
         else:
             assert not any(ready), (name, ready)
             for c in (RobotCommand.Request.ARM, RobotCommand.Request.REQUEST_CONTROL,
@@ -193,7 +200,16 @@ for name in names:
                 assert writes == 0, (name, events)
             else:
                 assert writes == 1, (name, events)
-        results.append(dict(case=name, writes=writes, gets=len(get_times), events=list(events)))
+            expected = 'STARTUP_NOT_VERIFIED'
+            if name in ('armed', 'airborne', 'armed_then_ground', 'airborne_then_ground'):
+                expected = 'UNSAFE_BEFORE_INITIALIZATION'
+            elif name == 'invalid_config' or name.startswith('config_'):
+                expected = 'CONFIG_REJECTED'
+            elif name in ('missing_state', 'missing_ground', 'missing_child'):
+                expected = 'STARTUP_DEADLINE'
+            assert statuses and statuses[-1] == expected, (name, expected, statuses)
+        results.append(dict(case=name, writes=writes, gets=len(get_times), events=list(events),
+                            statuses=list(dict.fromkeys(statuses))))
     finally:
         proc.terminate(); proc.wait(timeout=5)
         assert proc.returncode == 0, (name, 'unclean plugin shutdown', proc.returncode)

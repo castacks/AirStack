@@ -15,6 +15,7 @@ find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -40,6 +41,7 @@ ament_target_dependencies(
   tf2
   airstack_common
   std_srvs
+  std_msgs
   GeographicLib
   ament_index_cpp
   rcl_interfaces
