@@ -2,8 +2,8 @@
 
 Runs the REAL AirStack stack (Isaac Sim via AirStack's own bring-up + the
 full autonomy stack in the robot container) as the system under test. Plain
-python — no Isaac interpreter needed on the host, only `pip install
-safe-benchmark` and the docker CLI.
+python — no Isaac interpreter needed on the host, only SAFE's checkout, this
+repository installed with `pip install -e .`, and the docker CLI.
 
 Every run knob (agents, domains, grid, dt, keep_up, ...) is a key in an
 experiment yaml; the CLI carries only actions and session facts:
@@ -34,36 +34,9 @@ import argparse
 
 from safe_core.core.runner import BaseRunner
 
+# The name runs record, which this repository's pyproject.toml registers as a
+# thesafebenchmark.integrations entry point naming this package.
 INTEGRATION = "airstack"
-
-
-def register_integration_paths() -> None:
-    """Resolve the airstack integration to this eval package in SAFE's integration_paths.
-
-    SAFE core looks every integration up under its own integrations/ tree (provenance code
-    hashes, scoring-code version, policy directory). AirStack's integration lives in this
-    repository, so its name maps here; every other name resolves exactly as before.
-    """
-    from pathlib import Path
-    import safe_core.utils.integration_paths as paths
-    import safe_core.verification.lock as lock
-    if getattr(paths.package, "_airstack", False):
-        return
-    package, directory = paths.package, paths.directory
-    here = Path(__file__).resolve().parent
-
-    def airstack_package(integration: str) -> str:
-        return (__package__ or "eval") if integration == INTEGRATION else package(integration)
-
-    def airstack_directory(integration: str) -> Path:
-        return here if integration == INTEGRATION else directory(integration)
-
-    airstack_package._airstack = True
-    paths.package = lock.package = airstack_package
-    paths.directory = airstack_directory
-
-
-register_integration_paths()
 
 
 class AirstackRunner(BaseRunner):
@@ -77,10 +50,6 @@ class AirstackRunner(BaseRunner):
 
     def get_agents_dir(self) -> str:
         return os.path.join(os.path.dirname(__file__), "agents")
-
-    def get_experiments_dir(self) -> str:
-        # SAFE resolves integrations/<name>/experiments, which does not exist for airstack.
-        return os.path.join(os.path.dirname(__file__), "experiments")
 
     def get_available_agents(self) -> list[str]:
         from .agents.agents import PROFILES

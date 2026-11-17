@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=40", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thesafebenchmark-airstack"
+version = "0.1.0"
+description = "AirStack's S.A.F.E. integration: SAFE's aerial worlds and scoring around the AirStack autonomy stack"
+requires-python = ">=3.10"
+
+# Name a run records -> the package that runs it.
+[project.entry-points."thesafebenchmark.integrations"]
+airstack = "eval"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eval", "eval.*"]
