@@ -22,9 +22,11 @@ live scene switch, model launch or live control-binary replacement has occurred.
   against0.410m baseline. After separate mechanical lint cleanup, package7/7CTest
   pass. Both packages have aggregate zero errors/failures and two skips each.
 - Core test fixture corrected without weakening LAND admission. Latest full-dependency
-  unittest679/679pass; minimal Pydantic-only configurations also pass with explicit skips.
+  unittest685/685pass; minimal Pydantic-only configurations also pass with explicit skips.
   Optional worker YAML inspection runs when PyYAML exists and skips otherwise.
-- Fresh passive camera capture:20exact-header triples classified ABSENT; a saved
+- Fresh passive camera capture:20exact-header triples classified ABSENT;
+  latest18complete windows pass monotonic receipt checks. Source now rechecks
+  marker freshness after action-server discovery, before navigation submission; a saved
   frame was inspected. This is detector output on the current view, not scene-wide
   target truth or renderer-synchronization evidence.
 

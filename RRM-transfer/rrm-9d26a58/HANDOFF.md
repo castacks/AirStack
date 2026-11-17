@@ -10,6 +10,22 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest source follow-up (14:55 UTC): marker observation window now requires strictly
+increasing positive stamps, fixed calibration/frame/size and every channel receipt
+inside the current same-process window and below2s age. Rechecks after action-server
+discovery immediately before marker navigation submission; replaces decision's
+adjustable-wall-time age comparison. Existing state/actuation and acquisition-TF
+checks retained. Server wait/check helper has no command publication. Clock-controlled
+test shows pre-wait-fresh evidence expires during five-second discovery and is rejected.
+Focused65PASS; full core685PASS. Source-only probe change, no flight/deployment.
+Passive current-default capture20exact triples:2warmup+18recent windows; maximum
+window receipt age0.131582s. All20detector outputs ABSENT,3saved raw pairs recomputed;
+17raw observations not saved. Versioned `docs/uav-results/passive-window-20261117/`
+retains metadata/raw samples/helper/capture snapshots and audit; compact report
+`passive-window-audit-20261117.json`. Check-time replay verifies arithmetic and
+progression; it cannot establish freshness in another process, source clock validity,
+renderer synchronization or scene-wide absence. Existing physical results unchanged.
+
 Latest continuation (14:47 UTC): completed a separate bounded private static Kit
 capture of six fixture cases, three rendered frames each. Existing live Kit210/PX4978
 retained original start times. No robot/ROS startup, live-stage change, flight or

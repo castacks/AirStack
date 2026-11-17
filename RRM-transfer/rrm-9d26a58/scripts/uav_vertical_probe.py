@@ -67,7 +67,7 @@ def main():
     inject_fault=False; qualification_process=None; qualification_log=None
     fault_namespace='/robot_1/watchdog_qualification'
     fault_relay=node.create_publisher(Odometry,fault_namespace+'/state',10) if args.automatic_state_fault_stop else None
-    marker_records={};marker_decision=None;tf_buffer=None
+    marker_records={};marker_window_starts={};marker_decision=None;tf_buffer=None
 
     def safe(value):
         if isinstance(value, float) and not math.isfinite(value):
@@ -155,9 +155,10 @@ def main():
         while not future.done() and time.monotonic()<end: spin(0.05,guard)
         if not future.done(): raise TimeoutError('action response deadline')
         return future.result()
-    def action(client, goal, guard, supervised_stop=False):
+    def action(client, goal, guard, supervised_stop=False, admission_check=None):
         nonlocal handle,pending_goal,inject_fault
-        if not client.wait_for_server(timeout_sec=5): raise RuntimeError('action_server_missing')
+        from rrm.uav_probe_admission import wait_for_checked_server
+        wait_for_checked_server(client,admission_check)
         goal_id=UUID(uuid=list(uuid.uuid4().bytes));emit('goal_submitted',goal_uuid=[int(v) for v in goal_id.uuid])
         pending_goal=client.send_goal_async(goal,feedback_callback=lambda f:emit('feedback',data=message_to_ordereddict(f.feedback)),goal_uuid=goal_id)
         handle=wait(pending_goal,8,guard);pending_goal=None
@@ -205,17 +206,22 @@ def main():
 
     def observe_marker(label):
         records=[];seen=set();started=time.monotonic();deadline=started+5
+        marker_window_starts[label]=started
         while len(records)<3 and time.monotonic()<deadline:
             spin(.02,True)
             if not fresh(('image','marker_depth','camera_info')) or latest['image'][0]<started:continue
             rgb,depth,info=(latest[n][1] for n in ('image','marker_depth','camera_info'))
             stamps=[(m.header.stamp.sec,m.header.stamp.nanosec) for m in (rgb,depth,info)]
             if len(set(stamps))!=1 or stamps[0] in seen:continue
+            if records and stamps[0]<=(records[-1]['stamp_sec'],records[-1]['stamp_nanosec']):
+                raise RuntimeError('marker_source_stamp_regressed')
             source=stamps[0][0]+stamps[0][1]*1e-9
             odom_stamp=latest['odom'][1].header.stamp
             if abs(source-odom_stamp.sec-odom_stamp.nanosec*1e-9)>.2:continue
-            if len({m.header.frame_id for m in (rgb,depth,info)})!=1 or depth.encoding!='32FC1' or (rgb.width,rgb.height)!=(info.width,info.height):
-                raise RuntimeError('marker_frame_encoding_or_calibration_mismatch')
+            pair=camera_pair_metadata(rgb,depth,info)
+            channel_receipts={key:latest[name][0] for key,name in
+                              (('rgb','image'),('depth','marker_depth'),('info','camera_info'))}
+            if any(value<started for value in channel_receipts.values()):continue
             seen.add(stamps[0]);receipt=time.time()-(time.monotonic()-latest['image'][0])
             color=marker_bridge.imgmsg_to_cv2(rgb,desired_encoding='rgb8')
             distance=marker_bridge.imgmsg_to_cv2(depth,desired_encoding='passthrough')
@@ -228,12 +234,20 @@ def main():
             record=dict(label=label,raw_prefix=prefix,frame=rgb.header.frame_id,image_size=[rgb.width,rgb.height],
                         intrinsic=intrinsic,stamp_sec=stamps[0][0],stamp_nanosec=stamps[0][1],
                         exact_stamp_pair=True,image_receipt_wall_unix=receipt,observation=observation,
-                        headers={name:message_to_ordereddict(m.header) for name,m in [('rgb',rgb),('depth',depth),('info',info)]},
+                        headers=pair['headers'],receipt_monotonic_s=channel_receipts,
                         depth_encoding=depth.encoding)
             records.append(record);emit('marker_observation',**record)
         if len(records)!=3:raise RuntimeError('fresh_exact_marker_triplets_missing')
+        evidence=camera_window_metadata(records,started_monotonic=started,now_monotonic=time.monotonic())
+        emit('marker_window_checked',label=label,evidence=evidence)
         marker_records[label]=records
         return records
+
+    def check_marker_dispatch():
+        spin(.001,True)
+        evidence=camera_window_metadata(marker_records['before'],
+            started_monotonic=marker_window_starts['before'],now_monotonic=time.monotonic())
+        emit('marker_dispatch_window_checked',evidence=evidence)
 
     results={}; error=None
     try:
@@ -245,9 +259,11 @@ def main():
             from tf2_ros import Buffer,TransformListener
             from rrm.uav_marker import detect_red_surface
             from rrm.uav_viewpoint import select_viewpoint,optical_forward_in_map
+            from rrm.camera_pairing import camera_pair_metadata,camera_window_metadata
             marker_bridge=CvBridge();tf_buffer=Buffer(node=node);tf_listener=TransformListener(tf_buffer,node)
             emit('marker_policy_provenance',policy_sha256=hashlib.sha256(Path(inspect.getfile(select_viewpoint)).read_bytes()).hexdigest(),
-                 detector_sha256=hashlib.sha256(Path(inspect.getfile(detect_red_surface)).read_bytes()).hexdigest())
+                 detector_sha256=hashlib.sha256(Path(inspect.getfile(detect_red_surface)).read_bytes()).hexdigest(),
+                 camera_window_sha256=hashlib.sha256(Path(inspect.getfile(camera_window_metadata)).read_bytes()).hexdigest())
         if args.automatic_state_fault_stop:
             qualification_log=(out/'qualification-monitor.log').open('w')
             qualification_process=subprocess.Popen([
@@ -302,7 +318,7 @@ def main():
                 spin(.02,True)
                 if time.monotonic()>deadline:raise RuntimeError('marker_acquisition_transform_unavailable')
             transform=tf_buffer.lookup_transform('map',selected['frame'],stamp)
-            if any(time.time()-r['image_receipt_wall_unix']>2 for r in before):raise RuntimeError('marker_decision_observation_stale')
+            camera_window_metadata(before,started_monotonic=marker_window_starts['before'],now_monotonic=time.monotonic())
             q=transform.transform.rotation
             axis=optical_forward_in_map([q.x,q.y,q.z,q.w])
             marker_decision=select_viewpoint([r['observation'] for r in before],selected['image_size'],axis)
@@ -350,7 +366,8 @@ def main():
                     pose.pose.position.y=start[1]+(target[1]-start[1])*i/10;pose.pose.position.z=2.;pose.pose.orientation.w=1.
                     goal.global_plan.poses.append(pose)
                 stop_mode=args.supervised_stop or args.automatic_state_fault_stop
-                navigation_ok=action(navigate,goal,True,stop_mode)
+                navigation_ok=action(navigate,goal,True,stop_mode,
+                    admission_check=check_marker_dispatch if args.marker_viewpoint else None)
                 if stop_mode:results['navigation_canceled_as_requested']=navigation_ok
                 else:results['navigate_action']=navigation_ok
                 if not navigation_ok: raise RuntimeError('navigation_failed')

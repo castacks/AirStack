@@ -1,0 +1,17 @@
+{
+  "scope": "passive restricted red fixture; simulated oracle depth surface in pinhole optical convention, no world binding",
+  "received": {
+    "info": 21,
+    "depth": 20,
+    "rgb": 21
+  },
+  "exact_stamp_observations": 20,
+  "statuses": {
+    "ABSENT": 20
+  },
+  "window_receipt_statuses": {
+    "WARMUP": 2,
+    "RECENT_RECEIPTS": 18
+  },
+  "window_scope": "receipt freshness only; no acquisition synchronization or motion permission"
+}

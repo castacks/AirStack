@@ -167,3 +167,22 @@ unittest outcome is recorded in the handoff. These are development controls that
 informed the revision, not held-out accuracy or robot-camera qualification. The
 0.1 m pixel-neighbor setting depends on resolution/view and can reject steep real
 surfaces. Real noise, RGB/depth edge mismatch and general objects remain unqualified.
+
+## Marker window freshness at submission — 2026-11-17
+
+The probe now validates three strictly increasing positive source stamps, fixed
+camera calibration/frame/size and every channel's receipt within the same observation
+window. Freshness uses same-process monotonic time, with a strict age below two
+seconds. It is checked at decision and again after action-server discovery, before
+marker navigation submission; a five-second discovery wait cannot reuse an expired
+window. Existing source-to-odometry and state/actuation checks remain in place.
+These checks do not authenticate the source clock or prove synchronized acquisition.
+
+Clock-controlled regressions cover expiry during server discovery, per-channel
+old/future/pre-window receipts, duplicate/reversed stamps and malformed/changed
+metadata. Focused camera/marker/viewpoint tests65PASS; full core685PASS. New source
+has not executed a flight. The [passive receipt-window record](uav-results/passive-window-20261117/README.md)
+contains20triples,18complete recent windows, and3independently recomputed raw pairs
+(all ABSENT in the current default view). Maximum recorded window receipt age0.132s.
+The other17raw images were not saved. Saved monotonic times support replay of that
+check only, never freshness or motion permission in a later process.

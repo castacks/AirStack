@@ -1,0 +1,7 @@
+{
+  "capture_sha256": "5aa2935a8f2f59f339de126de8e21b7078a400e3d1b66cbc6d4402f2ca13c92d",
+  "detector_sha256": "7507196036b7f60358b06c4e7c0cce7b67a5838236eb0750f8092a405c7ed68a",
+  "pairing_sha256": "e1ab7e559ecf7bd0698414667e5aa15a7cbcf31598de1d8c7f569dd12029a8de",
+  "cv2_version": "4.6.0",
+  "numpy_version": "1.26.4"
+}

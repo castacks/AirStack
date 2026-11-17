@@ -1,0 +1,35 @@
+{
+  "scope": "saved passive source headers/receipt arithmetic; no fresh permission on replay",
+  "records": 20,
+  "windows": 18,
+  "raw_recomputed": 3,
+  "unsaved_raw": 17,
+  "statuses": {
+    "ABSENT": 20
+  },
+  "max_window_receipt_age_s": 0.1315818729926832,
+  "max_window_receipt_span_s": 0.13049168698489666,
+  "physical_execution": false,
+  "source_sha256": {
+    "capture_sha256": "5aa2935a8f2f59f339de126de8e21b7078a400e3d1b66cbc6d4402f2ca13c92d",
+    "detector_sha256": "7507196036b7f60358b06c4e7c0cce7b67a5838236eb0750f8092a405c7ed68a",
+    "pairing_sha256": "e1ab7e559ecf7bd0698414667e5aa15a7cbcf31598de1d8c7f569dd12029a8de",
+    "cv2_version": "4.6.0",
+    "numpy_version": "1.26.4"
+  },
+  "input_sha256": {
+    "README.md": "3cf7ee6ea5537b8487cc08cc6c1587647dc4c0db7567c4efa2f7b2d72ada1c61",
+    "provenance.json": "ab81c76b6178eb083e482f44c4862b1a593dc96a094ff2d028c66e5a362e30ae",
+    "frame-019.npz": "edb7f3621618aa718fe05006975d0fb26ee08215838d2eafcf92548bfe49f518",
+    "assessed-camera-pairing.py": "e1ab7e559ecf7bd0698414667e5aa15a7cbcf31598de1d8c7f569dd12029a8de",
+    "frame-000.png": "0c1060e51550e23b5d6e6635542d7608f7ba77d0071302ef250feacf9fff4c4c",
+    "frame-010.npz": "77750bed6df8b7777bb1a684df707037825e380758a796c7cb72bce6439479ba",
+    "summary.json": "b5120862379254df327ea2d1bea10ad672fca5fab8502095fae8e35fc81464f9",
+    "frame-010.png": "c96f655e35470398d7c262e9c11f6350ec15d8392ca755eb0154ba53ef5ec190",
+    "audit.py": "499626f1d5d7c40210c0f1dae327a2175c9124c650da281028366239b3ce827b",
+    "capture.py": "5aa2935a8f2f59f339de126de8e21b7078a400e3d1b66cbc6d4402f2ca13c92d",
+    "frame-019.png": "b240745ee33e0f4f17a43a39c3b5c7362cc3e75260c37c71d65238fd24196582",
+    "observations.jsonl": "7698fe0ffb37911efd8ae7fcd77586c5bffa101a322a8cfbcd08e74126ae4eee",
+    "frame-000.npz": "f1f81a64395543a12d3cab0c320e74a1875dab19e706bb102f8126a61985ef05"
+  }
+}
