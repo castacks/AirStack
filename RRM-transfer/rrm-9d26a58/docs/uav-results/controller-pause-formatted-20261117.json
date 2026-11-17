@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "59d555d82",
+  "scope": "mechanical formatting after PAUSE repair; isolated synthetic reference contract",
+  "candidate": {
+    "paused_reference_excursion_m": 0.0,
+    "verdict": "PASS",
+    "checks": {
+      "track_admitted": true,
+      "initial_reference_observed": true,
+      "pause_admitted": true,
+      "paused_override_reference_frozen": true,
+      "paused_output_zero_velocity": true,
+      "invalid_mode_rejected": true,
+      "invalid_mode_preserves_pause": true,
+      "explicit_track_admitted": true,
+      "normal_override_after_explicit_mode": true
+    },
+    "scope": "synthetic reference stream only; no physical stop or exclusive authority",
+    "executable_sha256": "419a388ef1fc15826e3fd4bfc50602a9133b8f0e9deb96172d19ee8b26d3d3ec",
+    "harness_sha256": "7e14def37482e47ec75dfb107d9760393085f3dbdda3f1396d2029555c065c04"
+  },
+  "validation": {
+    "ctest_passed": 7,
+    "ctest_total": 7,
+    "aggregate_tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skips": 2
+  },
+  "live_deployment": false,
+  "source_sha256": {
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp": "b643bb048f8292cb015f1067e8ac08513557c682b43c7b47b4c924ce43547e99",
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/fixed_trajectory_task.cpp": "e85be16a74df2f059c6bc962e675e06a927cf356b463da56134588bca959e437",
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/tracking_point.py": "47a144eb03a352d50950e128f7aabd62f8d9de131bbd36a2b86a1dc7760b09db",
+    "robot/ros_ws/src/local/controls/trajectory_controller/CMakeLists.txt": "d65d6434d60f9242e50cbd07d76dc41564ca8352c0f23c39ddec81facd361d28",
+    "robot/ros_ws/src/local/controls/trajectory_controller/package.xml": "c1065e2f0c35b867193082ad90d5f6a940df17d616aa3190aa2cf4d12711da51",
+    "robot/ros_ws/src/local/controls/trajectory_controller/test/isolated_pause_reference.py": "7e14def37482e47ec75dfb107d9760393085f3dbdda3f1396d2029555c065c04"
+  }
+}

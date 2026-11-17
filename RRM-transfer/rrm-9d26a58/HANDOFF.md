@@ -92,6 +92,19 @@ zero errors, from legacy tracking_point.py flake8, CMake whitespace and two C++
 uncrustify divergences. Those lint families also fail on unchanged source; new Python
 contract passes lint and actual-binary checks. Do not report a clean full package.
 
+Subsequent registration cleanup:adding trajectory_controller to the standard colcon
+test-package list would expose those legacy lint failures to CI. A separate mechanical
+formatting increment fixes tracking_point.py import order/whitespace, CMake closing
+indentation, and applies the configured ament_uncrustify style to both C++ files.
+Formatter adds braces around existing single-statement branches; expression,
+operator and literal token streams match before/after when comments/whitespace/braces
+are excluded, with added-brace sites inspected. Rebuilt in the separate install and
+reran the complete package:7/7CTestPASS; aggregate18tests,zero errors/failures,two
+skips. Actual-controller contract still9/9PASS with zero reference excursion.
+Earlier unformatted-source reports retain their original failures and hashes;
+this clean result is a later source checkpoint, not a rewrite of them. Live controller
+and watchdog binaries remain unchanged; no flight or scene switch occurred.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

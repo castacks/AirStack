@@ -123,10 +123,10 @@ static void get_accelerations(TrajectoryXYZVYaw & traj)
     double v_ny = wps[j].velocity * dy2 / dist2;
 
     constexpr double acc_limit = 50.0;
-    wps[i].acceleration.x = (std::abs(dx1) < 1e-6)
-      ? 0.0 : std::min((v_nx * v_nx - v_cx * v_cx) / (2.0 * dx1), acc_limit);
-    wps[i].acceleration.y = (std::abs(dy1) < 1e-6)
-      ? 0.0 : std::min((v_ny * v_ny - v_cy * v_cy) / (2.0 * dy1), acc_limit);
+    wps[i].acceleration.x = (std::abs(dx1) < 1e-6) ?
+      0.0 : std::min((v_nx * v_nx - v_cx * v_cx) / (2.0 * dx1), acc_limit);
+    wps[i].acceleration.y = (std::abs(dy1) < 1e-6) ?
+      0.0 : std::min((v_ny * v_ny - v_cy * v_cy) / (2.0 * dy1), acc_limit);
     wps[i].acceleration.z = 0.0;
   }
 
