@@ -204,6 +204,17 @@ No parameter write, repair, restart, mode change or flight. Compact hashed repor
 `docs/uav-results/readiness-20261117.json`. Next:read-only startup/readback log
 diagnosis or isolated existing interface tests; preserve viewer and admission rules.
 
+Installed startup-log diagnosis:terminal guard NOT_READY at1794896927.594413865;
+first recorded PX4 heartbeat connection at1794896936.672251200,9.078seconds later.
+This supports startup-ordering failure; full state/ground receipt history was not
+retained, and the generic error combines unsafe-seen and deadline branches. No
+live repair or restart. Installed plugin hash/log excerpts are retained in
+`docs/uav-results/actuation-startup-diagnosis-20261117.json`. Next useful increment:
+explicit actuation-reason telemetry, validated against the actual plugin with mock
+MAVROS on emptyDDS198 in a separate install. Keep startup/admission thresholds,
+one-attempt policy and live runtime unchanged; improve diagnosis rather than bypass
+the false readiness signal.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

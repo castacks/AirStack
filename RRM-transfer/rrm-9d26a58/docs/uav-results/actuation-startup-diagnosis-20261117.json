@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "a6d6a57c2",
+  "scope": "read-only installed startup log diagnosis",
+  "guard_failure_log": "[robot_interface_node-4] [ERROR] [1794896927.594413865] [robot_1.interface.robot_interface]: Actuation NOT_READY: no safe startup evidence before deadline",
+  "first_recorded_connection_log": "[mavros_node-3] [INFO] [1794896936.672251200] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot",
+  "connection_after_guard_failure_wall_s": 9.077837467193604,
+  "installed_plugin_sha256": "2a5b0cc7ae1c28b7b2a216eb3adac7c4ded36090b11d55a72cf843ce65cd37b2",
+  "interpretation": "Late recorded FCU connection supports startup-ordering failure; complete input receipt history unavailable",
+  "live_repair": false,
+  "limits": [
+    "Generic guard error conflates timeout and unsafe-before-initialization",
+    "No physical state/readiness qualification from startup logs",
+    "No parameter writes, restart or flight"
+  ]
+}
