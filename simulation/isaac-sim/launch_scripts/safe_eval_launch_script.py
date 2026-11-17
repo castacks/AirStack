@@ -16,20 +16,19 @@ runs unmodified against it) with three additions, all inside this process:
     lines: sim time, drone world pose/velocity, all obstacle positions, and
     a latched analytic collision flag. The eval harness paces episodes and
     scores safety metrics from this stream.
- 3. Obstacle field — kinematic cylinder prims (static pillars + waypoint-
-    walking "pedestrians") teleported each sim step. They are plain render
-    geometry, so the drone's ZED / lidar genuinely sees them.
+ 3. SAFE's world — the named SAFE domain built by SAFE's world builder, its
+    static obstacles, and its movers: SAFE's walking people, or without them
+    kinematic waypoint-walking cylinders teleported each sim step. All are
+    render geometry, so the drone's ZED / lidar genuinely sees them.
 
 Config arrives as JSON in SAFE_EVAL_CONFIG (set by eval/stack/compose.py):
-    env_url            Nucleus-relative USD path, SIMULATION_ENVIRONMENTS key,
-                       full omniverse:// URL, or null for the default grid.
-    stage_scale        scale for /World/stage (Nucleus cm assets → 0.01)
-    spawn              [x, y] drone spawn (z fixed at 0.07)
-    max_dynamic        obstacle prim pool size (actives set per scenario)
-    max_static         static cylinder prim pool size
-    obstacle_radius    cylinder radius (m)
+    safe_domain        the SAFE Isaac domain to build (required)
+    humans             SAFE's walking people as the movers
+    static_only        no movers
+    goal_distance      SAFE's goal distance, which scales procedural domains
+    obstacle_radius    mover cylinder radius (m)
     drone_radius       collision radius of the drone body (m)
-    arena              [x_min, y_min, x_max, y_max] wall bounds for collision
+The arena, the spawn and the mover count come from the SAFE domain.
 
 Selected via ISAAC_SIM_SCRIPT_NAME=safe_eval_launch_script.py at airstack up.
 """
@@ -64,7 +63,7 @@ import omni.kit.app
 import omni.timeline
 import omni.usd
 
-from pxr import Gf, Sdf, UsdGeom, UsdShade
+from pxr import Gf, Sdf, UsdGeom
 
 from omni.isaac.core.world import World
 
@@ -74,7 +73,7 @@ from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light
+from scene_prep import add_dome_light
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 ROBOT_NAME = "robot_1"
@@ -89,30 +88,27 @@ PHYSICS_DT = RENDER_DT / 4
 TICK_TOLERANCE_S = PHYSICS_DT / 2
 
 _DEFAULT_CONFIG = {
-    "env_url": None,
-    "stage_scale": 1.0,
-    "spawn": [0.0, 0.0],
-    "max_dynamic": 30,
-    "max_static": 12,
     "obstacle_radius": 0.3,
     "drone_radius": 0.31,
-    "arena": [-10.0, -10.0, 10.0, 10.0],
-    "safe_domain": None,
     "humans": False,
     "static_only": False,
     "goal_distance": None,
-    "spawn_z": 0.07,
 }
 
 
 def load_config() -> dict:
+    """The run's SAFE_EVAL_CONFIG over the defaults, raising when it does not parse or names no
+    SAFE domain."""
     cfg = dict(_DEFAULT_CONFIG)
     raw = os.environ.get("SAFE_EVAL_CONFIG", "")
-    if raw:
-        try:
-            cfg.update(json.loads(raw))
-        except (ValueError, TypeError) as e:
-            carb.log_error(f"[safe_eval] bad SAFE_EVAL_CONFIG ({e}) — using defaults")
+    try:
+        cfg.update(json.loads(raw) if raw else {})
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"SAFE_EVAL_CONFIG is not a JSON object ({e}); "
+                         "eval/stack/compose.py writes it") from e
+    if not cfg.get("safe_domain"):
+        raise ValueError("SAFE_EVAL_CONFIG names no safe_domain; set safe_domain to a SAFE "
+                         "Isaac domain such as \"empty\"")
     return cfg
 
 
@@ -136,22 +132,6 @@ for ext in [
         ext_manager.set_extension_enabled_immediate(ext, True)
 
 
-def resolve_env_url(env_url):
-    if not env_url:
-        return SIMULATION_ENVIRONMENTS["Default Environment"]
-    if env_url in SIMULATION_ENVIRONMENTS:
-        return SIMULATION_ENVIRONMENTS[env_url]
-    if env_url.startswith("omniverse://") or env_url.startswith("http"):
-        return env_url
-    # Nucleus-relative path like /Isaac/Environments/Simple_Warehouse/full_warehouse.usd
-    from isaacsim.storage.native import nucleus
-    root = nucleus.get_assets_root_path()
-    if root is None:
-        carb.log_error("[safe_eval] no Nucleus assets root — falling back to default grid")
-        return SIMULATION_ENVIRONMENTS["Default Environment"]
-    return root + env_url
-
-
 def wait_for_stage(stage, timeout_s: float = 10.0):
     for _ in range(int(timeout_s / 0.1)):
         omni.kit.app.get_app().update()
@@ -164,96 +144,16 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
     return False
 
 
-def _write_noise_texture(path: str, size: int = 512, seed: int = 7) -> None:
-    """Multi-scale grey noise PNG: dense stereo texture at every viewing distance."""
-    import zlib
-    import struct
-    rng = np.random.RandomState(seed)
-    img = np.zeros((size, size), dtype=np.float64)
-    for cells in (8, 32, 128, 512):
-        coarse = rng.uniform(0.0, 1.0, (cells, cells))
-        img += np.kron(coarse, np.ones((size // cells, size // cells)))
-    img = (img - img.min()) / (img.max() - img.min())
-    px = (40 + 175 * img).astype(np.uint8)
-    raw = b"".join(b"\x00" + px[y].tobytes() for y in range(size))
-
-    def chunk(tag, data):
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
-    with open(path, "wb") as f:
-        f.write(b"\x89PNG\r\n\x1a\n"
-                + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 0, 0, 0, 0))
-                + chunk(b"IDAT", zlib.compress(raw))
-                + chunk(b"IEND", b""))
-
-
-def _textured_quad(stage, path: str, corners, material, repeat_u: float, repeat_v: float) -> None:
-    mesh = UsdGeom.Mesh.Define(stage, path)
-    mesh.CreatePointsAttr([Gf.Vec3f(*c) for c in corners])
-    mesh.CreateFaceVertexCountsAttr([4])
-    mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-    mesh.CreateDoubleSidedAttr(True)
-    st = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
-        "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
-    st.Set([Gf.Vec2f(0, 0), Gf.Vec2f(repeat_u, 0), Gf.Vec2f(repeat_u, repeat_v), Gf.Vec2f(0, repeat_v)])
-    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
-
-
-def build_textured_arena(stage, arena, height: float) -> None:
-    """Floor and four walls at the arena boundary with a noise texture, for scenes
-    with no USD environment. The default grid is textureless, so stereo planners
-    see nothing and never certify a free trajectory."""
-    tex = "/tmp/safe_eval_noise.png"
-    _write_noise_texture(tex)
-    x0, y0, x1, y1 = [float(v) for v in arena]
-    root = "/World/safe_arena"
-    UsdGeom.Xform.Define(stage, root)
-    material = UsdShade.Material.Define(stage, root + "/noise_mat")
-    shader = UsdShade.Shader.Define(stage, root + "/noise_mat/surface")
-    shader.CreateIdAttr("UsdPreviewSurface")
-    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9)
-    reader = UsdShade.Shader.Define(stage, root + "/noise_mat/st_reader")
-    reader.CreateIdAttr("UsdPrimvarReader_float2")
-    reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
-    texture = UsdShade.Shader.Define(stage, root + "/noise_mat/texture")
-    texture.CreateIdAttr("UsdUVTexture")
-    texture.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(tex)
-    texture.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("repeat")
-    texture.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("repeat")
-    texture.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(
-        reader.CreateOutput("result", Sdf.ValueTypeNames.Float2))
-    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
-        texture.CreateOutput("rgb", Sdf.ValueTypeNames.Float3))
-    material.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
-
-    # 1 m per texture tile: features from a few cm to a metre.
-    z = 0.01
-    _textured_quad(stage, root + "/floor",
-                   [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)],
-                   material, x1 - x0, y1 - y0)
-    walls = {
-        "wall_south": ([(x0, y0, 0), (x1, y0, 0), (x1, y0, height), (x0, y0, height)], x1 - x0),
-        "wall_north": ([(x1, y1, 0), (x0, y1, 0), (x0, y1, height), (x1, y1, height)], x1 - x0),
-        "wall_west":  ([(x0, y1, 0), (x0, y0, 0), (x0, y0, height), (x0, y1, height)], y1 - y0),
-        "wall_east":  ([(x1, y0, 0), (x1, y1, 0), (x1, y1, height), (x1, y0, height)], y1 - y0),
-    }
-    for name, (corners, length) in walls.items():
-        _textured_quad(stage, f"{root}/{name}", corners, material, length, height)
-
-
 class ObstaclePool:
-    """Pre-spawned kinematic cylinder prims, teleported per step.
-
-    Two pools: 'static' pillars (full flight-height cylinders) and 'dynamic'
-    pedestrian stand-ins. Inactive prims park underground at z=-100 so a
-    scenario can use any count up to the pool size without stage edits.
-    """
+    """Pre-spawned kinematic cylinder prims standing in for the movers of a run without people,
+    teleported per step. Inactive prims park underground at z=-100 so a scenario can use any
+    count up to the pool size without stage edits."""
 
     PARKED_Z = -100.0
 
     def __init__(self, stage, radius: float):
         self.stage = stage
         self.radius = radius
-        self.static_ops = []
         self.dynamic_ops = []
 
     def _spawn_cylinder(self, path: str, height: float, color) -> "UsdGeom.XformOp":
@@ -274,11 +174,7 @@ class ObstaclePool:
         cyl.CreateDisplayColorAttr([color])
         return translate_op
 
-    def build(self, max_static: int, max_dynamic: int):
-        for i in range(max_static):
-            op = self._spawn_cylinder(f"/World/safe_eval/static_{i}", height=3.0,
-                                      color=Gf.Vec3f(0.35, 0.35, 0.4))
-            self.static_ops.append(op)
+    def build(self, max_dynamic: int):
         for i in range(max_dynamic):
             op = self._spawn_cylinder(f"/World/safe_eval/dynamic_{i}", height=1.8,
                                       color=Gf.Vec3f(0.85, 0.35, 0.1))
@@ -306,7 +202,7 @@ class ScenarioManager:
     """
 
     def __init__(self, stage, pool: ObstaclePool, cfg: dict, pegasus: PegasusInterface,
-                 humans=None, safe_cfg=None, safe_static_prims=None):
+                 safe_cfg, humans=None, safe_static_prims=None):
         self._clients: list = []
         self._clients_lock = threading.Lock()
         self._inbox: "queue.Queue" = queue.Queue()
@@ -432,8 +328,7 @@ class ScenarioManager:
                 "arena": self.arena,
                 "obstacle_radius": self.obstacle_radius,
                 "drone_radius": self.drone_radius,
-                "max_static": (len(self.safe_static_prims) if self.safe_cfg is not None
-                               else len(self.pool.static_ops)),
+                "max_static": len(self.safe_static_prims),
                 "max_dynamic": self.humans.n if self.humans is not None else len(self.pool.dynamic_ops),
                 "safe_domain": self.cfg.get("safe_domain"),
                 "domain_info": self.cfg.get("domain_info"),
@@ -472,8 +367,6 @@ class ScenarioManager:
         raise ValueError(f"unknown cmd '{cmd}'")
 
     def _generate_safe_scenario(self, args):
-        if self.safe_cfg is None:
-            raise RuntimeError('generate_safe_scenario requires a SAFE source domain')
         from eval.sim.safe_source_scene import sample_scenario
         layout, behavior, difficulty = sample_scenario(
             self.safe_cfg,
@@ -550,8 +443,7 @@ class ScenarioManager:
         wpts = np.asarray(args.get("waypoints", []), dtype=np.float32).reshape(-1, 3) \
             if args.get("waypoints") else dyn.copy()
 
-        max_static = (len(self.safe_static_prims) if self.safe_cfg is not None
-                      else len(self.pool.static_ops))
+        max_static = len(self.safe_static_prims)
         if len(static) > max_static:
             raise ValueError(f"{len(static)} static > pool {max_static}")
         max_dynamic = (self.humans.n if self.humans is not None
@@ -571,21 +463,18 @@ class ScenarioManager:
         self.target = [float(v) for v in args["target"]] if args.get("target") else None
         self._rng = np.random.RandomState(int(args.get("seed", 0)))
 
-        if self.safe_cfg is not None:
-            gm = getattr(self.safe_cfg, '_ground_map', None)
-            for i, prim in enumerate(self.safe_static_prims):
-                if i < len(static):
-                    pos = static[i].astype(np.float32).copy()
-                    # The layout's z is the base height above the ground, which lifts
-                    # floating obstacles off it, as SAFE's _to_isaac_on_ground keeps it.
-                    ground = gm.ground_at(float(pos[0]), float(pos[1])) if gm else None
-                    pos[2] += (float(ground) if ground is not None
-                               else float(self.safe_cfg.origin_z))
-                else:
-                    pos = np.array([0.0, 0.0, -100.0], dtype=np.float32)
-                prim.set_world_poses(positions=pos.reshape(1, 3))
-        else:
-            self.pool._place(self.pool.static_ops, static)
+        gm = getattr(self.safe_cfg, '_ground_map', None)
+        for i, prim in enumerate(self.safe_static_prims):
+            if i < len(static):
+                pos = static[i].astype(np.float32).copy()
+                # The layout's z is the base height above the ground, which lifts
+                # floating obstacles off it, as SAFE's _to_isaac_on_ground keeps it.
+                ground = gm.ground_at(float(pos[0]), float(pos[1])) if gm else None
+                pos[2] += (float(ground) if ground is not None
+                           else float(self.safe_cfg.origin_z))
+            else:
+                pos = np.array([0.0, 0.0, -100.0], dtype=np.float32)
+            prim.set_world_poses(positions=pos.reshape(1, 3))
         if self.humans is not None:
             # SAFE's character controller accepts benchmark XY (Isaac Y/X).
             bench_pos, bench_vel = dyn.copy(), vel.copy()
@@ -726,7 +615,7 @@ class ScenarioManager:
         if self.n_active_dyn == 0 or dt <= 0.0:
             return
         x_min, y_min, x_max, y_max = self.arena
-        # waypoint walk: mirrors eval/sim/scenario_config.update_dynamic_obstacles
+        # Each cylinder walks to its waypoint and draws a new one inside the arena on arrival.
         r = self.obstacle_radius
         arrival = max(r * 2.0, 1.0)
         for i in range(self.n_active_dyn):
@@ -869,7 +758,7 @@ class ScenarioManager:
     def _body_clearance(self, pos, quat_wxyz):
         """(clearance, what) from the drone's collider box to the nearest surface: every PhysX
         collider by growing the box until it touches, then the arena walls and colliderless
-        pool columns exactly."""
+        mover cylinders exactly."""
         from safe_navigation.common.config.run_settings import CLEARANCE_SEARCH_REACH_M
         reach = float(CLEARANCE_SEARCH_REACH_M)
         hit = self._box_hit(0.0, pos, quat_wxyz)
@@ -899,19 +788,13 @@ class ScenarioManager:
                          (corners[:, 1] - y_min).min(), (y_max - corners[:, 1]).min()))
         if wall < best[0]:
             best = (max(wall, 0.0), "wall")
-        # AirStack's own pool columns are visual only: moving ones when there are no people, and
-        # static ones on its legacy domains, where SAFE's collider prims are not built.
+        # The mover cylinders of a run without people are visual only, so they are measured here.
         if self.humans is None and self.n_active_dyn > 0:
             d = self._footprint_distance(self.dyn_positions[: self.n_active_dyn, :2],
                                          corners[:, :2]) - self.obstacle_radius
             i = int(np.argmin(d))
             if d[i] < best[0]:
                 best = (max(float(d[i]), 0.0), f"dynamic_obstacle_{i}")
-        if self.safe_cfg is None and len(self.static_positions):
-            d = self._footprint_distance(self.static_positions[:, :2], corners[:, :2]) - self.static_radii
-            i = int(np.argmin(d))
-            if d[i] < best[0]:
-                best = (max(float(d[i]), 0.0), f"static_obstacle_{i}")
         return best
 
     def _check_collision(self, drone_pos, quat_wxyz):
@@ -983,8 +866,7 @@ class SafeEvalApp:
         self.world = self.pg.world
         self.timeline.stop()
 
-        source_domain = CONFIG.get("safe_domain")
-        self.pg.load_environment(resolve_env_url(None if source_domain else CONFIG["env_url"]))
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
 
         stage = omni.usd.get_context().get_stage()
         if stage is None:
@@ -992,71 +874,60 @@ class SafeEvalApp:
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
-        safe_cfg = None
         humans = None
-        if source_domain:
-            if _safe_source not in sys.path:
-                raise RuntimeError('SAFE source checkout is not mounted in Isaac')
-            # Pegasus owns the vehicle; SAFE owns the scene. Remove Pegasus's
-            # default grid before adding SAFE's authored stage/ground.
-            if stage.GetPrimAtPath('/World/stage').IsValid():
-                stage.RemovePrim(Sdf.Path('/World/stage'))
-            if CONFIG.get('static_only'):
-                os.environ['SAFE_NO_DYNAMIC'] = '1'
-                os.environ['SAFE_NO_DYNAMIC_FROM_YAML'] = '1'
-            from eval.sim.safe_source_scene import load_domain, create_humans
-            safe_cfg = load_domain(source_domain, CONFIG.get('goal_distance'))
-            CONFIG['domain_info'] = {
-                'size_x': float(safe_cfg.size_x),
-                'size_y': float(safe_cfg.size_y),
-                'size_z': float(safe_cfg.size_z),
-                'origin_x': float(safe_cfg.origin_x),
-                'origin_y': float(safe_cfg.origin_y),
-                'origin_z': float(safe_cfg.origin_z),
-            }
-            paths = safe_cfg.static_obstacle_prim_paths or []
-            if paths:
-                from safe_navigation.common.config.scenarios import (
-                    _read_obstacle_positions_from_stage,
-                    _read_obstacle_aabbs_from_stage,
-                )
-                mesh_pos = _read_obstacle_positions_from_stage(
-                    paths, 3, origin_z=safe_cfg.origin_z)
-                mesh_aabb = _read_obstacle_aabbs_from_stage(paths)
-                mesh_pos[:, [0, 1]] = mesh_pos[:, [1, 0]]
-                mesh_pos[:, 2] += float(safe_cfg.origin_z)
-                mesh_aabb[:, [0, 1, 2, 3]] = mesh_aabb[:, [1, 0, 3, 2]]
-                CONFIG['domain_info']['static_mesh_positions'] = mesh_pos.tolist()
-                CONFIG['domain_info']['static_mesh_aabbs'] = mesh_aabb.tolist()
-            else:
-                CONFIG['domain_info']['static_mesh_positions'] = []
-                CONFIG['domain_info']['static_mesh_aabbs'] = []
-            CONFIG['arena'] = [float(safe_cfg.origin_y), float(safe_cfg.origin_x),
-                               float(safe_cfg.origin_y + safe_cfg.size_y),
-                               float(safe_cfg.origin_x + safe_cfg.size_x)]
-            CONFIG['spawn'] = [(CONFIG['arena'][0] + CONFIG['arena'][2]) / 2,
-                               (CONFIG['arena'][1] + CONFIG['arena'][3]) / 2]
-            CONFIG['spawn_z'] = float(safe_cfg.origin_z) + 0.07
-            if safe_cfg.usd_path:
-                # A stage's box centre can sit inside or under its terrain, where the vehicle
-                # never settles and PX4's EKF never converges.
-                from eval.sim.safe_source_scene import stage_spawn
-                sx, sy, gz = stage_spawn(safe_cfg, CONFIG['spawn'])
-                CONFIG['spawn'], CONFIG['spawn_z'] = [sx, sy], gz + 0.07
-            CONFIG['max_dynamic'] = int(safe_cfg.num_dynamic_obstacles)
-            CONFIG['max_static'] = int(safe_cfg.num_static_cylinders)
-            if CONFIG.get('humans') and safe_cfg.num_dynamic_obstacles:
-                humans = create_humans(safe_cfg)
+        if _safe_source not in sys.path:
+            raise RuntimeError('SAFE source checkout is not mounted in Isaac')
+        # Pegasus owns the vehicle; SAFE owns the scene. Remove Pegasus's
+        # default grid before adding SAFE's authored stage/ground.
+        if stage.GetPrimAtPath('/World/stage').IsValid():
+            stage.RemovePrim(Sdf.Path('/World/stage'))
+        if CONFIG.get('static_only'):
+            os.environ['SAFE_NO_DYNAMIC'] = '1'
+            os.environ['SAFE_NO_DYNAMIC_FROM_YAML'] = '1'
+        from eval.sim.safe_source_scene import load_domain, create_humans
+        safe_cfg = load_domain(CONFIG['safe_domain'], CONFIG.get('goal_distance'))
+        CONFIG['domain_info'] = {
+            'size_x': float(safe_cfg.size_x),
+            'size_y': float(safe_cfg.size_y),
+            'size_z': float(safe_cfg.size_z),
+            'origin_x': float(safe_cfg.origin_x),
+            'origin_y': float(safe_cfg.origin_y),
+            'origin_z': float(safe_cfg.origin_z),
+        }
+        paths = safe_cfg.static_obstacle_prim_paths or []
+        if paths:
+            from safe_navigation.common.config.scenarios import (
+                _read_obstacle_positions_from_stage,
+                _read_obstacle_aabbs_from_stage,
+            )
+            mesh_pos = _read_obstacle_positions_from_stage(
+                paths, 3, origin_z=safe_cfg.origin_z)
+            mesh_aabb = _read_obstacle_aabbs_from_stage(paths)
+            mesh_pos[:, [0, 1]] = mesh_pos[:, [1, 0]]
+            mesh_pos[:, 2] += float(safe_cfg.origin_z)
+            mesh_aabb[:, [0, 1, 2, 3]] = mesh_aabb[:, [1, 0, 3, 2]]
+            CONFIG['domain_info']['static_mesh_positions'] = mesh_pos.tolist()
+            CONFIG['domain_info']['static_mesh_aabbs'] = mesh_aabb.tolist()
+        else:
+            CONFIG['domain_info']['static_mesh_positions'] = []
+            CONFIG['domain_info']['static_mesh_aabbs'] = []
+        CONFIG['arena'] = [float(safe_cfg.origin_y), float(safe_cfg.origin_x),
+                           float(safe_cfg.origin_y + safe_cfg.size_y),
+                           float(safe_cfg.origin_x + safe_cfg.size_x)]
+        CONFIG['spawn'] = [(CONFIG['arena'][0] + CONFIG['arena'][2]) / 2,
+                           (CONFIG['arena'][1] + CONFIG['arena'][3]) / 2]
+        CONFIG['spawn_z'] = float(safe_cfg.origin_z) + 0.07
+        if safe_cfg.usd_path:
+            # A stage's box centre can sit inside or under its terrain, where the vehicle
+            # never settles and PX4's EKF never converges.
+            from eval.sim.safe_source_scene import stage_spawn
+            sx, sy, gz = stage_spawn(safe_cfg, CONFIG['spawn'])
+            CONFIG['spawn'], CONFIG['spawn_z'] = [sx, sy], gz + 0.07
+        CONFIG['max_dynamic'] = int(safe_cfg.num_dynamic_obstacles)
+        if CONFIG.get('humans') and safe_cfg.num_dynamic_obstacles:
+            humans = create_humans(safe_cfg)
 
-        stage_prim = stage.GetPrimAtPath("/World/stage")
-        if stage_prim.IsValid():
-            scale_stage_prim(stage, "/World/stage", float(CONFIG["stage_scale"]))
-            add_colliders(stage_prim)
-            for _ in range(10):
-                omni.kit.app.get_app().update()
         add_dome_light(stage)
-        if not source_domain and not CONFIG["env_url"]:
-            build_textured_arena(stage, CONFIG["arena"], float(CONFIG.get("size_z", 5.0)))
 
         spawn = CONFIG["spawn"]
         graph_handle = spawn_px4_multirotor_node(
@@ -1123,18 +994,14 @@ class SafeEvalApp:
             except ImportError as e:
                 raise RuntimeError(f"[safe_eval] requested lidar unavailable: {e}") from e
 
-        safe_static_prims = []
-        if safe_cfg is not None:
-            from safe_isaac.world_builder import spawn_static_cylinder_obstacles
-            safe_static_prims = spawn_static_cylinder_obstacles(
-                int(safe_cfg.num_static_cylinders), env_prefix='safe_eval',
-                trees=bool(safe_cfg.tree_usd))
+        from safe_isaac.world_builder import spawn_static_cylinder_obstacles
+        safe_static_prims = spawn_static_cylinder_obstacles(
+            int(safe_cfg.num_static_cylinders), env_prefix='safe_eval',
+            trees=bool(safe_cfg.tree_usd))
         pool = ObstaclePool(stage, radius=float(CONFIG["obstacle_radius"]))
-        pool.build(0 if safe_cfg is not None else int(CONFIG["max_static"]),
-                   0 if humans is not None else int(CONFIG["max_dynamic"]))
-        self.manager = ScenarioManager(stage, pool, CONFIG, self.pg,
-                                       humans=humans, safe_cfg=safe_cfg,
-                                       safe_static_prims=safe_static_prims)
+        pool.build(0 if humans is not None else int(CONFIG["max_dynamic"]))
+        self.manager = ScenarioManager(stage, pool, CONFIG, self.pg, safe_cfg,
+                                       humans=humans, safe_static_prims=safe_static_prims)
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 

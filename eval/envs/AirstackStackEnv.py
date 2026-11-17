@@ -37,7 +37,6 @@ from scipy.spatial.transform import Rotation
 from safe_core.core.env_backend import BaseEnvBackend
 from safe_core.utils import console
 
-from ..sim import scenario_config
 from ..stack.compose import StackHandle
 
 
@@ -97,22 +96,14 @@ class AirstackStackEnv(BaseEnvBackend):
         from ..adapter import Adapter
         self.r_failure = self.obstacle_radius + Adapter._body_radius()
         self.r_unsafe = self.r_failure + Adapter._band()
-        # Start keep-out from obstacle centres, held at its earlier value so seeds keep their starts.
-        self.spawn_clearance = 0.91
         self.collision_radius = 0.31  # ScenarioManager drone-body contact radius
         self.v_threshold = 0.05
         # Run-up flown before each episode: stereo planners need two airborne
         # viewpoints more than a metre apart before they will certify a path.
         self.warmup_runup_m = 1.5
-        # Start and goal stay this far from the arena walls, which are physical
-        # here: the stack planner inflates them by 2 m and looks 6 m ahead, so a
-        # goal closer than that is never approached within tolerance.
-        self.wall_margin = 8.0
-        self.min_goal_distance = 12.0
 
         self.stack = StackHandle(headless=headless, keep_up=keep_up)
         self._action_space = _BoxActionSpace(3)
-        self.np_random = np.random.RandomState(0)
 
         # Populated by switch_domain() / _apply_domain_cfg()
         self._apply_domain_cfg(env_cfg)
@@ -124,8 +115,6 @@ class AirstackStackEnv(BaseEnvBackend):
         self._scenario_index: int | None = None
         self._scenario_difficulty: dict | None = None
         self._collided = False
-        self._dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
-        self._initial_dynamic_obstacle_velocities = np.zeros((0, 3), dtype=np.float32)
         # Collider radii the ScenarioManager placed, set from its reply on every reset.
         self._static_cylinder_radii = np.zeros(0, dtype=np.float32)
         self._dynamic_radius: float | None = None
@@ -168,51 +157,19 @@ class AirstackStackEnv(BaseEnvBackend):
                 self.origin_x + self.size_x, self.origin_y + self.size_y]
 
     def _safe_eval_config(self) -> dict:
-        if getattr(self.env_cfg, 'source_domain', None):
-            # The source stage measures its own bounds after load. Do not put
-            # those measured values into the stack fingerprint: that would
-            # restart Isaac on the next episode for the same domain.
-            return {
-                'safe_domain': self.env_cfg.source_domain,
-                'humans': self.humans,
-                'static_only': self.static_only,
-                'goal_distance': self.goal_distance,
-                'env_url': None,
-                'stage_scale': 1.0,
-                'spawn': [0.0, 0.0],
-                'max_dynamic': self.num_dynamic_obstacles,
-                'max_static': self.num_static_cylinders,
-                'obstacle_radius': self.obstacle_radius,
-                'drone_radius': self.collision_radius,
-                'arena': [0.0, 0.0, 1.0, 1.0],
-            }
-        cx = self.origin_x + self.size_x / 2.0
-        cy = self.origin_y + self.size_y / 2.0
+        # The source stage measures its own bounds, spawn and mover count after load. Those
+        # measured values stay out of the stack fingerprint, which would otherwise restart
+        # Isaac on the next episode for the same domain.
         return {
-            "env_url": self.env_cfg.usd_path,
-            "safe_domain": getattr(self.env_cfg, "source_domain", None),
-            "humans": self.humans,
-            "stage_scale": float(getattr(self.env_cfg, "stage_scale", 1.0)),
-            "spawn": [cx, cy],
-            "max_dynamic": max(1, self.num_dynamic_obstacles),
-            "max_static": max(1, self.num_static_cylinders),
-            "obstacle_radius": self.obstacle_radius,
-            "drone_radius": self.collision_radius,
-            "arena": self._arena(),
-            "size_z": float(self.size_z),
+            'safe_domain': self.env_cfg.source_domain,
+            'humans': self.humans,
+            'static_only': self.static_only,
+            'goal_distance': self.goal_distance,
+            'obstacle_radius': self.obstacle_radius,
+            'drone_radius': self.collision_radius,
         }
 
     # ── reset ─────────────────────────────────────────────────────────────
-
-    def prepare_scenario(self, seed: int) -> None:
-        """Sample the scenario layout without touching the stack (called by
-        Adapter.apply_scenario; the flight itself happens in reset())."""
-        self.np_random = np.random.RandomState(seed)
-        self._scenario_seed = seed
-        self._layout = scenario_config.configure_scenario(self)
-        self._dynamic_obstacle_velocities = self._layout["dynamic_obstacle_velocities"]
-        self._initial_dynamic_obstacle_velocities = \
-            self._layout["dynamic_obstacle_velocities"].copy()
 
     def reset(self, seed: Optional[int] = None) -> Tuple[Dict, Dict]:
         self.stack.ensure_up(
@@ -222,70 +179,56 @@ class AirstackStackEnv(BaseEnvBackend):
         )
         bridge = self.stack.bridge  # noqa: F841 — real-topic publisher
         scenario = self.stack.scenario
-        if getattr(self.env_cfg, 'source_domain', None):
-            info = scenario.command('get_info')['domain_info']
-            if not info:
-                raise RuntimeError('SAFE source world did not report measured bounds')
-            # SAFE reports benchmark X/Y; AirStack operates in Isaac world XY.
-            self.size_x = float(info['size_y'])
-            self.size_y = float(info['size_x'])
-            self.size_z = float(info['size_z'])
-            self.origin_x = float(info['origin_y'])
-            self.origin_y = float(info['origin_x'])
-            self._ground_z = float(info['origin_z'])
-            self.flight_z = 2.5  # AirStack TakeoffTask altitude above local ground
-            self.env_cfg.size_x, self.env_cfg.size_y = self.size_x, self.size_y
-            self.env_cfg.origin_x, self.env_cfg.origin_y = self.origin_x, self.origin_y
-            self._static_mesh_positions = np.asarray(
-                info.get('static_mesh_positions', []), dtype=np.float32).reshape(-1, 3)
-            self.static_obstacle_aabbs = np.asarray(
-                info.get('static_mesh_aabbs', []), dtype=np.float32).reshape(-1, 4)
-            self.num_obstacles = len(self._static_mesh_positions)
+        info = scenario.command('get_info')['domain_info']
+        if not info:
+            raise RuntimeError('SAFE source world did not report measured bounds')
+        # SAFE reports benchmark X/Y; AirStack operates in Isaac world XY.
+        self.size_x = float(info['size_y'])
+        self.size_y = float(info['size_x'])
+        self.size_z = float(info['size_z'])
+        self.origin_x = float(info['origin_y'])
+        self.origin_y = float(info['origin_x'])
+        self._ground_z = float(info['origin_z'])
+        self.flight_z = 2.5  # AirStack TakeoffTask altitude above local ground
+        self.env_cfg.size_x, self.env_cfg.size_y = self.size_x, self.size_y
+        self.env_cfg.origin_x, self.env_cfg.origin_y = self.origin_x, self.origin_y
+        self._static_mesh_positions = np.asarray(
+            info.get('static_mesh_positions', []), dtype=np.float32).reshape(-1, 3)
+        self.static_obstacle_aabbs = np.asarray(
+            info.get('static_mesh_aabbs', []), dtype=np.float32).reshape(-1, 4)
+        self.num_obstacles = len(self._static_mesh_positions)
 
-        source_domain = getattr(self.env_cfg, 'source_domain', None)
-        if source_domain:
-            if self._scenario_seed is None or self._scenario_index is None:
-                raise RuntimeError(
-                    'reset() before Adapter.apply_scenario: SAFE scenarios need the '
-                    'framework scenario seed and index')
-            generated = scenario.command('generate_safe_scenario', {
-                'seed': int(self._scenario_seed),
-                'scenario_index': int(self._scenario_index),
-                'goal_distance': self.goal_distance,
-                'perturbation_seed': getattr(self, '_pending_perturbation_seed', None),
-            }, timeout=120)
-            self._ground_z = float(generated['ground_z'])
-            self._scenario_difficulty = generated.get('scenario_difficulty')
-            self._set_collider_radii(generated)
-            self._layout = {
-                'agent_location': np.asarray(generated['start'], dtype=np.float32),
-                'target_location': np.asarray(generated['target'], dtype=np.float32),
-                'static_obstacle_locations': np.asarray(
-                    generated['static_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
-                'static_cylinder_locations': np.asarray(
-                    generated['static_cylinder_locations'], dtype=np.float32).reshape(-1, 3),
-                'dynamic_obstacle_locations': np.asarray(
-                    generated['dynamic_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
-                'dynamic_obstacle_velocities': np.asarray(
-                    generated['dynamic_obstacle_velocities'], dtype=np.float32).reshape(-1, 3),
-                'dynamic_obstacle_waypoints': np.asarray(
-                    generated['dynamic_obstacle_waypoints'], dtype=np.float32).reshape(-1, 3),
-            }
-            self._initial_dynamic_obstacle_velocities = (
-                self._layout['dynamic_obstacle_velocities'].copy())
-        else:
-            if self._layout is None:
-                self.prepare_scenario(self._scenario_seed if self._scenario_seed is not None else 0)
-            if getattr(self, '_pending_perturbation_seed', None) is not None:
-                scenario_config.perturb_scenario(
-                    self, self._pending_perturbation_seed, scale_range=(0.8, 1.2))
+        if self._scenario_seed is None or self._scenario_index is None:
+            raise RuntimeError(
+                'reset() before Adapter.apply_scenario: SAFE scenarios need the '
+                'framework scenario seed and index')
+        generated = scenario.command('generate_safe_scenario', {
+            'seed': int(self._scenario_seed),
+            'scenario_index': int(self._scenario_index),
+            'goal_distance': self.goal_distance,
+            'perturbation_seed': getattr(self, '_pending_perturbation_seed', None),
+        }, timeout=120)
+        self._ground_z = float(generated['ground_z'])
+        self._scenario_difficulty = generated.get('scenario_difficulty')
+        self._set_collider_radii(generated)
+        self._layout = {
+            'agent_location': np.asarray(generated['start'], dtype=np.float32),
+            'target_location': np.asarray(generated['target'], dtype=np.float32),
+            'static_obstacle_locations': np.asarray(
+                generated['static_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
+            'static_cylinder_locations': np.asarray(
+                generated['static_cylinder_locations'], dtype=np.float32).reshape(-1, 3),
+            'dynamic_obstacle_locations': np.asarray(
+                generated['dynamic_obstacle_locations'], dtype=np.float32).reshape(-1, 3),
+            'dynamic_obstacle_velocities': np.asarray(
+                generated['dynamic_obstacle_velocities'], dtype=np.float32).reshape(-1, 3),
+            'dynamic_obstacle_waypoints': np.asarray(
+                generated['dynamic_obstacle_waypoints'], dtype=np.float32).reshape(-1, 3),
+        }
 
         layout = self._layout
         self._start = np.asarray(layout["agent_location"], dtype=np.float32).copy()
         self._target = np.asarray(layout["target_location"], dtype=np.float32).copy()
-        if not source_domain:
-            self._start[2] = self.flight_z
-            self._target[2] = self.flight_z
 
         # 1. Get the drone on the ground a short run-up behind the start, facing
         #    the goal, so the warm-up flight to the start seeds the planner's
@@ -300,20 +243,7 @@ class AirstackStackEnv(BaseEnvBackend):
         runup[1] = float(np.clip(runup[1], arena[1] + 0.4, arena[3] - 0.4))
         self._ensure_landed_at(runup, yaw)
 
-        # 2. Place the obstacle field (episodes restore perturbed velocities).
-        n_active = self._active_dynamic_obstacles
-        cylinders = layout["static_cylinder_locations"]
-        if not source_domain:
-            self._set_collider_radii(scenario.command("set_scenario", {
-                "static": cylinders.tolist(),
-                "dynamic": layout["dynamic_obstacle_locations"][:n_active].tolist(),
-                "dynamic_vel": self._initial_dynamic_obstacle_velocities[:n_active].tolist(),
-                "waypoints": layout["dynamic_obstacle_waypoints"][:n_active].tolist(),
-                "target": self._target.tolist(),
-                "seed": int(self._scenario_seed or 0),
-            }))
-
-        # 3. Take off through the stack's own action server, then fly the run-up
+        # 2. Take off through the stack's own action server, then fly the run-up
         #    to the start on the trajectory controller. A planner that keeps state across
         #    episodes is started afresh first, so every episode begins as the first one does.
         if self.agent_profile.get("restart_planner_each_episode"):
@@ -323,7 +253,7 @@ class AirstackStackEnv(BaseEnvBackend):
         self._measure_ros_offset()
         self._fly_to(self._start)
 
-        # 4. Hand the goal to the planner-under-test through its own task action.
+        # 3. Hand the goal to the planner-under-test through its own task action.
         if self.agent_profile.get("control_mode", "stack") == "stack":
             self._send_navigate_goal()
 

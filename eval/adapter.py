@@ -27,7 +27,6 @@ from .sim.environment_config import (
     max_dynamic_obstacles,
     max_static_obstacles,
 )
-from .sim.scenario_config import perturb_scenario
 
 
 class Adapter(BaseTaskAdapter):
@@ -145,10 +144,8 @@ class Adapter(BaseTaskAdapter):
 
     def apply_perturbation(self, env: Any, scenario_cfg: ScenarioCfg,
                             perturbation_seed: int) -> PerturbationCfg:
-        scale_range = self.disturbance().perturb_range
+        # SAFE's sampler inside Isaac draws the movers' speeds from this seed on the next reset.
         env._pending_perturbation_seed = int(perturbation_seed)
-        if env._layout is not None and not getattr(env.env_cfg, 'source_domain', None):
-            perturb_scenario(env, perturbation_seed, scale_range=scale_range)
         return PerturbationCfg(perturbation_seed=int(perturbation_seed))
 
     def resolved_domain(self, env: Any) -> Optional[Dict[str, Any]]:
