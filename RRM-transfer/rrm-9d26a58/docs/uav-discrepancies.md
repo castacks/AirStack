@@ -42,6 +42,8 @@ The marker viewpoint model predicted area ratio1.5; observed ratio was1.40741 wi
 | D22 | Malformed viewpoint payloads could raise instead of abstaining. | Container/field validation now returns ABSTAIN/no goal. Nominal geometry and detector unchanged; focused47tests pass. |
 | D23 | Watchdog PAUSE waited behind an outstanding operator resume/rewind response. | Isolated installed binary on DDS197 failed all three400ms priority checks. Candidate built separately sends PAUSE concurrently and requires post-operator-completion acknowledgement. No live deployment or physical-stop claim. |
 | D24 | Operator timeout discarded the future and could leave readiness true despite a remotely pending mode change. | Isolated baseline retained; candidate keeps the single future, requests PAUSE and reports operator_request_unresolved until reconciliation and renewed PAUSE. A lost response remains uncertainty, not successful cancellation. |
+| D25 | PAUSE did not prevent a late trajectory_override replacing the reference. | Actual isolated controller baseline moved the published reference0.40999952m under fixed synthetic odometry while output velocity stayed zero. Candidate drops overrides during PAUSE; zero-excursion regression passes. No physical-stop or exclusive-authority qualification. |
+| D26 | Controller accepted undeclared mode values. | Baseline accepted999 and replaced PAUSE. Candidate rejects unknown values before mutation; actual service/output regression passes. Valid legacy mode writers remain separate authorities. |
 
 The watchdog candidate's full eight-check package suite passes (aggregate18tests,
 zero errors/failures,two skips). Existing source-clock/service-fault contracts remain

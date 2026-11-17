@@ -76,6 +76,22 @@ that test explicitly skips without PyYAML. Minimal run655tests,634PASS/21explici
 skips,zero failures/errors; full-dependency worker tests16/16PASS with YAML inspection
 still exercised. Earlier single-fixture and missing-YAML failures remain retained.
 
+Controller-local follow-up:actual installed trajectory controller on isolatedDDS196
+accepted a conflicting trajectory_override during PAUSE, changing its published
+tracking reference by0.40999952m despite zero feedforward velocity. It also accepted
+invalid mode999, replacing PAUSE. Baseline binary hash, raw samples and harness bytes
+retained. Candidate drops overrides during PAUSE and rejects undeclared mode values
+before state mutation. Explicit valid mode changes and fresh subsequent trajectories
+still work; no rejected message is queued for later execution. Actual candidate
+contract9/9checksPASS with zero measured reference excursion under fixed synthetic
+odometry. This is reference-stream evidence, not physical stopping or exclusive
+mode arbitration. Built/tested separately in `/tmp/controller-pause-20261117`;
+live controller executable unchanged. Added explicit std_msgs and rclpy test
+dependencies. Full package suite remains unclean:19aggregate tests,8failures,2skips,
+zero errors, from legacy tracking_point.py flake8, CMake whitespace and two C++
+uncrustify divergences. Those lint families also fail on unchanged source; new Python
+contract passes lint and actual-binary checks. Do not report a clean full package.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

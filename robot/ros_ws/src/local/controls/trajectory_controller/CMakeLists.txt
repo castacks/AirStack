@@ -14,6 +14,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
@@ -32,6 +33,7 @@ ament_target_dependencies(trajectory_controller
   visualization_msgs
   nav_msgs
   std_srvs
+  std_msgs
   tf2
   tf2_ros
   airstack_msgs
@@ -64,6 +66,13 @@ install(DIRECTORY
 #)
 
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME isolated_pause_reference_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=196 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_pause_reference.py
+      --executable $<TARGET_FILE:trajectory_controller>)
+  set_tests_properties(isolated_pause_reference_contract
+    PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights

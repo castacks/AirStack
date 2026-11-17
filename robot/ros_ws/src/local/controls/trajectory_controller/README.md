@@ -170,13 +170,27 @@ Switches the controller between operating modes. Returns `success: true` on all 
 | `ROBOT_POSE` | 1 | Tracking and lookahead points are set to the robot's current odometry pose (zero velocity). Used before takeoff while the robot may be moved manually. Clears the stored trajectory. |
 | `TRACK` | 2 | Interprets messages on `~/trajectory_override` as a complete trajectory to follow from the beginning. Clears any previous trajectory. Suitable for takeoff, landing, and fixed maneuvers. |
 | `ADD_SEGMENT` | 3 | Appends messages on `~/trajectory_segment_to_add` onto the live trajectory at the point closest to the segment start. Used during autonomous flight with a continuously replanning local planner. |
-| `PAUSE` | 0 | Freezes the tracking point at its current position (virtual time stops advancing). The robot's low-level controller will hold position at the frozen tracking point. |
+| `PAUSE` | 0 | Freezes virtual trajectory time and zeroes reference velocity/acceleration/jerk. Ignores new trajectory overrides and stitched segments until an explicit valid mode change. Downstream control and current-odometry reference limits still apply. |
 | `REWIND` | 4 | Reverses playback along the trajectory. The drone backtracks along its recent path, useful for recovering from stuck situations. |
 
 **Transition notes:**
 - `REWIND → ADD_SEGMENT`: Trajectory is reversed again and virtual time is remapped. The controller ramps velocity smoothly from backward to forward.
 - Any mode → `ROBOT_POSE` or `TRACK`: Trajectory is cleared.
 - `PAUSE` → `ADD_SEGMENT`: Resumes from the current position without clearing the trajectory.
+
+Mode values outside the declared `TrajectoryMode` constants return `success=false`
+before modifying the controller. An override received during PAUSE is dropped,
+never queued for later execution; send a fresh trajectory after an explicit mode
+change. This protects the paused trajectory from late data messages, but valid
+mode-service writers can still unpause it. Controller-side exclusive authority,
+request generations and physical stopping require separate qualification.
+
+The `isolated_pause_reference_contract` CTest runs the actual build target on
+DDS196 with private synthetic odometry/trajectory topics. It verifies output
+coverage, unchanged reference across a conflicting override while paused, invalid
+mode rejection and normal trajectory acceptance after an explicit mode change.
+It has no simulator or aircraft endpoints. Reference-stream stability is not
+physical stop evidence; live deployment and flight regression remain separate.
 
 ## Subscriptions
 

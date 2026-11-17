@@ -576,6 +576,18 @@ void TrajectoryControlNode::timer_callback() {
 void TrajectoryControlNode::set_trajectory_mode(
     const std::shared_ptr<airstack_msgs::srv::TrajectoryMode::Request> req,
     std::shared_ptr<airstack_msgs::srv::TrajectoryMode::Response> res) {
+    switch (req->mode) {
+        case airstack_msgs::srv::TrajectoryMode::Request::PAUSE:
+        case airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE:
+        case airstack_msgs::srv::TrajectoryMode::Request::TRACK:
+        case airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT:
+        case airstack_msgs::srv::TrajectoryMode::Request::REWIND:
+            break;
+        default:
+            RCLCPP_WARN(this->get_logger(), "Rejected invalid trajectory mode: %d", req->mode);
+            res->success = false;
+            return;
+    }
     int prev_trajectory_mode = trajectory_mode;
     trajectory_mode = req->mode;
 
@@ -648,6 +660,11 @@ void TrajectoryControlNode::traj_seg_to_add_callback(
 
 void TrajectoryControlNode::traj_override_callback(
     const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj) {
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                             "Ignored trajectory override while PAUSE is active");
+        return;
+    }
     virtual_time = 0;
     trajectory->clear();
     trajectory->merge(Trajectory(this, *traj));

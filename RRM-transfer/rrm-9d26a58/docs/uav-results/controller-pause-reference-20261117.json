@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "660a8236b",
+  "scope": "actual isolated binaries with fixed synthetic odometry; no flight or exclusive authority",
+  "baseline": {
+    "paused_reference_excursion_m": 0.40999952,
+    "verdict": "FAIL",
+    "checks": {
+      "track_admitted": true,
+      "initial_reference_observed": true,
+      "pause_admitted": true,
+      "paused_override_reference_frozen": false,
+      "paused_output_zero_velocity": true,
+      "invalid_mode_rejected": false,
+      "invalid_mode_preserves_pause": false,
+      "explicit_track_admitted": true,
+      "normal_override_after_explicit_mode": true
+    },
+    "scope": "synthetic reference stream only, no physical stop or exclusive authority",
+    "executable_sha256": "d10efb0a6a9a44292ea720dc0d79db9928fd7af3177f10e242724e5e23606576",
+    "harness_sha256": "d67e43849772ce4268536fbe037fbeabcda3461222e65a91e1f22e2beadcd59a"
+  },
+  "candidate": {
+    "paused_reference_excursion_m": 0.0,
+    "verdict": "PASS",
+    "checks": {
+      "track_admitted": true,
+      "initial_reference_observed": true,
+      "pause_admitted": true,
+      "paused_override_reference_frozen": true,
+      "paused_output_zero_velocity": true,
+      "invalid_mode_rejected": true,
+      "invalid_mode_preserves_pause": true,
+      "explicit_track_admitted": true,
+      "normal_override_after_explicit_mode": true
+    },
+    "scope": "synthetic reference stream only; no physical stop or exclusive authority",
+    "executable_sha256": "ee5fa5bc2d8eea2c7c243f907b35ae31dbe3eaec9639f9532d6e65bc2d1f7ea4",
+    "harness_sha256": "7e14def37482e47ec75dfb107d9760393085f3dbdda3f1396d2029555c065c04"
+  },
+  "source_sha256": {
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp": "e2ba2c0cd2a18e6aa632b3e9bc1ee6427394b83bd49a2ef0928cd388116968cb",
+    "robot/ros_ws/src/local/controls/trajectory_controller/test/isolated_pause_reference.py": "7e14def37482e47ec75dfb107d9760393085f3dbdda3f1396d2029555c065c04",
+    "robot/ros_ws/src/local/controls/trajectory_controller/CMakeLists.txt": "2fad0c131856f5a09ad8e72fb369703d592883ea543bb96941ea2984d462d064",
+    "robot/ros_ws/src/local/controls/trajectory_controller/package.xml": "c1065e2f0c35b867193082ad90d5f6a940df17d616aa3190aa2cf4d12711da51"
+  },
+  "validation": {
+    "actual_controller_contract": "9/9 PASS",
+    "full_package": "19 aggregate tests, 8 failures, 2 skips, zero errors",
+    "legacy_lint": "flake8 tracking_point.py, CMake whitespace, two C++ uncrustify divergences also reproduce on unchanged source"
+  },
+  "live_deployment": false
+}
