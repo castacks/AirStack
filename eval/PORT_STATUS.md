@@ -5,8 +5,10 @@ named SAFE aerial worlds, with SAFE's walking humans and scenario protocol.
 The existing SAFE aerial run remains the reference. Changing to AirStack's
 control path is a new experiment, even when the names and seeds match.
 
-Last updated 2026-11-16 against SAFE at 82af3f0, where the navigation task is the
-top-level `safe_navigation` package. Isaac flights have run on this branch:
+Last updated 2026-11-17 against SAFE at 82af3f0, where the navigation task is the
+top-level `safe_navigation` package, and against SAFE's `stereo` sensor and its replay
+renderer's lookup of policy classes through the run's integration. Isaac flights have run on
+this branch:
 
 | Run | Episodes | Result |
 |---|---|---|
@@ -18,13 +20,17 @@ top-level `safe_navigation` package. Isaac flights have run on this branch:
 DROAN's timeouts follow from its speed. AirStack runs DROAN as `droan_gl` (the CPU
 `droan_local_planner` and its `droan.yaml` are commented out of `local.launch.xml`), whose
 candidate trajectories head out at a fixed 1 m/s written in `droan_gl/src/gl_interface.cpp`.
-DROAN flies at a median 0.91 m/s, and SAFE's paper grid gives 60 s for a 60 m goal, a budget
-SAFE's Iris meets at its 5 m/s cruise.
+That speed is left stock, as SAFE leaves every planner's upstream speed. DROAN flies at a
+median 0.91 m/s, and SAFE's paper grid gives 60 s for a 60 m goal, a budget SAFE's Iris meets
+at its 5 m/s cruise.
 
 ## What actually runs today
 
 - `droan`: AirStack full-stack planner profile (source is AirStack, not a SAFE
-  aerial policy). Its native task interface is `NavigateTask`.
+  aerial policy). Its native task interface is `NavigateTask`. It declares
+  `odometry`, `goal` and `stereo` with a `pov_env` of the spawned ZED camera, for
+  SAFE's provenance and replay sensor strip only; the env serves it nothing and the
+  Isaac launcher never receives those keys.
 - `airstackrandom`, `airstackaggressive`, `airstackconservative`: older
   AirStack-specific baselines. Their implementations and speeds differ from
   SAFE's namesakes. Do not pool these results with the SAFE aerial runs.
@@ -40,7 +46,8 @@ SAFE's Iris meets at its 5 m/s cruise.
   `diffaero`, `agileautonomy`, `vitfly`) load SAFE's classes from
   `safe_navigation.aerial.policies.learned` and send attitude and thrust, or
   velocity for `vitfly`.
-- The benchmark checkout must be on `PYTHONPATH`.
+- A SAFE checkout from 82af3f0 on must be on `PYTHONPATH`, and this repository
+  installed with `pip install -e /home/kayla/AirStack`.
 - `deploy_diffaero`: generic SVG commander for simulated or real PX4. It is
   separate from `eval/run.py` and has CPU interface tests only
   (`svg_ground_control/test/test_deploy_interfaces.py`).
@@ -53,7 +60,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 |---|---|---|
 | Package moves | `safe_navigation.common.config` (domains, scenarios, bands, stage exports), `safe_navigation.aerial.policies` (baselines, learned, planners), `safe_sim.sim_config`, `safe_core.run` (jobs, container reaper), `safe_core.records` (episodes, experiment yaml) | every import in `eval/` and the Isaac launcher |
 | Floating domain | the movers are walking people; the drifting cubes are gone | the launcher builds people on floating as on every other domain |
-| Integration lookup | SAFE core finds an integration's package (provenance code hashes, scoring-code version, policy directory) through `thesafebenchmark.integrations` entry points | `eval/run.py` `register_integration_paths()` patches the lookup to map `airstack` to this `eval` package; `get_experiments_dir()` points at `eval/experiments` |
+| Integration lookup | SAFE core finds an integration's package (provenance code hashes, scoring-code version, policy directory, experiments directory) through `thesafebenchmark.integrations` entry points | the root `pyproject.toml` installs `thesafebenchmark-airstack` and registers `airstack = "eval"`; `policies_dir("airstack")` is `eval/agents` and `experiments_dir("airstack")` is `eval/experiments` |
 | Robot | `robot:` is a required, registered yaml key | `robot: iris` in the yaml; `AirstackRunner.required_yaml_keys`; any other robot is refused |
 | Rollout info | `info["failure"]` must be present and sticky | `AirstackStackEnv.step` |
 | Env params | core reads `RE_max` (npz, provenance, video risk bar) | `get_env_params()` takes it from `configs/certification.yaml` |
@@ -66,7 +73,8 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 | Optional hooks | `resolved_domain`, `perturbations_vary_episodes` | `eval/adapter.py` |
 | Planner sidecar registry | `fault()` is gone; records are resolved and probed | `run_agent_hook` polls `resolve()` and `is_sidecar()` |
 | Paper roster | `paper/isaac_moving_primitive.yaml` flies the nine planners and `depthnav`, `diffaero`, `vitfly`, `agileautonomy` | every one has a wrapper (`eval/test/test_main_policy_coverage.py`); `panther` has not flown here |
-| Episode video | SAFE's replay renderer draws episode videos from the npz after a run | not yet; AirStack records no video until the hand-off below is built |
+| Episode video | SAFE's replay renderer draws episode videos from the npz after a run, finding the policy classes in the policies folder of the integration `config.yaml` records | `AirstackRunner.render_replay_videos` calls SAFE's `AerialNavRunner.render_replay_videos`; SAFE core writes `integration: airstack`; it runs under Isaac's interpreter and raises naming that command elsewhere |
+| PX4 relaunch | a teleport needs a fresh PX4 EKF | the launcher relaunches PX4 after each teleport and raises at boot when Pegasus's PX4 node has `inputs:px4Autolaunch` false |
 
 Container safety on a shared machine:
 
@@ -87,26 +95,16 @@ capsules. Arena walls are exact. The shell width (0.3 m) is the rulebook's.
 
 Open items:
 
-- Episode video goes through SAFE's replay renderer only. `AirstackRunner` does not yet
-  hand a finished run to it, SAFE's renderer finds policy classes only in SAFE's own
-  aerial policies folder, and the `droan` class declares `full_state`, which draws no
-  sensor panel, where its real input is the ZED stereo disparity.
-
-- `safe report RUN` and SAFE's other standalone tools find integrations through
-  `thesafebenchmark.integrations` entry points, and nothing registers `airstack`
-  there, because `eval/` is a folder on `PYTHONPATH` rather than an installed
-  package. The runner writes its own report at the end of a run. A pyproject that
-  installs this package and registers `airstack` would let SAFE's tools read
-  these runs and replace the patch in `register_integration_paths()`.
-- When Pegasus did not autolaunch PX4, the launcher skips the PX4 relaunch after
-  a teleport with a warning and the next arm can fail. It should raise instead.
-- The launcher's branches for a domain without a SAFE config (AirStack's own
-  obstacle pool columns) are unreachable since the eval reads only SAFE's domains.
+- No AirStack run has been rendered yet. `thesafebenchmark-airstack` is installed into
+  `/home/kayla/miniconda3/bin/python3`, the runner's interpreter, and not yet into Isaac's
+  interpreter, which the replay renderer needs (README, Outputs).
+- The CPU tests have not run since the integration registration, the DROAN sensor
+  declaration and the removal of AirStack's own scenario sampler.
 
 ## CPU tests
 
-`PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack python3 -m pytest -q eval/test`
-runs them; they were last run on 2026-10-14. `eval/test/test_cpu_smoke.py` checks:
+`PYTHONPATH=/path/to/safe/checkout python3 -m pytest -q eval/test` runs them, with this
+repository installed; they were last run on 2026-10-14. `eval/test/test_cpu_smoke.py` checks:
 
 - every `eval` module imports, and the rclpy container bridge and the Isaac
   launcher compile;
@@ -153,7 +151,7 @@ cd /home/kayla/AirStack && airstack image-pull
 #    with the SAFE eval launcher, waits for PX4, EKF and the ScenarioManager,
 #    then flies one episode.
 cd /home/kayla/AirStack
-export PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack
+export PYTHONPATH=/path/to/safe/checkout   # this repository is installed with pip install -e
 python3 eval/run.py --config eval/experiments/droan_empty.yaml -y --headless
 #    (`airstack safe --config eval/experiments/droan_empty.yaml -y --headless`
 #    is the same entry point.)

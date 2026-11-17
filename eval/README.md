@@ -54,10 +54,20 @@ is AirStack's own planner. See [PORT_STATUS.md](PORT_STATUS.md) for the flights 
 ## Prerequisites
 
 ```bash
-pip install -e /home/kayla/workspace/benchmark
-export PYTHONPATH=/home/kayla/workspace/benchmark:/home/kayla/AirStack
-airstack build                       # robot + isaac-sim images built
+export PYTHONPATH=/path/to/safe/checkout   # SAFE with safe_navigation and entry-point lookup
+pip install -e /home/kayla/AirStack        # registers the airstack integration
+airstack build                             # robot + isaac-sim images built
 ```
+
+The SAFE checkout must have the `safe_navigation` package and find integrations through
+`thesafebenchmark.integrations` entry points, which SAFE has from 82af3f0 on. The episode
+replay draws DROAN's stereo panel only with SAFE's `stereo` sensor.
+
+`pyproject.toml` at the repository root installs this `eval` package as the distribution
+`thesafebenchmark-airstack` and registers it under that entry-point group as `airstack`. SAFE
+resolves the package's folder, its `agents/` policies folder and its `experiments/` folder from
+that entry point, for the runner and for SAFE's standalone tools (`safe report`, the replay
+renderer) alike.
 
 No Isaac python, no ROS on the host — everything ROS-side runs in containers
 via `docker exec`.
@@ -102,9 +112,18 @@ selectable names. Learned profiles read each source policy's camera contract and
 the AirStack Isaac launcher. Planner profiles enable RTX lidar where their source sensor
 contract requires it.
 
+`droan` is the AirStack stack itself: the ZED stereo pair, `stereo_image_proc` disparity,
+`droan_gl`, the trajectory controller and PX4. Its `act()` returns zeros and the env serves it
+no observation. The class declares what the stack reads, `odometry`, `goal` and `stereo`, with a
+`pov_env` that records the ZED camera the Isaac scene spawns: 480 x 300 pixels, a 105.0476 deg
+horizontal field of view, 60 Hz, a 0.12 m baseline and a 184 px focal length. SAFE records these
+in the run's provenance and draws the stereo panel of the replay's sensor strip from them. They
+never reach the Isaac launcher, which spawns the ZED unchanged.
+
 AirStack runs DROAN as `droan_gl`, whose candidate trajectories head out at a fixed 1 m/s
-written in `droan_gl/src/gl_interface.cpp` (it has no speed parameter), which cannot cover
-SAFE's 60 m paper goal inside its 60 s budget.
+written in `droan_gl/src/gl_interface.cpp` (it has no speed parameter). That speed is left
+stock, as SAFE leaves every planner's upstream speed, and it cannot cover SAFE's 60 m paper goal
+inside its 60 s budget.
 
 ## Domains
 
@@ -112,7 +131,9 @@ The domains are SAFE's Isaac domains, read from a read-only mount of the benchma
 checkout. The launcher calls SAFE's world builder for the USD or procedural scene, loads
 SAFE's baked stages (every mesh given a static collider) and stage exports, and runs SAFE's
 character controller for walking people when `humans: true` is set, the floating domain
-included. SAFE's scenario sampler supplies the seeded placements.
+included. Without people the movers are kinematic cylinders that walk between waypoints.
+SAFE's scenario sampler supplies the seeded placements. The launcher raises at boot when its
+config names no SAFE domain.
 
 ## Safety definitions
 
@@ -127,10 +148,10 @@ The ScenarioManager measures the clearance in Isaac every tick. It grows the
 box with PhysX `overlap_box` until it touches a collider, to 2 cm resolution
 and up to SAFE's `CLEARANCE_SEARCH_REACH_M`. Every PhysX collider counts except
 the drone, ground and boundary prims. People count as their character
-controller capsules. Arena walls and AirStack's colliderless pool columns are
-measured exactly from the box corners. The grown box is a cube margin, so away
-from contact the clearance can read up to 1.7 times closer than the true
-distance near box edges. Contact is clearance 0, latched per episode, and a
+controller capsules. Arena walls and the colliderless mover cylinders of a run
+without people are measured exactly from the box corners. Because the grown box
+is a cube margin, the clearance away from contact can read up to 1.7 times
+closer than the true distance near box edges. Contact is clearance 0, latched per episode, and a
 wall touch counts only above 0.3 m. The value travels as `body_clearance` in the
 state line. Records without it fall back to the centre geometry less the body
 radius.
@@ -140,8 +161,22 @@ radius.
 `runs/airstack/<experiment_tag>_<MMDD>/` under the working directory, in SAFE's
 `RunLayout`: `report.html`, `meta/episodes.csv`, and per episode
 `raw/<domain>/scenario_N/perturbation_M/trajectories/epT.npz` in SAFE's navigation schema.
-Episode videos are drawn after the run by SAFE's replay renderer from these records. That
-hand-off is not built yet (see [PORT_STATUS.md](PORT_STATUS.md)), so runs record no video.
+Episode videos are drawn from these records by SAFE's aerial replay renderer, which rebuilds
+each SAFE domain in its own Isaac. `AirstackRunner.render_replay_videos` calls SAFE's
+`AerialNavRunner.render_replay_videos` and keeps no render code of its own. The renderer reads
+`integration: airstack` from the run's `config.yaml` and loads the policy classes from
+`eval/agents`, the folder SAFE's `policies_dir("airstack")` returns. Because it boots Isaac in
+process, it runs under Isaac's interpreter, which also needs this repository installed:
+
+```bash
+~/isaacsim/python.sh -m pip install --no-deps -e /home/kayla/AirStack   # once
+PYTHONPATH=/path/to/safe/checkout ~/isaacsim/python.sh -m eval.run \
+    --render-videos runs/airstack/<run> --headless
+```
+
+SAFE's post-run video stage reruns the run's own interpreter. When that interpreter cannot
+import Isaac, the hook raises naming this command, SAFE warns that the video stage failed, and
+the run finishes without videos.
 
 ## Notes
 
@@ -151,7 +186,9 @@ hand-off is not built yet (see [PORT_STATUS.md](PORT_STATUS.md)), so runs record
 - **Goal frame**: goals reach the stack in its EKF odometry frame through the
   offset between ground truth and EKF, measured once per episode after takeoff.
 - **Between episodes**: the harness lands, disarms and teleports the drone, and
-  the launcher relaunches PX4 so its EKF starts at the new pose.
+  the launcher relaunches PX4 for its EKF to start at the new pose. The launcher
+  raises at boot when Pegasus's PX4 node has `inputs:px4Autolaunch` false, since
+  only a PX4 that Pegasus launched can be relaunched.
 - **Stage meshes**: every PhysX collider on a stage is an obstacle, as in SAFE.
   Prims whose path names them ground, floor, plane, terrain, road or pavement
   are treated as the floor.
