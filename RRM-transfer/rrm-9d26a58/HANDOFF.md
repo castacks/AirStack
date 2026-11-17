@@ -234,6 +234,21 @@ Next: return to controlled perception qualification, or inspect unqualified
 interface cases in isolation. Do not conflate source diagnostic availability with
 deployment into the still-running simulation.
 
+Perception continuation:single connected red regions with split interior depths
+or one large central depth outlier both returned OBSERVED in baseline. New restricted
+fixture gate requires valid-depth min/max spread<=0.1m by default, with a validated
+profile keyword and explicit range/limit diagnostics. DEPTH_INCONSISTENT has no
+point and automatically propagates policy abstention. Authored threshold declared
+before evaluation, not tuned afterward; hard min/max deliberately rejects single
+outliers and can abstain on genuine slopes/curved objects. Not a general noise or
+semantic identity model. Coherent partial occlusion remains a retained limitation.
+Focused46testsPASS; expanded synthetic17/17expected dispositions, original13unchanged;
+37input/source hashes verified. Record:`docs/uav-results/marker-depth-consistency-20261117.json`.
+No scene/model/flight/live-control change. Historical passive audit remains pinned
+to its original detector source, not silently reassessed. Next:qualify spatial
+stability across the three-observation viewpoint window; current checks compare
+depth and area but not whether the red component jumps between disjoint image regions.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

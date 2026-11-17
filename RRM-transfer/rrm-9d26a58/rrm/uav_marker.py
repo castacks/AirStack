@@ -4,9 +4,11 @@ Not general object recognition, stereo-depth validation or world-frame grounding
 import math
 
 
-def detect_red_surface(rgb, depth, intrinsic):
+def detect_red_surface(rgb, depth, intrinsic, *, max_depth_spread_m=.1):
     import cv2
     import numpy as np
+    if type(max_depth_spread_m) not in (int,float) or not math.isfinite(max_depth_spread_m) or max_depth_spread_m<=0:
+        raise ValueError('finite positive fixture depth-spread limit required')
     if (rgb.ndim!=3 or rgb.shape[2]!=3 or rgb.dtype!=np.uint8 or depth.ndim!=2 or depth.shape!=rgb.shape[:2] or not np.issubdtype(depth.dtype,np.floating)):
         raise ValueError('aligned RGB uint8 and depth dimensions required')
     if len(intrinsic)!=9 or not all(type(x) in (int,float) and math.isfinite(x) for x in intrinsic):
@@ -29,6 +31,12 @@ def detect_red_surface(rgb, depth, intrinsic):
                 valid_depth_samples=int(valid.sum()),surface_point_optical_m=None,
                 depth_source='simulated_depth_ground_truth',point_semantics='observed surface, not object center')
     if valid.sum()<9 or valid.sum()<.5*interior.sum():return result
+    low,high=float(depth[valid].min()),float(depth[valid].max())
+    result.update(depth_min_m=low,depth_max_m=high,depth_spread_m=high-low,
+                  max_depth_spread_m=float(max_depth_spread_m))
+    if high-low>max_depth_spread_m:
+        result['status']='DEPTH_INCONSISTENT'
+        return result
     vs,us=np.nonzero(valid)
     nearest=int(np.argmin((us-np.median(us))**2+(vs-np.median(vs))**2))
     u,v=int(us[nearest]),int(vs[nearest]);z=float(depth[v,u])

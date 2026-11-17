@@ -26,7 +26,7 @@ class MarkerCampaignTests(unittest.TestCase):
             result = CAMPAIGN.run(output)
             self.assertEqual(result, json.loads((output/'report.json').read_text()))
             self.assertEqual(result['passed'], result['total'])
-            self.assertEqual(result['total'], 13)
+            self.assertEqual(result['total'], 17)
             for name, digest in (result['input_sha256'] | result['source_sha256']).items():
                 self.assertEqual(hashlib.sha256((output/name).read_bytes()).hexdigest(), digest)
             records = {case['case']: case for case in result['cases']}

@@ -75,3 +75,27 @@ not saved and cannot be independently recomputed. Source span0.570s; maximum
 channel receipt span0.01517wall seconds. Receipt alignment is not acquisition
 synchronization, and ABSENT in the current view does not establish scene-wide
 semantic absence. No flight, motion request, scene change or model inference.
+
+## Restricted surface consistency — 2026-11-17
+
+A connected red component can contain incompatible ranges without RGB ambiguity.
+Baseline split-depth and central-outlier cases still returned OBSERVED. The detector
+now requires valid interior depth spread at most 0.1 m by default, configurable by
+the positive finite `max_depth_spread_m` fixture profile. This uses the same numeric
+scale as the existing temporal viewpoint depth-stability bound; it is an authored
+conservative fixture setting, not a learned threshold or real sensor noise model.
+
+The detector records min/max/spread and the declared limit. Excessive spread returns
+DEPTH_INCONSISTENT with no surface point, and the existing viewpoint policy abstains.
+The hard min/max rule intentionally rejects even one large valid-depth outlier.
+Sloped/curved genuine objects may also abstain; this path remains restricted to the
+static frontal fixture. Partial connected occlusion with coherent depth can still
+be OBSERVED/SELECTED and is not claimed solved.
+
+The [expanded synthetic record](uav-results/marker-depth-consistency-20261117.json)
+matches all 17 authored dispositions, including coherent/excessive gradients,
+split depth and one outlier. Original 13 case dispositions remain unchanged;
+46 focused tests pass. All 34 saved input and three source hashes were checked.
+No physical flight or real sensor qualification. The earlier passive-sample audit
+must still use its matching detector revision (`230348184`); its source hashes and
+historical results were not rewritten for this new detector.
