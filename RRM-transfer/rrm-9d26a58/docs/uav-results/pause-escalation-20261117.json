@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-17",
+  "base_revision": "e089e2b93",
+  "scope": "actual C++ monitor request-acceptance escalation, isolated DDS195, fake controller",
+  "verdict": "PASS",
+  "physical_execution": false,
+  "exclusive_controller_authority": false,
+  "live_binary_replaced": false,
+  "checks": {
+    "unavailable_escalates": true,
+    "required_bool_topic_true": true,
+    "unavailable_not_submitted": true,
+    "unavailable_result": true,
+    "deadline_not_early": true,
+    "duplicate_pause_keeps_episode_and_deadline": true,
+    "rejection_counted": true,
+    "rejection_keeps_escalation": true,
+    "response_timeout_counted": true,
+    "timeout_keeps_same_episode": true,
+    "late_acceptance_resolves_current_escalation": true,
+    "late_acceptance_retains_deadline_history": true,
+    "resolved_elapsed_is_frozen": true,
+    "readiness_recovers_after_ack": true,
+    "operator_received": true,
+    "unresolved_operator_escalates_despite_pause_reply": true,
+    "operator_timeout_starts_new_episode": true,
+    "unresolved_operator_no_ack": true,
+    "unresolved_operator_blocks_readiness": true,
+    "operator_duplicate_pause_retains_deadline": true,
+    "operator_reconciles_with_later_pause": true,
+    "renewed_pause_applied_after_operator": true,
+    "operator_resolution_retains_episode_history": true,
+    "new_episode_acknowledged": true,
+    "new_episode_resets_deadline_history": true,
+    "instance_identity_and_sequence": true,
+    "never_claims_physical_stop_or_exclusive_authority": true,
+    "only_declared_modes": true
+  },
+  "checks_passed": 28,
+  "episode_metrics": {
+    "1": {
+      "first_observed_escalation_elapsed_s": 0.649959,
+      "final_elapsed_s": 1.50058,
+      "deadline_exceeded": true
+    },
+    "2": {
+      "first_observed_escalation_elapsed_s": 0.649963,
+      "final_elapsed_s": 1.10005,
+      "deadline_exceeded": true
+    },
+    "3": {
+      "first_observed_escalation_elapsed_s": null,
+      "final_elapsed_s": 0.0386104,
+      "deadline_exceeded": false
+    }
+  },
+  "test_budget_wall_s": 0.6,
+  "production_default_budget_wall_s": 3.0,
+  "package": {
+    "ctest_passed": 9,
+    "ctest_total": 9,
+    "aggregate_tests": 20,
+    "errors": 0,
+    "failures": 0,
+    "skips": 2
+  },
+  "live_executable_sha256_before": "cb74a06f287b65545ba521af467a647a55a258b42919dc144e3bd860fb1dc909",
+  "live_executable_sha256_after": "cb74a06f287b65545ba521af467a647a55a258b42919dc144e3bd860fb1dc909",
+  "candidate_executable_sha256": "1f199cc38f68408f8d9087b58c99223fef07a11cf8f4cdf996361cf5511ffc65",
+  "baseline_executable_sha256": "d2197c8fc1c3fbc9552ae91157458339d3eca1bd00a42bb2f42e7c3a8f4c00b5",
+  "input_sha256": {
+    "events.json": "4d6561c95eb2e229dd300378dfcc437de3dc8fbd78d140eb30aa9f3d970a5b16",
+    "baseline-events.json": "8e04d82b6d2a3cfa1cdf3fb4f3b1124caad9c947d287640ec42beba07df94030",
+    "harness.py": "e1544532fd6f1cf9b9472cf1c078535492a2478a2f6e20647729ceb56db1bc7c",
+    "baseline-summary.json": "0ce5a2580be434c393c549b4decb81f3fd5aa012a3627f9c8fa63a3e0a4c2a19",
+    "baseline-harness.py": "ef4f4143e380ca78c1ee3d2bff0bd5db3463ad6990934e8c0336b7b08c5cdcb8",
+    "summary.json": "4a3365905a3e9afd8d250f04636f18108cf43f2786c735efd0419bffe5138e79"
+  },
+  "source_sha256": {
+    "robot/ros_ws/src/behavior/drone_safety_monitor/src/drone_safety_monitor.cpp": "72dced2613dba6faf5ef820ee7b95e2f2486d34eed7be7a8bc03e2741d62c8f5",
+    "robot/ros_ws/src/behavior/drone_safety_monitor/test/isolated_escalation.py": "e1544532fd6f1cf9b9472cf1c078535492a2478a2f6e20647729ceb56db1bc7c",
+    "robot/ros_ws/src/behavior/drone_safety_monitor/CMakeLists.txt": "88bccee27c65910a9dd915550b98977eca1e353726ff7b7a56a82442b45ad8aa"
+  },
+  "notes": [
+    "Baseline monitor publishes fault status but has no escalation endpoints.",
+    "Required=false never proves physical safety or readiness.",
+    "Late acceptance clears current escalation; deadline miss history remains for that episode.",
+    "No automatic LAND/disarm/restart consumer is wired to these new topics.",
+    "Observed timing is one development run, not a hard real-time guarantee.",
+    "Controller-side authority fencing and physical stop evidence remain open."
+  ]
+}

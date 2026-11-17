@@ -1,0 +1,410 @@
+[
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.365078905,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.365444646,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.414988744,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.415152752,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.464847599,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.46503391,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.514832142,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.514957711,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.56495202,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.565128716,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.615044666,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.615368796,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.66482412,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.66499635,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.714849975,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.714996778,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.764930754,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.765071577,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.815046336,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.815360911,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.864871528,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.865134275,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.914831485,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.915044787,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508131.965104404,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508131.965454372,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.014941965,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.015260115,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.064806937,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.064972568,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.114852884,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.114964833,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.164902315,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.16522293,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.214874841,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.214992919,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.266517025,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.26662665,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.314833171,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.314982467,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.368401032,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.36858517,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.414868548,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.414973095,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.464857839,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.465013694,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.514849643,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.515031328,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.564831703,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.564967948,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.614894916,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.615039854,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.664922494,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.665109506,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.714993107,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.715234141,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.764917138,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.765105433,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.814821621,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.814967,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.865018796,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.865173499,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.915051772,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.915531806,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508132.965041223,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508132.965362989,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508133.015039457,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508133.015367652,
+    "value": true
+  }
+]

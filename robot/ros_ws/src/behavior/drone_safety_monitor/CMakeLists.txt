@@ -44,6 +44,12 @@ if(BUILD_TESTING)
       --executable $<TARGET_FILE:drone_safety_monitor>)
   set_tests_properties(isolated_operator_preemption_contract
     PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
+  add_test(NAME isolated_escalation_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=195 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_escalation.py
+      --executable $<TARGET_FILE:drone_safety_monitor>)
+  set_tests_properties(isolated_escalation_contract
+    PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)

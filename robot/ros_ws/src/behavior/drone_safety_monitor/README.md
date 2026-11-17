@@ -26,6 +26,47 @@ and restarting this process does not prove remote requests were canceled.
 
 `resume` and `rewind` require healthy state and an acknowledged PAUSE with no pending mode request. They are sent once, never retried automatically. The controller's own mode interfaces remain separate command authorities; this monitor is not an exclusive arbiter for every controller writer. No forced disarm or autonomous LAND escalation is provided.
 
+## Acceptance deadline and escalation telemetry
+
+An unresolved protective intervention raises `pause_escalation_required` after
+`pause_escalation_timeout_wall_s` steady seconds (default 3.0). This is an authored
+budget for observing a positive controller reply and reconciling superseded local
+operator requests. It is not a physical stopping deadline. The wall health timer
+samples the deadline; publication latency also depends on callback scheduling.
+
+Retries, repeated operator PAUSE messages and a late operator reply followed by a
+renewed PAUSE all retain the original episode start. A positive PAUSE reply with
+no superseded operator outstanding resolves the current escalation. The JSON status
+retains `deadline_exceeded=true` and freezes `elapsed_wall_s` for that episode.
+A later intervention increments `generation` and clears its deadline history.
+Unhealthy state can remain unhealthy after request acceptance. A pending operator
+request can also keep an intervention unresolved despite a positive PAUSE reply.
+
+`pause_intervention_status` is one JSON snapshot with these fields:
+
+| Fields | Meaning |
+| --- | --- |
+| `schema_version`, `monitor_instance_id`, `sequence` | Version 1; random process identity and increasing publication sequence |
+| `generation`, `active` | Monitor-local intervention episode and unresolved-request status |
+| `acceptance_budget_wall_s`, `elapsed_wall_s` | Declared steady-time budget and elapsed episode duration |
+| `deadline_exceeded`, `escalation_required` | Retained miss history; currently unresolved and overdue |
+| `pause_submission_attempts`, `pause_response_timeouts`, `pause_rejections` | Episode counters; unavailable service does not count as an RPC submission |
+| `last_pause_result` | `not_attempted`, `service_unavailable`, `awaiting_response`, `accepted`, `rejected`, `response_timeout`, `response_exception` or `submission_exception` |
+| `operator_outcome_unresolved`, `pause_acknowledged` | Local reconciliation and PAUSE reply status |
+| `physical_stop`, `authority_scope` | Always `UNVERIFIED` and `monitor_local_requests_only` |
+
+The JSON snapshot carries consistent fields; separate Bool topics are convenience
+signals and are not an atomic multi-topic transaction. `escalation_required=false`
+can mean still within budget, rather than acknowledged or safe. Consumers must
+check publication freshness, process identity and the complete snapshot as needed.
+Restart changes process identity and starts a fresh pending startup PAUSE; an old
+process's generation cannot authorize a new process or cancel remote execution.
+
+This telemetry changes no existing readiness, retry or operator admission policy.
+No recovery consumer, automatic LAND, disarm or controller authority transfer is
+wired to it. It does not implement the full C08 exchange envelope or authenticated
+controller-side generation fencing. Independent motion evidence is still required.
+
 ## Parameters
 
 All periods must be finite and positive. Response timeout must not exceed retry period; health publication period must not exceed one second.
@@ -37,6 +78,7 @@ All periods must be finite and positive. Response timeout must not exceed retry 
 | `health_publish_period_s` | 0.25 s | Wall timer: health evaluation/publication |
 | `pause_response_timeout_wall_s` | 0.75 s | Steady time: pending RPC deadline |
 | `pause_retry_period_wall_s` | 1.0 s | Steady time: minimum interval between PAUSE attempts |
+| `pause_escalation_timeout_wall_s` | 3.0 s | Steady time: unresolved acceptance/reconciliation escalation budget |
 
 The wall deadline is deliberately separate from the ROS-time threshold. Changing simulation speed does not silently redefine either clock domain.
 
@@ -52,10 +94,13 @@ Names below are relative to the node namespace. The canonical launch file remaps
 | `state_estimate_timed_out` | `std_msgs/Bool` publisher | State fault, unacknowledged intervention or superseded operator RPC |
 | `pause_acknowledged` | `std_msgs/Bool` publisher | Latest requested PAUSE accepted; not physical stopped state |
 | `state_health_reason` | `std_msgs/String` publisher | Health reason, including `pause_pending` / `operator_request_unresolved` |
+| `pause_escalation_required` | `std_msgs/Bool` publisher | Current unresolved acceptance deadline exceeded |
+| `pause_intervention_status` | `std_msgs/String` publisher | JSON snapshot of episode identity, deadline history and local request outcomes |
 
 ## Verification
 
-The package registers `isolated_watchdog_contract` and `isolated_operator_preemption_contract` with CTest. Run the package tests inside the robot ROS overlay:
+The package registers `isolated_watchdog_contract`, `isolated_operator_preemption_contract`
+and `isolated_escalation_contract` with CTest. Run the package tests inside the robot ROS overlay:
 
 ```bash
 colcon test --packages-select drone_safety_monitor --event-handlers console_direct+
@@ -70,3 +115,9 @@ PAUSE receipt before releasing the operator response, faulted readiness while th
 request is unresolved, and a new PAUSE after its late application. It also covers
 operator-response timeout without a separate fault. Both tests run serially on
 DDS197; neither establishes physical stopping or exclusive mode authority.
+
+The escalation contract uses isolated DDS195 and a fake mode server. It checks
+unavailable service, rejection, response timeout, later acceptance, duplicate PAUSE,
+held superseded operator replies and renewal after completion. It validates current
+escalation, retained history and process/sequence identity. It does not command a
+simulator or qualify physical stopping or exclusive controller authority.

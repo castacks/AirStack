@@ -1,0 +1,2733 @@
+[
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.265272733,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 2,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.100002,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.265571884,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.265678806,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.265754681,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.314961518,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 3,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.149974,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.315229213,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.315523797,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.315652421,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.365532165,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 4,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.199976,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.36566127,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.365746528,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.365815503,
+    "value": true
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.41480958,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.415067729,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 5,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.249978,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.415159588,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.415235984,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.46497143,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 6,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.300079,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.465172764,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.465259034,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.465334648,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.514859837,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 7,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.349986,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.515022202,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.515090305,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.515251818,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.564966844,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 8,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.399964,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.565279104,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.565370342,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.565443032,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.614959628,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 9,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.449969,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.615224007,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.6153588,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.615472312,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.665116901,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 10,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.499974,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.665463524,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.665550375,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.665631097,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.715017175,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 11,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.550041,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.715242385,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.715342647,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.715423589,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.764866033,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 12,
+      "generation": 1,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.599955,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.765080877,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.76516883,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.765365687,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.815027592,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 13,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.649959,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.815358402,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.815482168,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.815565754,
+    "value": true
+  },
+  {
+    "kind": "command",
+    "phase": "unavailable",
+    "monotonic": 508267.826015181,
+    "value": "pause"
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.865181449,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 14,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.700034,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.865576837,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.865690057,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.865767453,
+    "value": true
+  },
+  {
+    "kind": "command",
+    "phase": "unavailable",
+    "monotonic": 508267.907817533,
+    "value": "pause"
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.91540367,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 15,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.750012,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.915576501,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.9156686,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.915746888,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508267.96569791,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 16,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.800021,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508267.966086065,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508267.966192826,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508267.966267129,
+    "value": true
+  },
+  {
+    "kind": "command",
+    "phase": "unavailable",
+    "monotonic": 508267.997520567,
+    "value": "pause"
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508268.01494617,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 17,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.849981,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508268.015145041,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508268.015232212,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508268.015306474,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "unavailable",
+    "monotonic": 508268.065120169,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 18,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.89997,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "unavailable",
+    "monotonic": 508268.065471879,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "unavailable",
+    "monotonic": 508268.065589657,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "unavailable",
+    "monotonic": 508268.06565785,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "rejection",
+    "monotonic": 508268.114873952,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 19,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.949953,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 0,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "service_unavailable",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "rejection",
+    "monotonic": 508268.115055266,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "rejection",
+    "monotonic": 508268.115161726,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "rejection",
+    "monotonic": 508268.115261597,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "rejection",
+    "monotonic": 508268.165318358,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 20,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.00011,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "rejection",
+    "monotonic": 508268.165639292,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "rejection",
+    "monotonic": 508268.165740125,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "rejection",
+    "monotonic": 508268.165809529,
+    "value": true
+  },
+  {
+    "kind": "request",
+    "phase": "rejection",
+    "monotonic": 508268.16598249,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "rejection",
+    "monotonic": 508268.165985365,
+    "mode": 0,
+    "success": false
+  },
+  {
+    "kind": "status",
+    "phase": "rejection",
+    "monotonic": 508268.214995566,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 21,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.05004,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "rejected",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "rejection",
+    "monotonic": 508268.215217381,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "rejection",
+    "monotonic": 508268.215324322,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "rejection",
+    "monotonic": 508268.215404984,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.264950875,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 22,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.09999,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "rejected",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.265202154,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.265303636,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.265562567,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.314903177,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 23,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.14997,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "rejected",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.315118482,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.315219574,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.31530282,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.366320802,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 24,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.20006,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.366597069,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.366676218,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.36673726,
+    "value": true
+  },
+  {
+    "kind": "request",
+    "phase": "response_timeout",
+    "monotonic": 508268.366835448,
+    "mode": 0
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.41493113,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 25,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.24998,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.415159125,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.415249431,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.415457835,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.465431521,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 26,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.29997,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.465647747,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.465730822,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.465795679,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.51487022,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 27,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.34997,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 1,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.515042299,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.515119325,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.515313067,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "response_timeout",
+    "monotonic": 508268.565488627,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 28,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.40007,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "response_timeout",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "response_timeout",
+    "monotonic": 508268.565941481,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "response_timeout",
+    "monotonic": 508268.566044517,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "response_timeout",
+    "monotonic": 508268.566122615,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.61490365,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 29,
+      "generation": 1,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.45005,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.615039786,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.615112315,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.615176131,
+    "value": true
+  },
+  {
+    "kind": "request",
+    "phase": "late_acceptance",
+    "monotonic": 508268.615284725,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "late_acceptance",
+    "monotonic": 508268.615287469,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.665492334,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 30,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.665634858,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.665710593,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.665779277,
+    "value": false
+  },
+  {
+    "kind": "applied",
+    "phase": "late_acceptance",
+    "monotonic": 508268.676281644,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.714985755,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 31,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.715195021,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.715274651,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.71534055,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.765305944,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 32,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.765625545,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.765706517,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.765771386,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.814804762,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 33,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.814902329,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.815092697,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.815163924,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.864937378,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 34,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.865115696,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.865208356,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.865301036,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.914911094,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 35,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.915069743,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.915146689,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.91521374,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "late_acceptance",
+    "monotonic": 508268.965149499,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 36,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "late_acceptance",
+    "monotonic": 508268.965542711,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "late_acceptance",
+    "monotonic": 508268.965877557,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "late_acceptance",
+    "monotonic": 508268.965971839,
+    "value": false
+  },
+  {
+    "kind": "command",
+    "phase": "operator_unresolved",
+    "monotonic": 508268.976409519,
+    "value": "resume"
+  },
+  {
+    "kind": "request",
+    "phase": "operator_unresolved",
+    "monotonic": 508268.976810164,
+    "mode": 1
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.014984654,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 37,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.01533255,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.015416677,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.015483368,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.065114737,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 38,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.065469583,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.065543433,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.065623755,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.114937634,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 39,
+      "generation": 1,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.50058,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 1,
+      "pause_rejections": 1,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.115099389,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.11517343,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.115240222,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165344424,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 40,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.000177848,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165486258,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165568192,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165634742,
+    "value": true
+  },
+  {
+    "kind": "request",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165730266,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.165732459,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.215323908,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 41,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0501459,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.215707166,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.215800578,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.215875631,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.265237954,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 42,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.100033,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.265685199,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.265815695,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.265910069,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.315377439,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 43,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.14996,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.31554951,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.315628418,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.315687979,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.36573904,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 44,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.200039,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.365936448,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.366026725,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.366125053,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.415080162,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 45,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.249965,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.415432433,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.415526706,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.415613906,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.464930592,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 46,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.29997,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.465146237,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.465237995,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.465321702,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.514919741,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 47,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.349975,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.515117448,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.515206202,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.515281246,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.565282443,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 48,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.400021,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.565615015,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.565708275,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.565782617,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.614903937,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 49,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.449988,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.615043728,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.615123107,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.615310971,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.665104625,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 50,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.499982,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.665466521,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.665753435,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.665848648,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.715071431,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 51,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.550021,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.715379716,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.715469812,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.715544985,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.765678251,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 52,
+      "generation": 2,
+      "active": true,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.599984,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.766043232,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.766183154,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.766269253,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.81502407,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 53,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.649963,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.815332376,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.815423572,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.815505486,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.864876202,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 54,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.699966,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.865148432,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.865231589,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.865429687,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.914847013,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 55,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.749976,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.91499043,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.915090791,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.915172634,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.965242625,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 56,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.799971,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.965682279,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.965883593,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508269.965955441,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.014922157,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 57,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.849975,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.015161688,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.015249591,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.015351094,
+    "value": true
+  },
+  {
+    "kind": "command",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.040495044,
+    "value": "pause"
+  },
+  {
+    "kind": "request",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.045901892,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.04590705,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.064926489,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 58,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.900056,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.065130226,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.065209456,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.065405893,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.114946145,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 59,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 0.949968,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.115088499,
+    "value": true
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.115166807,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.115336233,
+    "value": false
+  },
+  {
+    "kind": "status",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.16526498,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 60,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.00003,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 2,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": true,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.165606555,
+    "value": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.165704343,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_unresolved",
+    "monotonic": 508270.165773839,
+    "value": true
+  },
+  {
+    "kind": "release_operator",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.197269932
+  },
+  {
+    "kind": "applied",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.197631929,
+    "mode": 1,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.214985824,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 61,
+      "generation": 2,
+      "active": true,
+      "escalation_required": true,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.05015,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "awaiting_response",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": false,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.215158084,
+    "value": true
+  },
+  {
+    "kind": "request",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.215270784,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.215272977,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.215482404,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.215560101,
+    "value": true
+  },
+  {
+    "kind": "status",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.264989996,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 62,
+      "generation": 2,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": true,
+      "elapsed_wall_s": 1.10005,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 3,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  },
+  {
+    "kind": "escalation",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.265209387,
+    "value": false
+  },
+  {
+    "kind": "fault",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.26532414,
+    "value": false
+  },
+  {
+    "kind": "ack",
+    "phase": "operator_reconciled",
+    "monotonic": 508270.265601448,
+    "value": true
+  },
+  {
+    "kind": "command",
+    "phase": "new_episode",
+    "monotonic": 508270.275959067,
+    "value": "pause"
+  },
+  {
+    "kind": "request",
+    "phase": "new_episode",
+    "monotonic": 508270.276249716,
+    "mode": 0
+  },
+  {
+    "kind": "applied",
+    "phase": "new_episode",
+    "monotonic": 508270.2762524,
+    "mode": 0,
+    "success": true
+  },
+  {
+    "kind": "status",
+    "phase": "new_episode",
+    "monotonic": 508270.317286657,
+    "value": {
+      "schema_version": 1,
+      "monitor_instance_id": "dee70860e112766641a8796afc20061e",
+      "sequence": 63,
+      "generation": 3,
+      "active": false,
+      "escalation_required": false,
+      "deadline_exceeded": false,
+      "elapsed_wall_s": 0.0386104,
+      "acceptance_budget_wall_s": 0.6,
+      "pause_submission_attempts": 1,
+      "pause_response_timeouts": 0,
+      "pause_rejections": 0,
+      "last_pause_result": "accepted",
+      "operator_outcome_unresolved": false,
+      "pause_acknowledged": true,
+      "physical_stop": "UNVERIFIED",
+      "authority_scope": "monitor_local_requests_only"
+    }
+  }
+]

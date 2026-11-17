@@ -14,7 +14,10 @@ live scene switch, model launch or live control-binary replacement has occurred.
 - Initial restricted marker software campaign:13/13 authored synthetic dispositions;
   malformed viewpoint inputs abstain. Partial connected occlusion remains an
   explicit OBSERVED/SELECTED limitation, not qualified occlusion detection.
-- Watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
+- Watchdog escalation telemetry: overdue acceptance/reconciliation emits an explicit
+  signal and episode snapshot with retained deadline history. Isolated actual-binary
+  contract28/28 and package9/9CTest pass; no live deployment or recovery consumer.
+- Earlier watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
   late/timed-out operator requests remain tracked until reconciliation and renewed
   PAUSE. Actual isolated binary contracts and full package8/8CTest pass.
 - Controller source repair:PAUSE drops conflicting trajectory overrides and invalid

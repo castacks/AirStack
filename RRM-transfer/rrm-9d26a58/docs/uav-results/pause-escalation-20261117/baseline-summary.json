@@ -1,0 +1,11 @@
+{
+  "verdict": "PASS",
+  "checks": {
+    "baseline_monitor_publishes_fault": true,
+    "baseline_has_no_escalation_telemetry": true
+  },
+  "baseline_unsupported": true,
+  "scope": "actual monitor with fake controller; request acceptance only",
+  "executable_sha256": "d2197c8fc1c3fbc9552ae91157458339d3eca1bd00a42bb2f42e7c3a8f4c00b5",
+  "harness_sha256": "ef4f4143e380ca78c1ee3d2bff0bd5db3463ad6990934e8c0336b7b08c5cdcb8"
+}

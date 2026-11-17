@@ -22,8 +22,12 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <future>
+#include <iomanip>
 #include <optional>
+#include <random>
+#include <sstream>
 #include <stdexcept>
 
 using namespace std::chrono_literals;
@@ -38,6 +42,7 @@ public:
     receipt_timeout_s_ = positive_parameter("receipt_timeout_wall_s", 2.0);
     response_timeout_s_ = positive_parameter("pause_response_timeout_wall_s", 0.75);
     retry_period_s_ = positive_parameter("pause_retry_period_wall_s", 1.0);
+    escalation_timeout_s_ = positive_parameter("pause_escalation_timeout_wall_s", 3.0);
     const double period = positive_parameter("health_publish_period_s", 0.25);
     if (period > 1.0 || response_timeout_s_ > retry_period_s_) {
       throw std::invalid_argument("health period must be <=1s and response timeout <=retry period");
@@ -51,6 +56,8 @@ public:
     timed_out_pub_ = create_publisher<std_msgs::msg::Bool>("state_estimate_timed_out", 10);
     pause_ack_pub_ = create_publisher<std_msgs::msg::Bool>("pause_acknowledged", 10);
     reason_pub_ = create_publisher<std_msgs::msg::String>("state_health_reason", 10);
+    escalation_pub_ = create_publisher<std_msgs::msg::Bool>("pause_escalation_required", 10);
+    intervention_pub_ = create_publisher<std_msgs::msg::String>("pause_intervention_status", 10);
     mode_client_ = create_client<Mode>("set_trajectory_mode");
     timer_ = create_wall_timer(
       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(period)),
@@ -68,6 +75,18 @@ private:
   double receipt_timeout_s_;
   double response_timeout_s_;
   double retry_period_s_;
+  double escalation_timeout_s_;
+  uint64_t intervention_generation_{0};
+  uint64_t intervention_sequence_{0};
+  const std::string monitor_instance_id_{new_instance_id()};
+  uint64_t pause_attempts_{0};
+  uint64_t pause_response_timeouts_{0};
+  uint64_t pause_rejections_{0};
+  bool intervention_active_{false};
+  bool intervention_deadline_exceeded_{false};
+  Steady::time_point intervention_started_{};
+  Steady::time_point intervention_finished_{};
+  std::string last_pause_result_{"not_attempted"};
   int64_t last_clock_ns_{-1};
   int64_t last_source_ns_{0};
   int64_t receipt_ros_ns_{0};
@@ -90,8 +109,21 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr timed_out_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pause_ack_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr reason_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr escalation_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr intervention_pub_;
   rclcpp::Client<Mode>::SharedPtr mode_client_;
   rclcpp::TimerBase::SharedPtr timer_;
+
+  static std::string new_instance_id()
+  {
+    std::random_device random;
+    std::ostringstream id;
+    id << std::hex << std::setfill('0');
+    for (int i = 0; i < 4; ++i) {
+      id << std::setw(8) << static_cast<uint32_t>(random());
+    }
+    return id.str();
+  }
 
   double positive_parameter(const std::string & name, double value)
   {
@@ -118,6 +150,16 @@ private:
 
   void latch_pause()
   {
+    if (!intervention_active_) {
+      ++intervention_generation_;
+      intervention_active_ = true;
+      intervention_deadline_exceeded_ = false;
+      intervention_started_ = Steady::now();
+      pause_attempts_ = 0;
+      pause_response_timeouts_ = 0;
+      pause_rejections_ = 0;
+      last_pause_result_ = "not_attempted";
+    }
     // PAUSE may overtake an operator RPC locally, but cannot cancel it remotely.
     // Keep its future so a late mode change can be followed by a new PAUSE.
     if (operator_future_) {operator_superseded_ = true;}
@@ -231,13 +273,17 @@ private:
         try {
           const bool success = pause_future_->future.get()->success;
           if (success) {
+            last_pause_result_ = "accepted";
             pause_pending_ = false;
             pause_acknowledged_ = !operator_superseded_;
             RCLCPP_INFO(get_logger(), "PAUSE acknowledged by controller; physical stop unverified");
           } else {
+            ++pause_rejections_;
+            last_pause_result_ = "rejected";
             RCLCPP_WARN(get_logger(), "PAUSE rejected; intervention remains pending");
           }
         } catch (const std::exception & e) {
+          last_pause_result_ = "response_exception";
           RCLCPP_WARN(get_logger(), "PAUSE reply failed: %s", e.what());
         }
         pause_future_.reset();
@@ -246,6 +292,8 @@ private:
       {
         mode_client_->remove_pending_request(pause_future_->request_id);
         pause_future_.reset();
+        ++pause_response_timeouts_;
+        last_pause_result_ = "response_timeout";
         RCLCPP_WARN(get_logger(), "PAUSE response timed out; intervention remains pending");
       }
     }
@@ -253,17 +301,65 @@ private:
     next_attempt_ = now + std::chrono::duration_cast<Steady::duration>(
       std::chrono::duration<double>(retry_period_s_));
     if (!mode_client_->service_is_ready()) {
+      last_pause_result_ = "service_unavailable";
       RCLCPP_WARN(get_logger(), "PAUSE service unavailable; intervention remains pending");
       return;
     }
     auto request = std::make_shared<Mode::Request>();
     request->mode = Mode::Request::PAUSE;
     try {
+      ++pause_attempts_;
       pause_future_.emplace(mode_client_->async_send_request(request));
       request_wall_ = now;
+      last_pause_result_ = "awaiting_response";
     } catch (const std::exception & e) {
+      last_pause_result_ = "submission_exception";
       RCLCPP_WARN(get_logger(), "PAUSE submission failed: %s", e.what());
     }
+  }
+
+  void publish_intervention()
+  {
+    const auto now = Steady::now();
+    // Retries and superseded operator reconciliation share the original budget.
+    if (intervention_active_) {
+      if (std::chrono::duration<double>(now - intervention_started_).count() >=
+        escalation_timeout_s_)
+      {
+        intervention_deadline_exceeded_ = true;
+      }
+      if (!pause_pending_ && !operator_superseded_) {
+        intervention_active_ = false;
+        intervention_finished_ = now;
+      }
+    }
+    const bool required = intervention_active_ && intervention_deadline_exceeded_;
+    std_msgs::msg::Bool escalation;
+    escalation.data = required;
+    escalation_pub_->publish(escalation);
+    const auto endpoint = intervention_active_ ? now : intervention_finished_;
+    const double elapsed = std::chrono::duration<double>(
+      endpoint - intervention_started_).count();
+    std::ostringstream json;
+    json << std::boolalpha << "{\"schema_version\":1,\"monitor_instance_id\":\"" <<
+      monitor_instance_id_ << "\",\"sequence\":" << ++intervention_sequence_
+         << ",\"generation\":" << intervention_generation_
+         << ",\"active\":" << intervention_active_
+         << ",\"escalation_required\":" << required
+         << ",\"deadline_exceeded\":" << intervention_deadline_exceeded_
+         << ",\"elapsed_wall_s\":" << elapsed
+         << ",\"acceptance_budget_wall_s\":" << escalation_timeout_s_
+         << ",\"pause_submission_attempts\":" << pause_attempts_
+         << ",\"pause_response_timeouts\":" << pause_response_timeouts_
+         << ",\"pause_rejections\":" << pause_rejections_
+         << ",\"last_pause_result\":\"" << last_pause_result_
+         << "\",\"operator_outcome_unresolved\":" << operator_superseded_
+         << ",\"pause_acknowledged\":" <<
+      (pause_acknowledged_ && !pause_pending_ && !operator_superseded_)
+         << ",\"physical_stop\":\"UNVERIFIED\",\"authority_scope\":\"monitor_local_requests_only\"}";
+    std_msgs::msg::String status;
+    status.data = json.str();
+    intervention_pub_->publish(status);
   }
 
   void command_callback(const std_msgs::msg::String::SharedPtr msg)
@@ -307,6 +403,7 @@ private:
     if (fault && !fault_active_) {latch_pause();}
     fault_active_ = fault;
     drive_pause();
+    publish_intervention();
     const auto published_reason = !fault && operator_superseded_ ? "operator_request_unresolved" :
       (!fault && pause_pending_ ? "pause_pending" : reason);
     if (published_reason != reported_reason_) {

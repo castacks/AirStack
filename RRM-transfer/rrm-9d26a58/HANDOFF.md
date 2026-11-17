@@ -10,6 +10,33 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest fault-escalation source increment (15:58 UTC): actual monitor now exposes
+`pause_escalation_required` and JSON `pause_intervention_status`, with authored
+steady acceptance/reconciliation budget default3s. Process identity, publication
+sequence and local episode generation distinguish records. Duplicates/retries and
+superseded-operator reconciliation retain the first latch's deadline. Positive PAUSE
+ack with no superseded local operator resolves current escalation, freezes elapsed
+and retains deadline-miss history; a new intervention resets history. Snapshot
+always says physical_stop=UNVERIFIED and monitor_local_requests_only. This is
+telemetry, with no new LAND/disarm/restart consumer or authority transfer. Existing
+readiness, operator admission and retries remain unchanged.
+
+Actual candidate DDS195/fake-controller contract28/28PASS: service absent, reject,
+timeout, later acceptance, duplicate PAUSE, held operator and causally newer PAUSE,
+new episode and instance/sequence checks. With test budget0.6s, first observed
+escalation at0.649959s/0.649963s in two episodes; resolution1.50058s/1.10005s.
+Next immediate-acceptance episode0.0386104s, no miss. These are one development run's
+monitor durations, not hard realtime or physical stopping. Full package9/9CTestPASS;
+aggregate20tests,zero failures/errors,two skips. Negative configured budget rejected.
+Baseline monitor publishes fault status but lacks escalation telemetry. First Python
+lint found one100-character line; fixed before clean package run. Build/test isolated
+under `/tmp/pause-escalation-20261117`; live installed hash remains cb74a06f...,
+candidate9727d108.... Raw baseline/final traces and exact harnesses versioned at
+`docs/uav-results/pause-escalation-20261117/`, compact sibling JSON pins source/raw
+hashes. Offline audit checks6input hashes,62snapshots and episode histories PASS.
+No flight, live binary deployment or physical regression. Controller-wide generation
+fencing remains open; process-local telemetry cannot cancel remotely queued commands.
+
 Latest development envelope (14:55 UTC): froze detector hash75071960... and0.1m
 local-step limit before a predeclared nine-view private static capture: resolutions
 240x150/480x300/960x600 crossed with camera z0.02/0.6/1.2m at x0.2,y0,+X.

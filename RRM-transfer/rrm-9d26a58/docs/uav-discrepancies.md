@@ -61,3 +61,5 @@ monitor or a requalification of November physical traces.
 | D30 | Marker receipt-age check preceded a potentially five-second action-server wait and used adjustable wall time. | Source now rechecks every channel against its observation window using monotonic time after server discovery. Clock-controlled expiry/ordering tests and a passive18-window audit pass. No new powered-flight qualification. |
 
 | D31 | The local 0.1 m depth-step gate depends on resolution and view. | Frozen nine-view nominal-cube matrix passes8controls; low-camera240×150 produces one OBSERVED then two DEPTH_INCONSISTENT frames (max step0.1674m) and window ABSTAIN. The480×300/960×600 low views pass. Preserved raw/source evidence; no threshold retuning or unique renderer-cause claim. |
+
+| D32 | Repeated PAUSE retries lacked a distinct deadline-escalation signal. | Source adds a finite positive steady-time acceptance budget, current escalation Bool and process/episode JSON snapshot. Actual DDS195 fake-server contract28/28 and package9/9CTest pass. Late acceptance retains miss history; no automatic recovery consumer, physical stop confirmation or controller-wide fencing is claimed. |
