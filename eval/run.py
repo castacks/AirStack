@@ -213,6 +213,18 @@ class AirstackRunner(BaseRunner):
                 return port
         raise RuntimeError(f'no free sidecar port in {start}..{start + span - 1}')
 
+    def render_replay_videos(self, run_dir, jobs, args) -> None:
+        """Draw the selected episodes with SAFE's aerial replay renderer, which rebuilds each
+        SAFE domain in its own Isaac and finds the policy classes in this integration's agents/."""
+        import importlib.util
+        if importlib.util.find_spec("isaacsim") is None:
+            raise SystemExit(
+                f"--render-videos boots SAFE's Isaac replay renderer, which {sys.executable} "
+                "cannot import; run it with Isaac's interpreter: ~/isaacsim/python.sh -m "
+                f"eval.run --render-videos {run_dir} --headless")
+        from safe_navigation.aerial.run import AerialNavRunner
+        AerialNavRunner.render_replay_videos(self, run_dir, jobs, args)
+
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter
         return Adapter()
