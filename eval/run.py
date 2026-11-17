@@ -220,8 +220,8 @@ class AirstackRunner(BaseRunner):
         if importlib.util.find_spec("isaacsim") is None:
             raise SystemExit(
                 f"--render-videos boots SAFE's Isaac replay renderer, which {sys.executable} "
-                "cannot import; run it with Isaac's interpreter: ~/isaacsim/python.sh -m "
-                f"eval.run --render-videos {run_dir} --headless")
+                f"cannot import; render {run_dir} in SAFE's session container as "
+                "eval/README.md's Outputs section gives")
         from safe_navigation.aerial.run import AerialNavRunner
         AerialNavRunner.render_replay_videos(self, run_dir, jobs, args)
 

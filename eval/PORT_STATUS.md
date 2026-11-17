@@ -73,7 +73,7 @@ The branch was written against SAFE as of 2026-10-03. These breaks were fixed:
 | Optional hooks | `resolved_domain`, `perturbations_vary_episodes` | `eval/adapter.py` |
 | Planner sidecar registry | `fault()` is gone; records are resolved and probed | `run_agent_hook` polls `resolve()` and `is_sidecar()` |
 | Paper roster | `paper/isaac_moving_primitive.yaml` flies the nine planners and `depthnav`, `diffaero`, `vitfly`, `agileautonomy` | every one has a wrapper (`eval/test/test_main_policy_coverage.py`); `panther` has not flown here |
-| Episode video | SAFE's replay renderer draws episode videos from the npz after a run, finding the policy classes in the policies folder of the integration `config.yaml` records | `AirstackRunner.render_replay_videos` calls SAFE's `AerialNavRunner.render_replay_videos`; SAFE core writes `integration: airstack`; it runs under Isaac's interpreter and raises naming that command elsewhere |
+| Episode video | SAFE's replay renderer draws episode videos from the npz after a run, finding the policy classes in the policies folder of the integration `config.yaml` records | `AirstackRunner.render_replay_videos` calls SAFE's `AerialNavRunner.render_replay_videos`; SAFE core writes `integration: airstack`; it renders in SAFE's session container (README, Outputs) and the host hook raises pointing there |
 | PX4 relaunch | a teleport needs a fresh PX4 EKF | the launcher relaunches PX4 after each teleport and raises at boot when Pegasus's PX4 node has `inputs:px4Autolaunch` false |
 
 Container safety on a shared machine:
@@ -95,9 +95,10 @@ capsules. Arena walls are exact. The shell width (0.3 m) is the rulebook's.
 
 Open items:
 
-- No AirStack run has been rendered yet. `thesafebenchmark-airstack` is installed into
-  `/home/kayla/miniconda3/bin/python3`, the runner's interpreter, and not yet into Isaac's
-  interpreter, which the replay renderer needs (README, Outputs).
+- One AirStack run has been rendered: `droan_check_primitive_sparse_1113_droan`, in SAFE's
+  session container on 2026-11-17, with DROAN's stereo disparity panel. The render is a manual
+  step after a run (README, Outputs), because SAFE's session container does not mount this
+  repository.
 - The CPU tests have not run since the integration registration, the DROAN sensor
   declaration and the removal of AirStack's own scenario sampler.
 

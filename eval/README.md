@@ -165,18 +165,22 @@ Episode videos are drawn from these records by SAFE's aerial replay renderer, wh
 each SAFE domain in its own Isaac. `AirstackRunner.render_replay_videos` calls SAFE's
 `AerialNavRunner.render_replay_videos` and keeps no render code of its own. The renderer reads
 `integration: airstack` from the run's `config.yaml` and loads the policy classes from
-`eval/agents`, the folder SAFE's `policies_dir("airstack")` returns. Because it boots Isaac in
-process, it runs under Isaac's interpreter, which also needs this repository installed:
+`eval/agents`, the folder SAFE's `policies_dir("airstack")` returns. It boots Isaac, so it runs
+in SAFE's session container (`tools/safe up` in the SAFE checkout), which mounts that checkout's
+`runs/` and not this repository. The package and a copy of the run go under that `runs/`:
 
 ```bash
-~/isaacsim/python.sh -m pip install --no-deps -e /home/kayla/AirStack   # once
-PYTHONPATH=/path/to/safe/checkout ~/isaacsim/python.sh -m eval.run \
-    --render-videos runs/airstack/<run> --headless
+SAFE=/home/kayla/workspace/benchmark-safe_sensors   # the checkout whose session container renders
+python3 -m pip install --no-deps --no-build-isolation --target $SAFE/runs/_airstack_pkg /home/kayla/AirStack
+cp -r runs/airstack/<run> $SAFE/runs/airstack/
+docker exec -e PYTHONPATH=/workspace/benchmark/runs/_airstack_pkg safe-session-safe_sensors \
+    bash -lc 'cd /workspace/benchmark && /isaac-sim/python.sh -m safe_navigation.aerial.run \
+    --render-videos runs/airstack/<run> --headless'
 ```
 
-SAFE's post-run video stage reruns the run's own interpreter. When that interpreter cannot
-import Isaac, the hook raises naming this command, SAFE warns that the video stage failed, and
-the run finishes without videos.
+Rerun the install after changing `eval/`. SAFE's post-run video stage reruns the run's own
+interpreter, which cannot import Isaac, so the hook raises naming this route, SAFE warns that the
+video stage failed, and the run finishes without videos.
 
 ## Notes
 
