@@ -1,0 +1,42 @@
+{
+  "scope": "all retained headers; only three saved raw detector inputs independently recomputed",
+  "header_records_checked": 20,
+  "raw_samples_checked": 3,
+  "raw_unrecomputed_records": 17,
+  "statuses": {
+    "ABSENT": 20
+  },
+  "source_span_s": 0.569999988,
+  "maximum_pair_receipt_span_wall_s": 0.015166311990469694,
+  "input_sha256": {
+    "provenance.json": "b8d48fb0b8eaf1135ae8fdb403187c3ef491c084d7851adbd3d75d9df88df2b1",
+    "frame-019.npz": "74ea6834d1ad625761d90ae6525e891ea459b5b62796fab5a7a5c761aeb50fdd",
+    "frame-000.png": "f318147671f522bdb7e6e05c0c195513d08be939e6fc8ebe709306c9399d8705",
+    "frame-010.npz": "e324ad99f76fdf4c22346f317a2eb30f0f626a1a5727ddf5eda76d5d1895dff5",
+    "summary.json": "b6c133dba66d5dc281fba3b86d529b0d0920145676d6d081bbd8db25b367998c",
+    "frame-010.png": "6a7c53f67c21fd7ebcae8f49f6944a56add184a8c13ea138d2d0127779c491eb",
+    "frame-019.png": "a9eed62fa3cd596e8b905ad2985dcc4d649070a96e9284b2adf03fcc9f721e1e",
+    "observations.jsonl": "ffe07cd7f9cccf49d7ea76dcf60324034f4618a4a7eb7f3af3a8450449dcfd63",
+    "frame-000.npz": "f26cc6110f41210a9b1c407450b80c473082609416ccbb8f46b785b12327cf1a"
+  },
+  "verifier_sha256": "6d57f1cdba59613a154be84f4982134f0af216136b49c4f9c07946a719c5015b",
+  "renderer_synchronization_proven": false,
+  "physical_execution": false,
+  "semantic_truth_proven": false,
+  "date": "2026-11-17",
+  "base_commit": "68e41fdf2",
+  "source_provenance": {
+    "capture_sha256": "182ce4e3f8d21698d6c9ccfa5c55f59742d62a67e60efb6b5ad1602d10b032e9",
+    "detector_sha256": "732411155705e5a8a5bbd7ca6cd3bb9d74113720b2c073cf086813e6cabe0cef",
+    "pairing_sha256": "59af517be66670e1155b74d5315836bfbea77e4d01a7ec9d7525c6ddbb4a2d79",
+    "cv2_version": "4.6.0",
+    "numpy_version": "1.26.4"
+  },
+  "pairing_contract_tests": "4 PASS with adversarial subcases",
+  "data_directory": "passive-default-20261117",
+  "limits": [
+    "17 raw images not saved and not independently recomputed",
+    "No motion, scene-wide target truth or renderer synchronization claim",
+    "Curated evidence committed locally; external backup/push not verified"
+  ]
+}

@@ -13,32 +13,38 @@ def main():
     from sensor_msgs.msg import Image,CameraInfo
     from cv_bridge import CvBridge
     from rrm.uav_marker import detect_red_surface
+    from rrm.camera_pairing import camera_pair_metadata
     ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--output',required=True);ap.add_argument('--duration',type=float,default=20);ap.add_argument('--frames',type=int,default=20)
     args=ap.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=False)
     (out/'provenance.json').write_text(json.dumps(dict(
         capture_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         detector_sha256=hashlib.sha256(Path(inspect.getfile(detect_red_surface)).read_bytes()).hexdigest(),
+        pairing_sha256=hashlib.sha256(Path(inspect.getfile(camera_pair_metadata)).read_bytes()).hexdigest(),
         cv2_version=cv2.__version__,numpy_version=np.__version__),indent=2))
     rclpy.init();n=Node('uav_passive_marker_capture');bridge=CvBridge();cache={};records=[];seen=set();counts={}
     log=(out/'observations.jsonl').open('w',buffering=1)
     def cb(kind,msg):
         counts[kind]=counts.get(kind,0)+1
         stamp=(msg.header.stamp.sec,msg.header.stamp.nanosec)
-        entry=cache.setdefault(stamp,{});entry[kind]=msg
+        entry=cache.setdefault(stamp,{});entry[kind]=(msg,time.time(),time.monotonic())
         if stamp not in seen and all(k in entry for k in ('rgb','depth','info')):
-            seen.add(stamp);rgb,depth,info=(entry[k] for k in ('rgb','depth','info'))
-            v=dict(wall_unix=time.time(),stamp_sec=stamp[0],stamp_nanosec=stamp[1],frame=rgb.header.frame_id,exact_stamp_pair=True)
+            seen.add(stamp);rgb,depth,info=(entry[k][0] for k in ('rgb','depth','info'))
+            receipts={k:entry[k][1] for k in ('rgb','depth','info')}
+            times=[entry[k][2] for k in ('rgb','depth','info')]
+            v=dict(wall_unix=time.time(),stamp_sec=stamp[0],stamp_nanosec=stamp[1],
+                   receipt_wall_unix=receipts,pair_receipt_span_wall_s=max(times)-min(times))
             try:
-                if len({m.header.frame_id for m in (rgb,depth,info)})!=1:raise ValueError('frame mismatch')
-                if depth.encoding!='32FC1':raise ValueError('requires explicit 32FC1 metres depth')
-                if (info.width,info.height)!=(rgb.width,rgb.height):raise ValueError('calibration/image size mismatch')
+                v.update(camera_pair_metadata(rgb,depth,info))
                 color=bridge.imgmsg_to_cv2(rgb,desired_encoding='rgb8');distance=bridge.imgmsg_to_cv2(depth,desired_encoding='passthrough')
                 v['observation']=detect_red_surface(color,distance,[float(x) for x in info.k])
                 if len(records) in (0,10,19):
                     prefix=f'frame-{len(records):03d}'
-                    cv2.imwrite(str(out/(prefix+'.png')),cv2.cvtColor(color,cv2.COLOR_RGB2BGR))
+                    if not cv2.imwrite(str(out/(prefix+'.png')),cv2.cvtColor(color,cv2.COLOR_RGB2BGR)):
+                        raise ValueError('raw image write failed')
                     np.savez_compressed(out/(prefix+'.npz'),depth_m=distance,intrinsic=np.array(info.k))
                     v['raw_prefix']=prefix
+                    v['raw_sha256']={prefix+suffix:hashlib.sha256((out/(prefix+suffix)).read_bytes()).hexdigest()
+                                     for suffix in ('.png','.npz')}
             except Exception as error:v['observation']=dict(status='INVALID',error=repr(error))
             records.append(v);log.write(json.dumps(v)+'\n')
         while len(cache)>15:cache.pop(next(iter(cache)))

@@ -1,5 +1,37 @@
 # Current UAV development checkpoint
 
+## November 17 source and passive continuation
+
+The November 15 physical results below remain historical and source-specific.
+The restored workspace is running the default Isaac launch script; historical UAV
+raw records are absent from the checked host artifact locations. No new flight,
+scene switch, model launch or live control-binary replacement has occurred.
+
+- Restricted marker software campaign:13/13 authored synthetic dispositions;
+  malformed viewpoint inputs abstain. Partial connected occlusion remains an
+  explicit OBSERVED/SELECTED limitation, not qualified occlusion detection.
+- Watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
+  late/timed-out operator requests remain tracked until reconciliation and renewed
+  PAUSE. Actual isolated binary contracts and full package8/8CTest pass.
+- Controller source repair:PAUSE drops conflicting trajectory overrides and invalid
+  modes cannot replace it. Actual isolated reference test measures0.0m excursion
+  against0.410m baseline. After separate mechanical lint cleanup, package7/7CTest
+  pass. Both packages have aggregate zero errors/failures and two skips each.
+- Core test fixture corrected without weakening LAND admission. Full-dependency
+  unittest651/651pass; minimal Pydantic-only run655tests,634pass/21explicit skips.
+  Optional worker YAML inspection runs when PyYAML exists and skips otherwise.
+- Fresh passive camera capture:20exact-header triples classified ABSENT; a saved
+  frame was inspected. This is detector output on the current view, not scene-wide
+  target truth or renderer-synchronization evidence.
+
+See [the latest handoff](../HANDOFF.md), [marker evidence](uav-marker-perception.md)
+and [discrepancies](uav-discrepancies.md). Controller-side exclusive authority,
+request-generation fencing, physical regression of the new code, learned grounding
+and general occlusion handling remain open. The running simulation is preserved;
+its current arming/ground/readiness state is not inferred from the old checkpoint.
+
+## November 15 physical checkpoint
+
 2026-11-15, `ore_proj`, source based on `07ff1dcbb` with the UAV checkpoint changes. Simulation only; one GPU; Cosmos deferred.
 
 Four bounded cases pass independent physical/contact acceptance: takeoff/hover/land, moving operator PAUSE/cancel/land, automatic PAUSE from a dedicated monitor’s stale-source input, and an observation-conditioned marker viewpoint. Across capabilities 006–037, current dispositions are **4 PASS, 11 NOT DEMONSTRATED, 8 NOT IMPLEMENTED and 9 NOT TESTED**. PASS applies to the specific cases below, not broad autonomy or repeatability.

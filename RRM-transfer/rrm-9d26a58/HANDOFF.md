@@ -105,6 +105,25 @@ Earlier unformatted-source reports retain their original failures and hashes;
 this clean result is a later source checkpoint, not a rewrite of them. Live controller
 and watchdog binaries remain unchanged; no flight or scene switch occurred.
 
+Fresh passive-camera follow-up:current default-scene capture20/20ABSENT; first saved
+frame inspected (gray/blue surfaces with white stripe). First log lacked individual
+headers despite claiming exact pairing, so it remains a separate limited record.
+Added dependency-light camera-pair metadata validator, all original headers,
+dimensions/encodings/calibration, per-channel receipt times, source-helper hash and
+saved PNG/NPZ hashes. Four contract tests with adversarial subcasesPASS. Second
+passive capture20/20ABSENT; audit verified20header triples and independently
+recomputed3saved raw inputs. Other17raw images were not saved. Source span0.570s,
+max channel receipt span0.01517wall seconds; no renderer synchronization or
+scene-wide semantic-absence claim. Curated20metadata/3raw-pair evidence and fixed-case
+audit source are versioned under `docs/uav-results/passive-default-20261117/`, with
+compact `passive-camera-audit-20261117.json`. No remote push/backup verified.
+One audit attempt imported an older sibling rrm snapshot from its script directory
+ahead of PYTHONPATH and failed before analysis; moved the audit into the correct
+source layout and verified helper/detector hashes. This was a harness import-path
+issue, not a camera result. No motion, scene mutation, model inference or live
+control-binary replacement. Current status page now explicitly separates November17
+source/passive continuation from the historical November15 physical checkpoint.
+
 ## Earlier saved checkpoint; resume later — 2026-11-15
 
 User requested documentation update and commit before usage runs out. No active

@@ -55,3 +55,23 @@ Restored-workspace discrepancy: historical UAV raw captures are absent from the
 checked host artifact directories; the running simulator uses the default scene,
 not the historical marker fixture. No historical physical result was reproduced,
 no scene switched, and no flight dispatched for this offline development campaign.
+
+## Fresh passive current-view evidence — 2026-11-17
+
+Two passive captures each returned20ABSENT observations from the running default
+scene; a saved frame was visually inspected. The first log retained only a pairing
+Boolean. The second uses `rrm/camera_pairing.py` to retain all three original
+headers, dimensions, encodings, calibration, per-channel receipt times and hashes
+for saved PNG/NPZ detector inputs. Empty/mismatched frames, invalid source stamps,
+dimension mismatches and non-32FC1 depth are rejected. Four dependency-light tests
+with adversarial subcases pass. This does not impose camera/depth requirements on
+the embodiment-independent reasoner or qualify renderer synchronization.
+
+The [curated sample](uav-results/passive-default-20261117/README.md) retains all20
+metadata records and three raw detector-input pairs in Git. The
+[audit](uav-results/passive-camera-audit-20261117.json) checked all20headers and
+independently recomputed all3saved pairs:ABSENT. The other17raw observations were
+not saved and cannot be independently recomputed. Source span0.570s; maximum
+channel receipt span0.01517wall seconds. Receipt alignment is not acquisition
+synchronization, and ABSENT in the current view does not establish scene-wide
+semantic absence. No flight, motion request, scene change or model inference.

@@ -1,0 +1,12 @@
+{
+  "scope": "passive restricted red fixture; simulated oracle depth surface in pinhole optical convention, no world binding",
+  "received": {
+    "info": 20,
+    "depth": 20,
+    "rgb": 20
+  },
+  "exact_stamp_observations": 20,
+  "statuses": {
+    "ABSENT": 20
+  }
+}
