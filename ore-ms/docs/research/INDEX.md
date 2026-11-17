@@ -8,6 +8,16 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
+| New-recording independent-reference intake | [Completed three-candidate screen and unmet reference gate](independent-recording-intake-findings-2026-11-17.md) · [Protocol](independent-recording-intake-protocol-2026-11-17.md) |
+| Baseline recommendation and validation | [Decision from accuracy, coverage and temporal evidence](baseline-recommendation-2026-11-17.md) |
+| Temporal output/error bursts | [Completed three-record sampled run and censor analysis](temporal-output-bursts-findings-2026-11-17.md) · [Protocol](temporal-output-bursts-protocol-2026-11-17.md) |
+| Unchanged crop transfer to OutdoorNight | [Completed nominal-gyro comparison and mixed transfer](outdoornight-crop-findings-2026-11-16.md) · [Protocol](outdoornight-crop-protocol-2026-11-16.md) |
+| Matched retained-count control | [Completed crop versus same-count comparison](matched-count-findings-2026-11-16.md) · [Protocol](matched-count-protocol-2026-11-16.md) |
+| Fixed image-only pre-essential exclusion | [Completed refit ablation, gains and coverage costs](pre-essential-exclusion-findings-2026-11-16.md) · [Protocol](pre-essential-exclusion-protocol-2026-11-16.md) · [Audit amendment](pre-essential-exclusion-audit-amendment-2026-11-16.md) |
+| Essential-inlier spatial/motion mixture | [Completed fixed masks and source overlays](essential-inlier-mixture-findings-2026-11-16.md) · [Protocol](essential-inlier-mixture-protocol-2026-11-16.md) |
+| Motion compression in matches and cached E | [Completed match/branch/reference-residual diagnosis](motion-compression-location-findings-2026-11-16.md) · [Protocol](motion-compression-location-protocol-2026-11-16.md) |
+| Cached moving rotation collapse | [Completed fixed assay and continuous-angle diagnosis](rotation-collapse-findings-2026-11-16.md) · [Protocol](rotation-collapse-protocol-2026-11-16.md) |
+| Learned recoverable and wrong-both failure strata | [Completed timing/descriptor/image characterization](paired-failure-strata-findings-2026-11-16.md) · [Protocol](paired-failure-strata-protocol-2026-11-16.md) |
 | Paired fixed priorities and remaining selection ceiling | [Completed cross-record replay](paired-priority-findings-2026-11-16.md) · [Protocol](paired-priority-protocol-2026-11-16.md) |
 | Paired multi-record evidence restoration | [Completed full paired replay and historical parity](multirecord-restoration-findings-2026-11-16.md) · [Protocol](multirecord-restoration-protocol-2026-11-16.md) |
 | Fixed camera priority and selection headroom | [Completed OutdoorNight replay and historical bounds](camera-priority-findings-2026-11-16.md) · [Protocol](camera-priority-protocol-2026-11-16.md) |

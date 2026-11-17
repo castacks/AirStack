@@ -1,8 +1,8 @@
 # Current research handoff
 
-16 November 2026. Resumed checkpoint: paired fixed-priority replay complete.
-Branch `ore-ms-orb-development`; latest committed base `a41fb5640`. Start with the
-[completed paired priority comparison](docs/research/paired-priority-findings-2026-11-16.md)
+17 November 2026. Resumed checkpoint: independent-recording intake complete.
+Branch `ore-ms-orb-development`; study execution base `4408b7fb8`. Start with the
+[completed recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md)
 and [research index](docs/research/INDEX.md). Historical proposed next steps do not
 supersede this page.
 
@@ -97,12 +97,12 @@ control outperforms thermal backup on these low-motion gaps. Whole projected
 matching overhead3.3%. SIFT instead favors thermal during motion:≤5°17.2%RGB,
 57.3%thermal,38.0%fallback; preserve frontend dependence and incorrect additions.
 
-[Paired priorities](docs/research/paired-priority-findings-2026-11-16.md): learned
-SmokeRoom thermal-first121/195 versusRGB-first155/192 moving1°/5°; joint256vs356/483.
-FlashLight thermal-first79/134 versus176/185; joint305vs452/519. No universal swap.
-Oracle beyond better order: Smoke23/22moving,28joint; Flash2/3moving,6joint.
-12verified tests/71,732audit checks pass; no inference/fitted gate or pooled targets.
-Next: fixed Smoke failure-stratum characterization, Flash control; review old cue nulls.
+[New-recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md):
+BlockVisual has8624RGB/15512thermal frames but no qualified reference in inspected sources.
+LongCorridor/MultiFloor have1385/2061reference rows but no thermal in complete ZIP listings.
+92integrity/schema checks PASS; independent paired-pose readiness FAIL; no model runs.
+Fresh SubT-MRS v5§3.2 confirms fused visual/LiDAR/IMU reference; prior nominal tiers remain.
+Next: M2P2 night camera-independent LiDAR-reference feasibility, before sensor download.
 
 ## Prior evidence and closed routes
 
