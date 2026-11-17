@@ -59,6 +59,7 @@ import time
 
 import numpy as np
 
+import omni.graph.core as og
 import omni.kit.app
 import omni.timeline
 import omni.usd
@@ -691,10 +692,7 @@ class ScenarioManager:
         if backend is None:
             carb.log_warn("[safe_eval] no PX4MavlinkBackend to restart — arm may fail")
             return
-        if not getattr(backend, "px4_autolaunch", False):
-            carb.log_warn("[safe_eval] PX4 is not autolaunched by Pegasus, so it cannot be "
-                          "restarted from here — arm may fail after the teleport")
-            return
+        # Boot checked that Pegasus autolaunches PX4, so this backend owns the PX4 process.
         try:
             backend.stop()
         except Exception:
@@ -1071,6 +1069,13 @@ class SafeEvalApp:
             init_pos=[float(spawn[0]), float(spawn[1]), float(CONFIG["spawn_z"])],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
+        # Each teleport relaunches PX4 for a fresh EKF, which only a PX4 Pegasus launched allows.
+        px4_node = f"{graph_handle.get_path_to_graph()}/PX4Multirotor"
+        if not og.Controller.get(og.Controller.attribute("inputs:px4Autolaunch", px4_node)):
+            raise RuntimeError(
+                f"{px4_node} has inputs:px4Autolaunch false, so PX4 cannot be relaunched after "
+                "a teleport and the next arm fails; spawn it with "
+                "spawn_px4_multirotor_node(px4_autolaunch=True)")
         pov_res = int(os.environ.get("SAFE_POV_RES") or "0")
         if pov_res and not 32 <= pov_res <= 1024:
             raise ValueError(f"SAFE_POV_RES must be in [32, 1024], got {pov_res}")
