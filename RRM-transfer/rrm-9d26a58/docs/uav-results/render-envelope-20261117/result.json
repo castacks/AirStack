@@ -1,0 +1,44 @@
+{
+  "capture_complete": true,
+  "cases": [
+    {
+      "case": "w240-z002",
+      "captured_frames": 3
+    },
+    {
+      "case": "w240-z060",
+      "captured_frames": 3
+    },
+    {
+      "case": "w240-z120",
+      "captured_frames": 3
+    },
+    {
+      "case": "w480-z002",
+      "captured_frames": 3
+    },
+    {
+      "case": "w480-z060",
+      "captured_frames": 3
+    },
+    {
+      "case": "w480-z120",
+      "captured_frames": 3
+    },
+    {
+      "case": "w960-z002",
+      "captured_frames": 3
+    },
+    {
+      "case": "w960-z060",
+      "captured_frames": 3
+    },
+    {
+      "case": "w960-z120",
+      "captured_frames": 3
+    }
+  ],
+  "renderer": "RaytracedLighting",
+  "robot_or_ros_started": false,
+  "source_sha256": "45c20d6a089ba327737dffbcd0d69dd24f8564a87a2a08bb12d66014367e8b78"
+}

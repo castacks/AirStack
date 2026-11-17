@@ -186,3 +186,14 @@ contains20triples,18complete recent windows, and3independently recomputed raw pa
 (all ABSENT in the current default view). Maximum recorded window receipt age0.132s.
 The other17raw images were not saved. Saved monotonic times support replay of that
 check only, never freshness or motion permission in a later process.
+
+## Frozen resolution/view envelope — 2026-11-17
+
+A subsequent [nine-view matrix](uav-results/render-envelope-20261117/README.md)
+kept the detector and 0.1 m local-step limit frozen. Eight authored controls observe
+all three frames; the 240×150 low-camera control falsely abstains in two frames
+and its window has no goal. The corresponding 480×300 and 960×600 views observe
+all frames. All 27 raw inputs and 81 hashes are retained, including the failure.
+This confirms the declared resolution/view dependence; no threshold was retuned.
+Source remains qualified only to the recorded development cases, with steep or
+poorly resolved continuous geometry capable of conservative abstention.

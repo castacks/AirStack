@@ -1,0 +1,1307 @@
+{
+  "scope": "frozen local-depth detector resolution/view development limits",
+  "physical_execution": false,
+  "held_out": false,
+  "learned_reasoning": false,
+  "notes": [
+    "Nine nominal-cube development views, not independent trials or held-out accuracy.",
+    "Every scene contains the same cube; abstention is retained as a conservative envelope limit.",
+    "Detector source and numeric limits frozen before rendering this matrix.",
+    "No threshold revision or live scene mutation occurred."
+  ],
+  "cases": [
+    {
+      "case": "w240-z002",
+      "resolution": [
+        240,
+        150
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            36,
+            16,
+            18
+          ],
+          "centroid_uv": [
+            119.52669039145907,
+            44.42348754448398
+          ],
+          "valid_depth_samples": 217,
+          "surface_point_optical_m": [
+            0.0,
+            -1.1793480112106491,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.598224639892578,
+          "depth_spread_m": 0.09822463989257812,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09822463989257812,
+          "surface_pixel_uv": [
+            120,
+            44
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            36,
+            16,
+            19
+          ],
+          "centroid_uv": [
+            119.5432525951557,
+            44.688581314878896
+          ],
+          "valid_depth_samples": 221,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.76558256149292,
+          "depth_spread_m": 0.2655825614929199,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.1673581600189209
+        },
+        {
+          "status": "DEPTH_INCONSISTENT",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            36,
+            16,
+            19
+          ],
+          "centroid_uv": [
+            119.51567944250871,
+            44.62369337979094
+          ],
+          "valid_depth_samples": 219,
+          "surface_point_optical_m": null,
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.76558256149292,
+          "depth_spread_m": 0.2655825614929199,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.1673581600189209
+        }
+      ],
+      "positive_control_passed": false,
+      "decision": {
+        "status": "ABSTAIN",
+        "reason": "unobserved_or_ambiguous_target",
+        "delta_map_m": null
+      }
+    },
+    {
+      "case": "w240-z060",
+      "resolution": [
+        240,
+        150
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.6
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            52,
+            16,
+            15
+          ],
+          "centroid_uv": [
+            119.6923076923077,
+            58.96153846153846
+          ],
+          "valid_depth_samples": 176,
+          "surface_point_optical_m": [
+            0.0,
+            -0.6086957062575238,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            59
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            52,
+            16,
+            15
+          ],
+          "centroid_uv": [
+            119.72727272727273,
+            58.90909090909091
+          ],
+          "valid_depth_samples": 173,
+          "surface_point_optical_m": [
+            0.0,
+            -0.6086957062575238,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            59
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            52,
+            16,
+            15
+          ],
+          "centroid_uv": [
+            119.72727272727273,
+            58.90909090909091
+          ],
+          "valid_depth_samples": 173,
+          "surface_point_optical_m": [
+            0.0,
+            -0.6086957062575238,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            59
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.642262010503583,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.642262010503583,
+        "predicted_surface_depth_z_m": 2.857738227914996,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w240-z120",
+      "resolution": [
+        240,
+        150
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        1.2
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            67,
+            16,
+            16
+          ],
+          "centroid_uv": [
+            119.56626506024097,
+            74.40963855421687
+          ],
+          "valid_depth_samples": 189,
+          "surface_point_optical_m": [
+            0.0,
+            -0.038043481641095236,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            74
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            67,
+            16,
+            16
+          ],
+          "centroid_uv": [
+            119.74273858921161,
+            74.29460580912863
+          ],
+          "valid_depth_samples": 179,
+          "surface_point_optical_m": [
+            0.0,
+            -0.038043481641095236,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            74
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            112,
+            67,
+            16,
+            15
+          ],
+          "centroid_uv": [
+            119.53164556962025,
+            74.0295358649789
+          ],
+          "valid_depth_samples": 179,
+          "surface_point_optical_m": [
+            0.0,
+            -0.038043481641095236,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            120,
+            74
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.642262010503583,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.642262010503583,
+        "predicted_surface_depth_z_m": 2.857738227914996,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 0.9375,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w480-z002",
+      "resolution": [
+        480,
+        300
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.24677558039554,
+            90.22527944969906
+          ],
+          "valid_depth_samples": 1025,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            239,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            31,
+            38
+          ],
+          "centroid_uv": [
+            239.16392020815263,
+            90.23417172593236
+          ],
+          "valid_depth_samples": 1017,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            239,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            72,
+            32,
+            38
+          ],
+          "centroid_uv": [
+            239.21963824289406,
+            90.20327304048234
+          ],
+          "valid_depth_samples": 1023,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -1.1413043714876667,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.901688575744629,
+          "depth_spread_m": 0.4016885757446289,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.09180569648742676,
+          "surface_pixel_uv": [
+            239,
+            90
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 0.96875,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w480-z060",
+      "resolution": [
+        480,
+        300
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.6
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            103,
+            32,
+            31
+          ],
+          "centroid_uv": [
+            239.51567239635995,
+            118.01516683518706
+          ],
+          "valid_depth_samples": 867,
+          "surface_point_optical_m": [
+            0.0,
+            -0.6086956647934222,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            240,
+            118
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            103,
+            32,
+            31
+          ],
+          "centroid_uv": [
+            239.5,
+            118.0
+          ],
+          "valid_depth_samples": 866,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -0.6086956647934222,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            239,
+            118
+          ],
+          "surface_depth_z_m": 3.5
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            103,
+            32,
+            31
+          ],
+          "centroid_uv": [
+            239.32476875642342,
+            117.89516957862281
+          ],
+          "valid_depth_samples": 847,
+          "surface_point_optical_m": [
+            -0.019021739524794443,
+            -0.6086956647934222,
+            3.5
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            239,
+            118
+          ],
+          "surface_depth_z_m": 3.5
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422619667529585,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422619667529585,
+        "predicted_surface_depth_z_m": 2.8577380332470415,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w480-z120",
+      "resolution": [
+        480,
+        300
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        1.2
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            225,
+            134,
+            31,
+            31
+          ],
+          "centroid_uv": [
+            239.8736842105263,
+            149.17263157894737
+          ],
+          "valid_depth_samples": 830,
+          "surface_point_optical_m": [
+            0.0,
+            -0.019021740820547618,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            240,
+            149
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            225,
+            134,
+            31,
+            31
+          ],
+          "centroid_uv": [
+            239.8583509513742,
+            149.23678646934462
+          ],
+          "valid_depth_samples": 826,
+          "surface_point_optical_m": [
+            0.0,
+            -0.019021740820547618,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            240,
+            149
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            224,
+            134,
+            32,
+            31
+          ],
+          "centroid_uv": [
+            239.7089005235602,
+            149.2219895287958
+          ],
+          "valid_depth_samples": 829,
+          "surface_point_optical_m": [
+            0.0,
+            -0.019021740820547618,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            240,
+            149
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.642262010503583,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.642262010503583,
+        "predicted_surface_depth_z_m": 2.857738227914996,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 0.96875,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w960-z002",
+      "resolution": [
+        960,
+        600
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.02
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            145,
+            62,
+            75
+          ],
+          "centroid_uv": [
+            479.5123966942149,
+            181.62026968247065
+          ],
+          "valid_depth_samples": 4328,
+          "surface_point_optical_m": [
+            0.0,
+            -1.1222827084123095,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.9734978675842285,
+          "depth_spread_m": 0.4734978675842285,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.04816246032714844,
+          "surface_pixel_uv": [
+            480,
+            182
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            145,
+            62,
+            75
+          ],
+          "centroid_uv": [
+            479.4882506527415,
+            181.60661444734552
+          ],
+          "valid_depth_samples": 4326,
+          "surface_point_optical_m": [
+            -0.009510870410273809,
+            -1.1222827084123095,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.9734978675842285,
+          "depth_spread_m": 0.4734978675842285,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.04816246032714844,
+          "surface_pixel_uv": [
+            479,
+            182
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            145,
+            62,
+            75
+          ],
+          "centroid_uv": [
+            479.5126196692776,
+            181.60443864229765
+          ],
+          "valid_depth_samples": 4326,
+          "surface_point_optical_m": [
+            0.0,
+            -1.1222827084123095,
+            3.500000238418579
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.9734978675842285,
+          "depth_spread_m": 0.4734978675842285,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 0.04816246032714844,
+          "surface_pixel_uv": [
+            480,
+            182
+          ],
+          "surface_depth_z_m": 3.500000238418579
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.642262010503583,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.642262010503583,
+        "predicted_surface_depth_z_m": 2.857738227914996,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w960-z060",
+      "resolution": [
+        960,
+        600
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        0.6
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            206,
+            62,
+            63
+          ],
+          "centroid_uv": [
+            479.57451737451737,
+            236.83243243243243
+          ],
+          "valid_depth_samples": 3633,
+          "surface_point_optical_m": [
+            0.0,
+            -0.599184876663475,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            480,
+            237
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            206,
+            62,
+            63
+          ],
+          "centroid_uv": [
+            479.56471494607086,
+            236.90446841294298
+          ],
+          "valid_depth_samples": 3646,
+          "surface_point_optical_m": [
+            0.0,
+            -0.599184876663475,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            480,
+            237
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            206,
+            62,
+            63
+          ],
+          "centroid_uv": [
+            479.5,
+            237.0
+          ],
+          "valid_depth_samples": 3660,
+          "surface_point_optical_m": [
+            -0.009510871058150397,
+            -0.599184876663475,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            479,
+            237
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422620542542075,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422620542542075,
+        "predicted_surface_depth_z_m": 2.8577384225829507,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 1.0,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    },
+    {
+      "case": "w960-z120",
+      "resolution": [
+        960,
+        600
+      ],
+      "camera_position_world_m": [
+        0.2,
+        0.0,
+        1.2
+      ],
+      "intended_observation": "OBSERVED",
+      "observations": [
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            269,
+            62,
+            62
+          ],
+          "centroid_uv": [
+            479.5,
+            299.5
+          ],
+          "valid_depth_samples": 3600,
+          "surface_point_optical_m": [
+            -0.009510871058150397,
+            -0.009510871058150397,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            479,
+            299
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            269,
+            63,
+            62
+          ],
+          "centroid_uv": [
+            479.5735790293278,
+            299.48092395535946
+          ],
+          "valid_depth_samples": 3605,
+          "surface_point_optical_m": [
+            0.0,
+            -0.009510871058150397,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            480,
+            299
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        },
+        {
+          "status": "OBSERVED",
+          "components": 1,
+          "bbox_xywh": [
+            449,
+            269,
+            62,
+            62
+          ],
+          "centroid_uv": [
+            479.5,
+            299.5
+          ],
+          "valid_depth_samples": 3600,
+          "surface_point_optical_m": [
+            -0.009510871058150397,
+            -0.009510871058150397,
+            3.500000476837158
+          ],
+          "depth_source": "simulated_depth_ground_truth",
+          "point_semantics": "observed surface, not object center",
+          "depth_min_m": 3.5,
+          "depth_max_m": 3.500000476837158,
+          "depth_spread_m": 4.76837158203125e-07,
+          "max_depth_step_m": 0.1,
+          "max_depth_spread_m": null,
+          "depth_support_components": 1,
+          "depth_max_adjacent_step_m": 4.76837158203125e-07,
+          "surface_pixel_uv": [
+            479,
+            299
+          ],
+          "surface_depth_z_m": 3.500000476837158
+        }
+      ],
+      "positive_control_passed": true,
+      "decision": {
+        "status": "SELECTED",
+        "selected_observation_index": 0,
+        "delta_map_m": [
+          0.6422620542542075,
+          0.0,
+          0.0
+        ],
+        "translation_m": 0.6422620542542075,
+        "predicted_surface_depth_z_m": 2.8577384225829507,
+        "predicted_bbox_area_ratio": 1.4999999999999998,
+        "min_window_bbox_iou": 0.9841269841269841,
+        "limits": {
+          "max_translation_m": 0.75,
+          "min_optical_standoff_m": 2.5,
+          "min_window_bbox_iou": 0.5
+        },
+        "scope": "static red fixture, oracle depth, frontal pinhole resolution proxy"
+      }
+    }
+  ],
+  "positive_controls_passed": 8,
+  "total_controls": 9,
+  "frames": 27,
+  "input_sha256": {
+    "w240-z002/frame-0.png": "46dd5210bc24264eda98518875311f0e7d0707bcb89b7af499188113d194f9c1",
+    "w240-z002/frame-0.npz": "cbd03ba749a0e92af9984d0d48723b037991048f9304ccfe8d96447594221f15",
+    "w240-z002/frame-0-camera.json": "f9f0bf263297164059b83f618201ad74d04f341dce2e096436ba969923ca3b0e",
+    "w240-z002/frame-1.png": "9037801fd7016f2af07cae529781f16a4d62eb89546d575dae296e3d55aaaa19",
+    "w240-z002/frame-1.npz": "cbd03ba749a0e92af9984d0d48723b037991048f9304ccfe8d96447594221f15",
+    "w240-z002/frame-1-camera.json": "f9f0bf263297164059b83f618201ad74d04f341dce2e096436ba969923ca3b0e",
+    "w240-z002/frame-2.png": "65db03dabdcc05269eb04d000faea735270192ca5a6163ad421d53dbc8eb801b",
+    "w240-z002/frame-2.npz": "cbd03ba749a0e92af9984d0d48723b037991048f9304ccfe8d96447594221f15",
+    "w240-z002/frame-2-camera.json": "f9f0bf263297164059b83f618201ad74d04f341dce2e096436ba969923ca3b0e",
+    "w240-z060/frame-0.png": "dbc0024be2c952910db15802b60c201ba2e1b98b5bc9cd6c590f5dd7ae8f7db2",
+    "w240-z060/frame-0.npz": "bdbafa0526fda0be23e2ac1e03a9679a3a32fa7e4fd7197a222a6ffb6695f8e2",
+    "w240-z060/frame-0-camera.json": "6ad4e47f83831457767f29410668160f0c97735c3cdcdc7e417c2d2b721fed70",
+    "w240-z060/frame-1.png": "3b2b565904afed38ed986d505d4d10406cc3106f9c387f1e28a15145867797ba",
+    "w240-z060/frame-1.npz": "bdbafa0526fda0be23e2ac1e03a9679a3a32fa7e4fd7197a222a6ffb6695f8e2",
+    "w240-z060/frame-1-camera.json": "6ad4e47f83831457767f29410668160f0c97735c3cdcdc7e417c2d2b721fed70",
+    "w240-z060/frame-2.png": "5b1a21bd0a19f82ad65b1a35d1ab8010aed23424ff37c04bc69761b266ba1b66",
+    "w240-z060/frame-2.npz": "bdbafa0526fda0be23e2ac1e03a9679a3a32fa7e4fd7197a222a6ffb6695f8e2",
+    "w240-z060/frame-2-camera.json": "6ad4e47f83831457767f29410668160f0c97735c3cdcdc7e417c2d2b721fed70",
+    "w240-z120/frame-0.png": "eb42b6d0401b57e0d4541d1eed323ccac6ed0ffd5315ff1f9e9da58746c1516e",
+    "w240-z120/frame-0.npz": "17d8c576702344e3e1396955b6004b96fb3c13b0e924709b66a3754391e2a981",
+    "w240-z120/frame-0-camera.json": "c189e7f5aea9642c54b5c36b145633309b4683df2cdccc103493d0b109ea9680",
+    "w240-z120/frame-1.png": "a6b341cad48afbb4fc58207ab1c5cad648b4cfa0f16f3a3be3e5128c1608b2a6",
+    "w240-z120/frame-1.npz": "17d8c576702344e3e1396955b6004b96fb3c13b0e924709b66a3754391e2a981",
+    "w240-z120/frame-1-camera.json": "c189e7f5aea9642c54b5c36b145633309b4683df2cdccc103493d0b109ea9680",
+    "w240-z120/frame-2.png": "6d63fc89a47eb32bf24589fb93c0fd232a649d52ca26bad04d9353be76a57037",
+    "w240-z120/frame-2.npz": "17d8c576702344e3e1396955b6004b96fb3c13b0e924709b66a3754391e2a981",
+    "w240-z120/frame-2-camera.json": "c189e7f5aea9642c54b5c36b145633309b4683df2cdccc103493d0b109ea9680",
+    "w480-z002/frame-0.png": "9d79b6966f2c91b2a1820be9446de7087669df018cfd557daea4f4cdba0fc19e",
+    "w480-z002/frame-0.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "w480-z002/frame-0-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "w480-z002/frame-1.png": "ebcac63b6b76e9fd811beb9aad583f872a46624e958a2442094cc82ae580f5f7",
+    "w480-z002/frame-1.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "w480-z002/frame-1-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "w480-z002/frame-2.png": "51d9e5560bc3fbdc348b8528ccacfab68f6a8d160c8c07a07ed20147522fe08a",
+    "w480-z002/frame-2.npz": "a79ab6f781cdd30621a40b28182b70fe7b570d9b0744a14ffa39401e4d050432",
+    "w480-z002/frame-2-camera.json": "fa3a096c4c2f74e7d67143ad2afc7fc37772c7b386cf30ad25131ba8d69b773c",
+    "w480-z060/frame-0.png": "a0c7b35e47d1a78c720e65b96163ef88f4e7d47c272e99a0d98fe8af7c02cc06",
+    "w480-z060/frame-0.npz": "5aa90a8b1a02b360160bc915a7606ba9c3abd83d14983afae179e4f87d874eda",
+    "w480-z060/frame-0-camera.json": "ffd403704e6630e99a7ce7be8865e065ac6dd6bb60349ba46e8115b225ea4de1",
+    "w480-z060/frame-1.png": "742da5bc1aead75398cc02728b3b6803681f0269d312daf8a77827a82047a01a",
+    "w480-z060/frame-1.npz": "5aa90a8b1a02b360160bc915a7606ba9c3abd83d14983afae179e4f87d874eda",
+    "w480-z060/frame-1-camera.json": "ffd403704e6630e99a7ce7be8865e065ac6dd6bb60349ba46e8115b225ea4de1",
+    "w480-z060/frame-2.png": "fe61a25c9c4a63333316b87a6c4273a40f6c88fe63f157d30be4361003735a4f",
+    "w480-z060/frame-2.npz": "5aa90a8b1a02b360160bc915a7606ba9c3abd83d14983afae179e4f87d874eda",
+    "w480-z060/frame-2-camera.json": "ffd403704e6630e99a7ce7be8865e065ac6dd6bb60349ba46e8115b225ea4de1",
+    "w480-z120/frame-0.png": "a59c13b3dffd536594b4c607458857b506089e8a753d8237f428caad1abab87e",
+    "w480-z120/frame-0.npz": "d2eca1bbcbe2e3fe815a5a47dda7072d6d6397a8b9f6e211029cf56de5eab4fa",
+    "w480-z120/frame-0-camera.json": "e9956f0f840645dcd01a0e028c736c63be6da7fa4ed8c9a2a3fc2fdc784ba096",
+    "w480-z120/frame-1.png": "870f9f06e2c9d43a3c42bd565bf4dfdfcf94ce535178d87c493fc680b542e37d",
+    "w480-z120/frame-1.npz": "d2eca1bbcbe2e3fe815a5a47dda7072d6d6397a8b9f6e211029cf56de5eab4fa",
+    "w480-z120/frame-1-camera.json": "e9956f0f840645dcd01a0e028c736c63be6da7fa4ed8c9a2a3fc2fdc784ba096",
+    "w480-z120/frame-2.png": "c5034b5d3de98d24040f19509d3e72ed0813cac67a535407c668a4ed186acff0",
+    "w480-z120/frame-2.npz": "d2eca1bbcbe2e3fe815a5a47dda7072d6d6397a8b9f6e211029cf56de5eab4fa",
+    "w480-z120/frame-2-camera.json": "e9956f0f840645dcd01a0e028c736c63be6da7fa4ed8c9a2a3fc2fdc784ba096",
+    "w960-z002/frame-0.png": "5d5da86d627af85a7cb8f6527261c40182aeea732aeaf9898c20bbe8a05012d1",
+    "w960-z002/frame-0.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+    "w960-z002/frame-0-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15",
+    "w960-z002/frame-1.png": "41e091a2f3934baa6a3961ced311d8c6c06640855dd0e51a18069b1266a24a46",
+    "w960-z002/frame-1.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+    "w960-z002/frame-1-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15",
+    "w960-z002/frame-2.png": "6059c65340522a6550f5df416ca54a82c4b96bbadf98d9c771893781ab5b2517",
+    "w960-z002/frame-2.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+    "w960-z002/frame-2-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15",
+    "w960-z060/frame-0.png": "79d3fd359c15bd73af373c11c6ba0bd0c214dced53f976105eba27a26eafb335",
+    "w960-z060/frame-0.npz": "03b3c6248cfcbd5180e3b65b7be79f0e8aa772464bdec85d9fc79bf9f4ad1c6f",
+    "w960-z060/frame-0-camera.json": "c4d5090439a8ae304650c69c7e7f3aac8d63bbe70eaf47b81f3e88630c3627aa",
+    "w960-z060/frame-1.png": "9bc45e1a195ab67a7333c25a89fed94275b5491ce1d9610064eda81b60ae9342",
+    "w960-z060/frame-1.npz": "03b3c6248cfcbd5180e3b65b7be79f0e8aa772464bdec85d9fc79bf9f4ad1c6f",
+    "w960-z060/frame-1-camera.json": "c4d5090439a8ae304650c69c7e7f3aac8d63bbe70eaf47b81f3e88630c3627aa",
+    "w960-z060/frame-2.png": "c79e12f21f35deaa18a352ead434a5e2d519072d4716e3a416a37d78f1081d92",
+    "w960-z060/frame-2.npz": "03b3c6248cfcbd5180e3b65b7be79f0e8aa772464bdec85d9fc79bf9f4ad1c6f",
+    "w960-z060/frame-2-camera.json": "c4d5090439a8ae304650c69c7e7f3aac8d63bbe70eaf47b81f3e88630c3627aa",
+    "w960-z120/frame-0.png": "14ee82876aaf819733c5f3d2ac782e162f9c872bbb1a0ed06ac8b62d6941fc47",
+    "w960-z120/frame-0.npz": "df9af7d82b659a802ebe7b01798b83b48cb682eb09d2c923030159c4d0cd78c9",
+    "w960-z120/frame-0-camera.json": "648ef1373eb471c913d96a97d0fd69b1fad91a0e740cf4c788022bb18c12c362",
+    "w960-z120/frame-1.png": "816833185b718b2aafd462978a5f9311c6ce46081cac0ba18e098ad828cb4f20",
+    "w960-z120/frame-1.npz": "df9af7d82b659a802ebe7b01798b83b48cb682eb09d2c923030159c4d0cd78c9",
+    "w960-z120/frame-1-camera.json": "648ef1373eb471c913d96a97d0fd69b1fad91a0e740cf4c788022bb18c12c362",
+    "w960-z120/frame-2.png": "85631783f05d7ea17f357b2c1e50a575280910dc46ef403abd3d04f95bd3aa02",
+    "w960-z120/frame-2.npz": "df9af7d82b659a802ebe7b01798b83b48cb682eb09d2c923030159c4d0cd78c9",
+    "w960-z120/frame-2-camera.json": "648ef1373eb471c913d96a97d0fd69b1fad91a0e740cf4c788022bb18c12c362"
+  },
+  "detector_sha256": "7507196036b7f60358b06c4e7c0cce7b67a5838236eb0750f8092a405c7ed68a",
+  "source_sha256": {
+    "renderer.py": "45c20d6a089ba327737dffbcd0d69dd24f8564a87a2a08bb12d66014367e8b78",
+    "fixture-author.py": "bbec520b785128d69324d4e445c8cdd9584e1e303313205ae693b22f22661bd9",
+    "audit.py": "05ab19ae1a30fee1ab913aa9f69285bfa175248b4f22e3f82dbb8a40f75666a6"
+  }
+}

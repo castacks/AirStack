@@ -10,6 +10,20 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest development envelope (14:55 UTC): froze detector hash75071960... and0.1m
+local-step limit before a predeclared nine-view private static capture: resolutions
+240x150/480x300/960x600 crossed with camera z0.02/0.6/1.2m at x0.2,y0,+X.
+Eight of nine positive controls observe all3frames. Low-resolution/low-camera
+control observes first frame but returns DEPTH_INCONSISTENT for later two
+(max adjacent steps0.0982/0.1674/0.1674m); window abstains/no goal. Same low view
+passes at480x300(step0.0918m) and960x600(step0.0482m). Retained false abstention
+and per-frame renderer variation; did not retune detector or assert a unique SDK
+cause. All27raw inputs, stages/metadata and81hash checks plus projection calibration
+are versioned in `docs/uav-results/render-envelope-20261117/`, with compact sibling
+JSON report. These repeated development views are not held-out accuracy or robot
+camera qualification. Private process exit0/complete9cases/no error; original live
+Kit210/PX4978 start times unchanged. No flight or deployed/runtime source change.
+
 Latest source follow-up (14:55 UTC): marker observation window now requires strictly
 increasing positive stamps, fixed calibration/frame/size and every channel receipt
 inside the current same-process window and below2s age. Rechecks after action-server

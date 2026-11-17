@@ -59,3 +59,5 @@ monitor or a requalification of November physical traces.
 | D29 | Host GPU enumeration differs from the simulator container. | Host's single small-used-memory view did not describe active GPU0. Simulator sees four GPUs; GPU0 had approximately 44 GiB free at the process check. Resource observations must come from the process's container. |
 
 | D30 | Marker receipt-age check preceded a potentially five-second action-server wait and used adjustable wall time. | Source now rechecks every channel against its observation window using monotonic time after server discovery. Clock-controlled expiry/ordering tests and a passive18-window audit pass. No new powered-flight qualification. |
+
+| D31 | The local 0.1 m depth-step gate depends on resolution and view. | Frozen nine-view nominal-cube matrix passes8controls; low-camera240×150 produces one OBSERVED then two DEPTH_INCONSISTENT frames (max step0.1674m) and window ABSTAIN. The480×300/960×600 low views pass. Preserved raw/source evidence; no threshold retuning or unique renderer-cause claim. |

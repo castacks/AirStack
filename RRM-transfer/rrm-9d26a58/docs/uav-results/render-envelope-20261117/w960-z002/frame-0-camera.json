@@ -1,0 +1,78 @@
+{
+  "cameraAperture": [
+    48.0,
+    30.0
+  ],
+  "cameraApertureOffset": [
+    0.0,
+    0.0
+  ],
+  "cameraFisheyeLensP": [],
+  "cameraFisheyeLensS": [],
+  "cameraFisheyeMaxFOV": 0.0,
+  "cameraFisheyeNominalHeight": 0,
+  "cameraFisheyeNominalWidth": 0,
+  "cameraFisheyeOpticalCentre": [
+    0.0,
+    0.0
+  ],
+  "cameraFisheyePolynomial": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "cameraFocalLength": 18.399999618530273,
+  "cameraFocusDistance": 0.0,
+  "cameraFStop": 0.0,
+  "cameraModel": "pinhole",
+  "cameraNearFar": [
+    0.05000000074505806,
+    20.0
+  ],
+  "cameraOpenCVFx": 0.0,
+  "cameraOpenCVFy": 0.0,
+  "cameraProjection": [
+    0.7666666501098217,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.226666640175715,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0025062657016002693,
+    -1.0,
+    0.0,
+    0.0,
+    0.05012531403200539,
+    0.0
+  ],
+  "cameraViewTransform": [
+    0.0,
+    0.0,
+    -1.0,
+    0.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -0.0,
+    0.0,
+    -0.02,
+    0.2,
+    1.0
+  ],
+  "metersPerSceneUnit": 1.0,
+  "renderProductResolution": [
+    960,
+    600
+  ]
+}

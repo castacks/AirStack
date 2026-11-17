@@ -1,0 +1,21 @@
+{"phase": "before_app", "monotonic_s": 504878.355777837}
+{"phase": "app_started", "monotonic_s": 504888.436767379, "usd_version": [0, 24, 5]}
+{"phase": "case_start", "monotonic_s": 504888.43685433, "case": "w240-z002"}
+{"phase": "case_captured", "monotonic_s": 504889.339139007, "case": "w240-z002"}
+{"phase": "case_start", "monotonic_s": 504889.354015018, "case": "w240-z060"}
+{"phase": "case_captured", "monotonic_s": 504890.212867217, "case": "w240-z060"}
+{"phase": "case_start", "monotonic_s": 504890.227603327, "case": "w240-z120"}
+{"phase": "case_captured", "monotonic_s": 504891.074195543, "case": "w240-z120"}
+{"phase": "case_start", "monotonic_s": 504891.089484327, "case": "w480-z002"}
+{"phase": "case_captured", "monotonic_s": 504892.000139016, "case": "w480-z002"}
+{"phase": "case_start", "monotonic_s": 504892.014635695, "case": "w480-z060"}
+{"phase": "case_captured", "monotonic_s": 504893.318927005, "case": "w480-z060"}
+{"phase": "case_start", "monotonic_s": 504893.335409961, "case": "w480-z120"}
+{"phase": "case_captured", "monotonic_s": 504894.206338614, "case": "w480-z120"}
+{"phase": "case_start", "monotonic_s": 504894.220139883, "case": "w960-z002"}
+{"phase": "case_captured", "monotonic_s": 504895.170612325, "case": "w960-z002"}
+{"phase": "case_start", "monotonic_s": 504895.187289555, "case": "w960-z060"}
+{"phase": "case_captured", "monotonic_s": 504896.084051736, "case": "w960-z060"}
+{"phase": "case_start", "monotonic_s": 504896.100298285, "case": "w960-z120"}
+{"phase": "case_captured", "monotonic_s": 504896.990884576, "case": "w960-z120"}
+{"phase": "capture_complete", "monotonic_s": 504897.006886306}

@@ -1,0 +1,72 @@
+{
+  "case": "w960-z002",
+  "scope": "private static camera, not robot camera",
+  "resolution": [
+    960,
+    600
+  ],
+  "stage_metres_per_unit": 1.0,
+  "camera_position_world_m": [
+    0.2,
+    0.0,
+    0.02
+  ],
+  "camera_transform": [
+    [
+      0.0,
+      -1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      -1.0,
+      -0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.2,
+      0.0,
+      0.02,
+      1.0
+    ]
+  ],
+  "focal_length": 18.399999618530273,
+  "horizontal_aperture": 48.0,
+  "vertical_aperture": 30.0,
+  "frames": [
+    {
+      "prefix": "frame-0",
+      "wall_unix": 1794927344.4210167,
+      "input_sha256": {
+        "frame-0.png": "5d5da86d627af85a7cb8f6527261c40182aeea732aeaf9898c20bbe8a05012d1",
+        "frame-0.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+        "frame-0-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15"
+      }
+    },
+    {
+      "prefix": "frame-1",
+      "wall_unix": 1794927344.5042124,
+      "input_sha256": {
+        "frame-1.png": "41e091a2f3934baa6a3961ced311d8c6c06640855dd0e51a18069b1266a24a46",
+        "frame-1.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+        "frame-1-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15"
+      }
+    },
+    {
+      "prefix": "frame-2",
+      "wall_unix": 1794927344.6053412,
+      "input_sha256": {
+        "frame-2.png": "6059c65340522a6550f5df416ca54a82c4b96bbadf98d9c771893781ab5b2517",
+        "frame-2.npz": "faacb4cdd431c5539ca9b761474ab7c80c79f7142b9923d21a5e2e3446fdb1f7",
+        "frame-2-camera.json": "c56cc6202bc173a1dfc4e67b04ebf65f27e205ef0d5f1b46b3a11d1d039a8e15"
+      }
+    }
+  ]
+}
