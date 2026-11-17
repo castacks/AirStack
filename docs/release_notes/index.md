@@ -21,6 +21,21 @@ its own notes. -->
 
 - Nothing yet.
 
+## 0.20.9 — 2026-11-17
+
+- **MAVROS is pinned to 2.16.0 in the robot and GCS images, and its launch
+  namespace is empty.** MAVROS 2.15.0 creates its plugin nodes without the
+  global remaps, so with the old `namespace` default of `mavros` their topics
+  and services moved from `.../mavros/<name>` to `.../mavros/mavros/<name>`
+  on images built since 2026-09-11. `mavros_px4.launch.xml` now defaults
+  `namespace` to empty, as MAVROS's own `node.launch` has since 2.15.1, which
+  restores the names. The main node is now `/<robot>/interface/mavros` (was
+  `/<robot>/interface/mavros/mavros`); the readiness check and the liveliness
+  test follow. The images install `mavros`, `mavros-msgs`, `libmavconn` and
+  `mavlink` from the ROS snapshot of 2026-10-05, because 2.15.0 and 2.15.1
+  drop the `px4_config.yaml` plugin settings. Remove the pin once newer
+  MAVROS releases are verified.
+
 ## 0.20.8 — 2026-09-04
 
 - **Docs builds no longer copy AirSim scene binaries.** The `same-dir`
