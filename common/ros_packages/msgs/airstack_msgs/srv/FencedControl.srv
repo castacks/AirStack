@@ -1,0 +1,25 @@
+# Optional controller-local input fencing; caller labels are not authentication.
+uint8 QUERY=0
+uint8 STOP=1
+uint8 RESET=2
+uint8 SET_MODE=3
+uint8 REPLACE_TRAJECTORY=4
+uint8 APPEND_TRAJECTORY=5
+
+uint8 operation
+string controller_instance_id
+string authority_id
+uint64 stop_generation
+uint64 sequence
+int32 mode
+airstack_msgs/TrajectoryXYZVYaw trajectory
+---
+bool success
+bool duplicate
+string reason
+bool enabled
+string controller_instance_id
+uint64 stop_generation
+uint64 last_sequence
+bool stop_latched
+int32 mode

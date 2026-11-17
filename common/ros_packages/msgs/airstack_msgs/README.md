@@ -21,6 +21,7 @@ A number of definitions in this package have **no consumer in the AirStack trunk
 | [`RobotCommand`](srv/RobotCommand.srv) | srv | **Active** — served by `robot_interface` at `interface/robot_command` (spec §7) |
 | [`TakeoffLandingCommand`](srv/TakeoffLandingCommand.srv) | srv | **Active** — served by `takeoff_landing_planner` at `takeoff_landing_planner/set_takeoff_landing_command`; the GCS-facing takeoff/land command (spec §8, related-service note) |
 | [`TrajectoryMode`](srv/TrajectoryMode.srv) | srv | **Active** — served by `trajectory_controller` at `trajectory_controller/set_trajectory_mode` (spec §5) |
+| [`FencedControl`](srv/FencedControl.srv) | srv | Optional controller-local mode/trajectory fencing; disabled by default, isolated development tests only ([profile](../../../../robot/ros_ws/src/local/controls/trajectory_controller/README.md#optional-controller-local-fenced-profile)) |
 | [`PlanToWaypoint`](srv/PlanToWaypoint.srv) | srv | Defined but **not built** — absent from the `rosidl_generate_interfaces` list in [CMakeLists.txt](CMakeLists.txt); no trunk consumer |
 
 ## Messages

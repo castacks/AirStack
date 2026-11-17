@@ -229,3 +229,61 @@ Four TF frames are broadcast on every tick, all in `target_frame`:
 | `{tf_prefix}tracking_point_stabilized` | Tracking point with pitch and roll zeroed — suitable for camera or gimbal frames. |
 | `{tf_prefix}look_ahead_point` | Full 6-DOF pose of the look-ahead point. |
 | `{tf_prefix}look_ahead_point_stabilized` | Look-ahead point with pitch and roll zeroed. |
+
+## Optional controller-local fenced profile
+
+`require_fenced_control` defaults to `false`. With its default, existing mode and
+trajectory endpoints retain their behavior. Enabling it requires a nonempty
+`fenced_control_authority` caller label; both parameters are read-only after node
+startup. This development profile has isolated protocol/reference tests and has
+not been enabled in the running simulation.
+
+When enabled, the controller starts with PAUSE latched and initializes its hold
+reference from the first transformed odometry sample. The legacy mode service
+accepts only PAUSE, and both untagged trajectory topics are ignored, including
+after reset. Legacy PAUSE remains an independent protective path: it latches,
+increments the stop generation and discards the old trajectory buffer. It cannot
+release the latch. Existing planner and monitor resume/rewind clients have not
+been migrated to this profile.
+
+The `fenced_control` service (`airstack_msgs/srv/FencedControl`) provides the complete
+mode, replace and append input path for this profile. QUERY returns enabled status,
+controller process identity, current stop generation, last accepted sequence,
+latch and mode. Every mutation must echo the current process identity and generation,
+match the configured caller label, and use a sequence greater than the last accepted
+sequence. Sequence zero and the maximum uint64 value are rejected. Generation
+exhaustion permanently seals normal admission for that process while protective
+legacy PAUSE remains available. The node uses one serialized callback context.
+
+| Operation | Effect |
+| --- | --- |
+| QUERY | Read current state; consumes no sequence |
+| STOP | Latch PAUSE, advance generation, discard buffered path, preserve held reference |
+| RESET | Clear the matching latch; keep PAUSE and the empty buffer |
+| SET_MODE | After reset, select ROBOT_POSE, TRACK, ADD_SEGMENT or REWIND; use STOP for PAUSE |
+| REPLACE_TRAJECTORY | In TRACK, validate and replace the path atomically |
+| APPEND_TRAJECTORY | In ADD_SEGMENT, validate/merge a staged copy and commit on success |
+
+RESET does not resume a path. A fresh mode and trajectory request must follow;
+commands bearing the earlier generation are rejected. Exact retry of the last
+successful request is accepted as `duplicate=true` without applying it again,
+provided its resulting generation is still current. Reusing its sequence with
+a different payload is rejected. Later successful commands supersede that one-entry
+retry record. Query/rejection does not consume sequence. Callers must coordinate a
+single sequence stream and reconcile uncertain outcomes before further dispatch.
+The response always includes current controller state, including on rejection.
+
+Trajectory operations accept 2–1024 waypoints in `target_frame`, with finite numeric
+fields, speeds at least 0.01 m/s, and no consecutive duplicate positions. The lower
+speed bound matches `trajectory_library`'s timing floor, preventing silent increase
+of a smaller requested speed. A staged result must have positive finite duration.
+These are parser/timing constraints; they are not a collision or dynamic feasibility
+envelope. Zero-speed holds use STOP rather than a zero-speed path.
+
+Process identity changes on restart, so old requests are rejected even if their
+numeric generations match. This is process-local ordering protection. The caller
+label is not authentication, RESET does not verify independent safe-state evidence,
+and the API does not implement action expiry, durable cross-restart deduplication
+or the complete RRM C06/C08 envelope. The existing safety/permission boundary must
+remain in front of any real dispatcher. This profile does not establish exclusive
+authority over downstream actuator interfaces or physical stopping.

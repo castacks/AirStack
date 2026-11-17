@@ -10,6 +10,37 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest controller source increment (16:35 UTC, user-authorized hour starts16:16:24UTC):
+added opt-in read-only `require_fenced_control` profile, defaultfalse, plus configured
+caller label and typed `FencedControl` service. Strict profile gates modes and both
+trajectory input paths by process identity, stop generation and sequence; untagged
+trajectory topics and legacy non-PAUSE modes cannot bypass it. Protective legacy
+PAUSE remains accepted, advances generation and drops the path. STOP preserves held
+reference with zero feedforward; RESET leaves PAUSE/empty buffer. Exact retry of the
+last successful command is idempotent while its resulting generation remains current.
+Restart changes identity and boots latched at measured pose. No live profile enabled.
+Caller label is not authentication; safe-state evidence, C06/C08 admission, expiry,
+durable deduplication and downstream actuator authority remain external/open.
+
+Actual candidate DDS194 synthetic-reference contract60/60PASS. Message package2/2
+and controller8/8CTestPASS, aggregate24tests,zero failures/errors,two skips, including
+legacy behavior regression. Invalid strict startup missing authority rejected.
+Build/test separate `/tmp/controller-fenced-20261117`; live installedd10efb0a... matches
+prior baseline, candidate9531b518.... Overlay RPATH ordering warning retained;
+sourced-environment ldd resolves message libraries to isolated install. Installed
+colcon lacks --allow-overriding; initial CLI failure retained. Python style issues
+fixed before clean package run. No source interface already in use was changed.
+
+Failed precursor accepted1e-308m/s because trajectory_library floors timing speed
+at0.01m/s, disproving the attempted overflow control's assumption. Final profile
+explicitly requires speed>=the existing floor; exact boundary passes, and a separate
+actual coordinate-overflow case rejects. Failed source/harness/events retained in
+`docs/uav-results/controller-fenced-20261117/`, compact sibling JSON pins hashes.
+Offline audit7hashes/49responses PASS. First audit overselected phase-labelled
+responses (fresh reset shared old-command phase); corrected to compare generations,
+failed audit retained locally. These are controller-local protocol/reference results,
+not flight/physical stop or whole-stack exclusive-authority qualification.
+
 Latest fault-escalation source increment (15:58 UTC): actual monitor now exposes
 `pause_escalation_required` and JSON `pause_intervention_status`, with authored
 steady acceptance/reconciliation budget default3s. Process identity, publication

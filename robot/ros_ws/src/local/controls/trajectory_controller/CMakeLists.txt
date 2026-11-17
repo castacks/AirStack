@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -29,6 +30,7 @@ target_include_directories(trajectory_controller PUBLIC
   $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(trajectory_controller
   rclcpp
+  rcl_interfaces
   geometry_msgs
   visualization_msgs
   nav_msgs
@@ -73,6 +75,12 @@ if(BUILD_TESTING)
       --executable $<TARGET_FILE:trajectory_controller>)
   set_tests_properties(isolated_pause_reference_contract
     PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE)
+  add_test(NAME isolated_fenced_control_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=194 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_fenced_control.py
+      --executable $<TARGET_FILE:trajectory_controller>)
+  set_tests_properties(isolated_fenced_control_contract
+    PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights

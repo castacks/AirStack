@@ -1,0 +1,4338 @@
+[
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.287602393,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.287921305,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.72285,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.337167324,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.337338844,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.77283,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.387110866,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.387316527,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.822833,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.437215299,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.437409272,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.87286,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.487295938,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.487551253,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.922852,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.537165637,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.53733351,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933091.972835,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.587106625,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.587295389,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.022825,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.637123487,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.637315096,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.072835,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.687145568,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.687308293,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.122884,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.737069789,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.737247648,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.17282,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.787252922,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.78747679,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.222893,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.837446891,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.837865102,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.272835,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.887244122,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.887450874,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.322892,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.937142185,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.937304069,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.372829,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510642.989538606,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510642.98971347,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.425229,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.037351343,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.038147504,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.472831,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.087120201,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.087294494,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.522826,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.137352308,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.13767276,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.572832,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.187129628,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.18731032,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.622825,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.237178849,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.237383196,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.672843,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.287070472,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.28722867,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.722829,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.337186733,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.337389419,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.772844,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.38708083,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.387229886,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.822834,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.437049219,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.437164914,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.872826,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.487163729,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.487318061,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.922882,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.537105667,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.53727311,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933092.972836,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.587388731,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.587696235,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.022835,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.63711173,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.637327645,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.07282,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "startup",
+    "monotonic": 510643.647609688,
+    "operation": 0,
+    "request_sequence": 0,
+    "request_generation": 0,
+    "success": true,
+    "duplicate": false,
+    "reason": "query",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "startup",
+    "monotonic": 510643.687191767,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "startup",
+    "monotonic": 510643.687343806,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.122967,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.737095698,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.737287658,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.172827,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.787119712,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.787305792,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.222825,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.837465169,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.837698871,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.273032,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.887085493,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.88724941,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.322819,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.937290989,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.937579896,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.372828,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.987078005,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.98725427,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.42284,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510643.997605237,
+    "operation": 3,
+    "request_sequence": 1,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_latched",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.008723692,
+    "operation": 4,
+    "request_sequence": 2,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_latched",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.019520491,
+    "operation": 2,
+    "request_sequence": 3,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "authority_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.03181481,
+    "operation": 2,
+    "request_sequence": 4,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "controller_instance_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.036976238,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.037128227,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.472818,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.04733784,
+    "operation": 2,
+    "request_sequence": 5,
+    "request_generation": 999,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.058735115,
+    "operation": 2,
+    "request_sequence": 0,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_sequence",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.069326375,
+    "operation": 2,
+    "request_sequence": 18446744073709551615,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_sequence",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.079955281,
+    "operation": 2,
+    "request_sequence": 8,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 8,
+    "latched": false,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.087068683,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.087262486,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.522833,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.097508925,
+    "operation": 2,
+    "request_sequence": 8,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": true,
+    "reason": "duplicate",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 8,
+    "latched": false,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.10826322,
+    "operation": 2,
+    "request_sequence": 8,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "sequence_conflict",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 8,
+    "latched": false,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.119978736,
+    "operation": 3,
+    "request_sequence": 9,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 9,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_inputs_latched",
+    "monotonic": 510644.131114617,
+    "operation": 4,
+    "request_sequence": 10,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.137122862,
+    "position": [
+      0.0149956755,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.137298517,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.572819,
+      "mode": 2,
+      "virtual_time": 0.049986,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.187320347,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.187595371,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.622834,
+      "mode": 2,
+      "virtual_time": 0.049986,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.237528477,
+    "position": [
+      0.0299918682,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.237854608,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.672821,
+      "mode": 2,
+      "virtual_time": 0.099973,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.287023772,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.722826,
+      "mode": 2,
+      "virtual_time": 0.099973,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.287339568,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.337186743,
+    "position": [
+      0.044994195300000005,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.337370601,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.772834,
+      "mode": 2,
+      "virtual_time": 0.149981,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.387261693,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.387438,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.822843,
+      "mode": 2,
+      "virtual_time": 0.149981,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.437245576,
+    "position": [
+      0.0599953842,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.437434281,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.872846,
+      "mode": 2,
+      "virtual_time": 0.199985,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.487200144,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.487377492,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.92284,
+      "mode": 2,
+      "virtual_time": 0.199985,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "guarded_trajectory",
+    "monotonic": 510644.537118788,
+    "position": [
+      0.07498866180000001,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.537457169,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933093.972817,
+      "mode": 2,
+      "virtual_time": 0.249962,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.587113556,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.58732155,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.022821,
+      "mode": 2,
+      "virtual_time": 0.249962,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.637538694,
+    "position": [
+      0.0900921132,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.637746498,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.073167,
+      "mode": 2,
+      "virtual_time": 0.300307,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.687117926,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.687269355,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.122818,
+      "mode": 2,
+      "virtual_time": 0.300307,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.737493258,
+    "position": [
+      0.1051044546,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.737908615,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.17286,
+      "mode": 2,
+      "virtual_time": 0.350348,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.787129466,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_override_unlatched",
+    "monotonic": 510644.787270158,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.222825,
+      "mode": 2,
+      "virtual_time": 0.350348,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.808306256,
+    "operation": 3,
+    "request_sequence": 11,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_mode",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.819184058,
+    "operation": 3,
+    "request_sequence": 12,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_mode",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.829933946,
+    "operation": 255,
+    "request_sequence": 13,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_operation",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.836968299,
+    "position": [
+      0.120102597,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.837103654,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.272818,
+      "mode": 2,
+      "virtual_time": 0.400342,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.84736834,
+    "operation": 3,
+    "request_sequence": 1,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stale_sequence",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.85844334,
+    "operation": 4,
+    "request_sequence": 15,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.869112957,
+    "operation": 4,
+    "request_sequence": 16,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.879950238,
+    "operation": 4,
+    "request_sequence": 17,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.887074556,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.887197171,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.322834,
+      "mode": 2,
+      "virtual_time": 0.400342,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.897405703,
+    "operation": 4,
+    "request_sequence": 18,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.90820018,
+    "operation": 4,
+    "request_sequence": 19,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.919177771,
+    "operation": 4,
+    "request_sequence": 20,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.930104717,
+    "operation": 4,
+    "request_sequence": 21,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.937332683,
+    "position": [
+      0.1350979842,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.937641067,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.372818,
+      "mode": 2,
+      "virtual_time": 0.450327,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.947959996,
+    "operation": 4,
+    "request_sequence": 22,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.959036167,
+    "operation": 4,
+    "request_sequence": 23,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.970137807,
+    "operation": 4,
+    "request_sequence": 24,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.98081849,
+    "operation": 4,
+    "request_sequence": 25,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.987033558,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.987162662,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.422831,
+      "mode": 2,
+      "virtual_time": 0.450327,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510644.997435501,
+    "operation": 4,
+    "request_sequence": 26,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.008221894,
+    "operation": 4,
+    "request_sequence": 27,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.019091594,
+    "operation": 4,
+    "request_sequence": 28,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "invalid_trajectory_duration",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.029723365,
+    "operation": 0,
+    "request_sequence": 0,
+    "request_generation": 0,
+    "success": true,
+    "duplicate": false,
+    "reason": "query",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 10,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.037113715,
+    "position": [
+      0.1500966792,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.037322059,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.472826,
+      "mode": 2,
+      "virtual_time": 0.500322,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.087164468,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.087333513,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.522842,
+      "mode": 2,
+      "virtual_time": 0.500322,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.137196953,
+    "position": [
+      0.16509367949999998,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.13736665,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.572832,
+      "mode": 2,
+      "virtual_time": 0.550312,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.187184532,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.187373356,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.622837,
+      "mode": 2,
+      "virtual_time": 0.550312,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.237168464,
+    "position": [
+      0.1800906531,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.237596359,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.672827,
+      "mode": 2,
+      "virtual_time": 0.600302,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.24842667,
+    "operation": 4,
+    "request_sequence": 29,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 29,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.259378082,
+    "operation": 3,
+    "request_sequence": 30,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 30,
+    "latched": false,
+    "mode": 3
+  },
+  {
+    "kind": "response",
+    "phase": "invalid_fenced_payloads",
+    "monotonic": 510645.270219719,
+    "operation": 5,
+    "request_sequence": 31,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 1,
+    "last_sequence": 31,
+    "latched": false,
+    "mode": 3
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.287231937,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.287402093,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.722882,
+      "mode": 3,
+      "virtual_time": 0.0,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.337384202,
+    "position": [
+      0.0149816532,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.337816355,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.77282,
+      "mode": 3,
+      "virtual_time": 0.049939,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.387072879,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.387211358,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.82282,
+      "mode": 3,
+      "virtual_time": 0.049939,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.437202431,
+    "position": [
+      0.0299821719,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.437427821,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.872822,
+      "mode": 3,
+      "virtual_time": 0.099941,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.487125562,
+    "position": [
+      0.3,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.487279083,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.922828,
+      "mode": 3,
+      "virtual_time": 0.099941,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.537162824,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.3,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.537622618,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933094.972832,
+      "mode": 3,
+      "virtual_time": 0.149946,
+      "duration": 1.0,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.3,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.548346628,
+    "operation": 1,
+    "request_sequence": 36,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "legacy_append_unlatched",
+    "monotonic": 510645.559381516,
+    "operation": 1,
+    "request_sequence": 36,
+    "request_generation": 1,
+    "success": true,
+    "duplicate": true,
+    "reason": "duplicate",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped",
+    "monotonic": 510645.587096601,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped",
+    "monotonic": 510645.587262721,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.022908,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.3,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped",
+    "monotonic": 510645.637085271,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped",
+    "monotonic": 510645.637247937,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.072827,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped",
+    "monotonic": 510645.687089382,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped",
+    "monotonic": 510645.687280782,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.122825,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "stopped",
+    "monotonic": 510645.737188039,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "stopped",
+    "monotonic": 510645.737382742,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.172843,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.779088535,
+    "operation": 2,
+    "request_sequence": 131,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.787141505,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.787348066,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.222833,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.797690701,
+    "operation": 3,
+    "request_sequence": 132,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.808809136,
+    "operation": 4,
+    "request_sequence": 133,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.819723423,
+    "operation": 5,
+    "request_sequence": 134,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 36,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.837108932,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.837278549,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.272837,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.887310022,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.887618868,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.322836,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.937285,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.937584022,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.372834,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.987272719,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510645.987513493,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.422859,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510646.037084431,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510646.037258554,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.472821,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "old_commands_after_stop",
+    "monotonic": 510646.047512955,
+    "operation": 2,
+    "request_sequence": 37,
+    "request_generation": 2,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 37,
+    "latched": false,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.087072039,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.08722467,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.52283,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.137159837,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.137312118,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.572891,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.187192214,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.187348599,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.622858,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.237427495,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.237749371,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.672847,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.259241326,
+    "operation": 3,
+    "request_sequence": 132,
+    "request_generation": 1,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 37,
+    "latched": false,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "reset_without_restart",
+    "monotonic": 510646.270166429,
+    "operation": 3,
+    "request_sequence": 38,
+    "request_generation": 2,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 38,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.287077413,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.287238196,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.722829,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.337130971,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.337287047,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.772841,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.387196676,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.387381736,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.822854,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.4372144,
+    "position": [
+      0.0449838021,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.437442603,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.872844,
+      "mode": 2,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.487064169,
+    "position": [
+      0.35119974242918367,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.029999998211860654,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.487233475,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.922833,
+      "mode": 2,
+      "virtual_time": 0.003999,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.03,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "mode_without_old_buffer",
+    "monotonic": 510646.497479924,
+    "operation": 4,
+    "request_sequence": 39,
+    "request_generation": 2,
+    "success": true,
+    "duplicate": false,
+    "reason": "accepted",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 2,
+    "last_sequence": 39,
+    "latched": false,
+    "mode": 2
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.537420904,
+    "position": [
+      0.3527012442296872,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.035999996960163115,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.537688808,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933095.972883,
+      "mode": 2,
+      "virtual_time": 0.009004,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.036,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.587312417,
+    "position": [
+      0.354500394873767,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.041999995708465576,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.587510126,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.02286,
+      "mode": 2,
+      "virtual_time": 0.015001,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.042,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.637148827,
+    "position": [
+      0.35659891890534107,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.04799999445676804,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.637332003,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.072824,
+      "mode": 2,
+      "virtual_time": 0.021996,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.048,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.687136665,
+    "position": [
+      0.35899889395618234,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.05399999320507049,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.687312611,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.122823,
+      "mode": 2,
+      "virtual_time": 0.029996,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.054,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.737217794,
+    "position": [
+      0.36170007405628735,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.05999999195337295,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.737431686,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.172846,
+      "mode": 2,
+      "virtual_time": 0.039,
+      "duration": 0.5,
+      "waypoints": 5,
+      "raw_speed": 0.3,
+      "command_speed": 0.06,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.769923378,
+    "operation": 0,
+    "request_sequence": 0,
+    "request_generation": 0,
+    "success": true,
+    "duplicate": false,
+    "reason": "query",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 3,
+    "last_sequence": 39,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.780889453,
+    "operation": 4,
+    "request_sequence": 39,
+    "request_generation": 2,
+    "success": false,
+    "duplicate": false,
+    "reason": "stop_generation_mismatch",
+    "enabled": true,
+    "instance": "13e8f3aca7ba1b24a3b3d3d0cf250865",
+    "generation": 3,
+    "last_sequence": 39,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.787016808,
+    "position": [
+      0.36170007405628735,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "fresh_after_reset",
+    "monotonic": 510646.787147084,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.222817,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.06,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.069817747,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.505357,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.070285333,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.120155213,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.120499853,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.555358,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.172273465,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.172484334,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.60533,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.219761282,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.220143088,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.655328,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.271400282,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.271616467,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.705343,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.3196047,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.319783709,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.755341,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.36965426,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.369832429,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.805357,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.419578622,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.419721008,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.855361,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.469684349,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.469879313,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.905345,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.519708632,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.519921903,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933096.955372,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.569626204,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.569791543,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.005332,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.619918962,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.620257894,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.055341,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.669642813,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.669829353,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.105339,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.719656839,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.719908679,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.155342,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.769670297,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.769868966,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.20537,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.819957366,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.820293914,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.255338,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.869908489,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.870239969,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.305342,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restart",
+    "monotonic": 510647.919553209,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restart",
+    "monotonic": 510647.919738028,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.35533,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "response",
+    "phase": "restart",
+    "monotonic": 510647.930030957,
+    "operation": 0,
+    "request_sequence": 0,
+    "request_generation": 0,
+    "success": true,
+    "duplicate": false,
+    "reason": "query",
+    "enabled": true,
+    "instance": "133c5395f57f01a7ccade3967ec66f52",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "response",
+    "phase": "restart",
+    "monotonic": 510647.940983553,
+    "operation": 2,
+    "request_sequence": 40,
+    "request_generation": 3,
+    "success": false,
+    "duplicate": false,
+    "reason": "controller_instance_mismatch",
+    "enabled": true,
+    "instance": "133c5395f57f01a7ccade3967ec66f52",
+    "generation": 1,
+    "last_sequence": 0,
+    "latched": true,
+    "mode": 0
+  },
+  {
+    "kind": "reference",
+    "phase": "restarted_hold",
+    "monotonic": 510647.969709672,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restarted_hold",
+    "monotonic": 510647.969887129,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.405354,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restarted_hold",
+    "monotonic": 510648.01951186,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restarted_hold",
+    "monotonic": 510648.019656719,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.455327,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restarted_hold",
+    "monotonic": 510648.069652028,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restarted_hold",
+    "monotonic": 510648.069883337,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.505323,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  },
+  {
+    "kind": "reference",
+    "phase": "restarted_hold",
+    "monotonic": 510648.119978237,
+    "position": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "velocity": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "kind": "diagnostic",
+    "phase": "restarted_hold",
+    "monotonic": 510648.120320904,
+    "value": {
+      "event": "sample",
+      "sim_s": 1794933097.555391,
+      "mode": 0,
+      "virtual_time": 0.0,
+      "duration": 0.0,
+      "waypoints": 0,
+      "raw_speed": 0.0,
+      "command_speed": 0.0,
+      "low_speed_floor": 0.1
+    }
+  }
+]

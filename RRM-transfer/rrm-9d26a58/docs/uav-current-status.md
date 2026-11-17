@@ -20,7 +20,10 @@ live scene switch, model launch or live control-binary replacement has occurred.
 - Earlier watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
   late/timed-out operator requests remain tracked until reconciliation and renewed
   PAUSE. Actual isolated binary contracts and full package8/8CTest pass.
-- Controller source repair:PAUSE drops conflicting trajectory overrides and invalid
+- Optional controller-local fenced profile:60/60actual protocol/reference checks,
+  message2/2 and controller8/8CTest pass. Process/generation/sequence gates cover
+  modes and both trajectory inputs. Default remains legacy; live profile disabled.
+- Earlier controller source repair:PAUSE drops conflicting trajectory overrides and invalid
   modes cannot replace it. Actual isolated reference test measures0.0m excursion
   against0.410m baseline. After separate mechanical lint cleanup, package7/7CTest
   pass. Both packages have aggregate zero errors/failures and two skips each.
@@ -34,8 +37,8 @@ live scene switch, model launch or live control-binary replacement has occurred.
   target truth or renderer-synchronization evidence.
 
 See [the latest handoff](../HANDOFF.md), [marker evidence](uav-marker-perception.md)
-and [discrepancies](uav-discrepancies.md). Controller-side exclusive authority,
-request-generation fencing, physical regression of the new code, learned grounding
+and [discrepancies](uav-discrepancies.md). Default-stack exclusive authority,
+safety admission/migration to the optional fenced profile, physical regression of the new code, learned grounding
 and general occlusion handling remain open. The running simulation is preserved;
 its current arming/ground/readiness state is not inferred from the old checkpoint.
 

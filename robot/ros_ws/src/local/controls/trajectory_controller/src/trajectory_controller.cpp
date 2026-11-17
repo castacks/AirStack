@@ -24,6 +24,8 @@
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <airstack_msgs/srv/trajectory_mode.hpp>
+#include <airstack_msgs/srv/fenced_control.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -35,6 +37,12 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <cmath>
+#include <cstdint>
+#include <iomanip>
+#include <limits>
+#include <optional>
+#include <random>
+#include <stdexcept>
 
 //===================================================================================
 //----------------------------- Trajectory Control Node -----------------------------
@@ -65,6 +73,17 @@ private:
   tf2_ros::Buffer * tf_buffer;
 
   rclcpp::Service<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_srv;
+  using Fenced = airstack_msgs::srv::FencedControl;
+  rclcpp::Service<Fenced>::SharedPtr fenced_control_srv;
+  bool require_fenced_control{false};
+  bool fence_stop_latched{true};
+  bool fence_sealed{false};
+  std::string fence_authority;
+  std::string fence_instance;
+  uint64_t fence_generation{1};
+  uint64_t fence_sequence{0};
+  uint64_t last_applied_generation{0};
+  std::optional<Fenced::Request> last_fenced_request;
 
   rclcpp::TimerBase::SharedPtr timer;
 
@@ -104,6 +123,12 @@ private:
   vis::MarkerArray markers;
 
   float get_sphere_radius(float vel);
+  bool apply_trajectory_mode(int requested_mode);
+  void fenced_stop();
+  void fenced_control(
+    const std::shared_ptr<Fenced::Request> req,
+    std::shared_ptr<Fenced::Response> res);
+  bool valid_fenced_trajectory(const airstack_msgs::msg::TrajectoryXYZVYaw & message);
 
 public:
   TrajectoryControlNode();
@@ -124,6 +149,20 @@ public:
 TrajectoryControlNode::TrajectoryControlNode()
 : rclcpp::Node("trajectory_control_node")
 {
+  rcl_interfaces::msg::ParameterDescriptor immutable;
+  immutable.read_only = true;
+  require_fenced_control = declare_parameter<bool>("require_fenced_control", false, immutable);
+  fence_authority = declare_parameter<std::string>("fenced_control_authority", "", immutable);
+  if (require_fenced_control && fence_authority.empty()) {
+    throw std::invalid_argument("fenced_control_authority is required for fenced control");
+  }
+  std::random_device random;
+  std::ostringstream identity;
+  identity << std::hex << std::setfill('0');
+  for (int i = 0; i < 4; ++i) {
+    identity << std::setw(8) << static_cast<uint32_t>(random());
+  }
+  fence_instance = identity.str();
     // init params
   target_dt = 1. / airstack::get_param(this, "execute_target", 50.);
   tf_prefix = airstack::get_param(this, "tf_prefix", std::string(""));
@@ -148,6 +187,9 @@ TrajectoryControlNode::TrajectoryControlNode()
   got_odom = false;
 
   trajectory_mode = airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE;
+  if (require_fenced_control) {
+    trajectory_mode = airstack_msgs::srv::TrajectoryMode::Request::PAUSE;
+  }
   trajectory = new Trajectory(this, target_frame);
 
     // init subscribers
@@ -196,6 +238,9 @@ TrajectoryControlNode::TrajectoryControlNode()
   traj_mode_srv = this->create_service<airstack_msgs::srv::TrajectoryMode>(
         "set_trajectory_mode", std::bind(&TrajectoryControlNode::set_trajectory_mode, this,
                                          std::placeholders::_1, std::placeholders::_2));
+  fenced_control_srv = create_service<Fenced>("fenced_control",
+    std::bind(&TrajectoryControlNode::fenced_control, this,
+      std::placeholders::_1, std::placeholders::_2));
 
     // timers
   timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
@@ -552,6 +597,13 @@ void TrajectoryControlNode::timer_callback()
     msg.data = data.str();
     consumption_diagnostic_pub->publish(msg);
   }
+  if (require_fenced_control && trajectory_mode ==
+    airstack_msgs::srv::TrajectoryMode::Request::PAUSE)
+  {
+    virtual_tracking_point_odom.header.stamp = now;
+    look_ahead_point.header.stamp = now;
+    drone_point.header.stamp = now;
+  }
   tracking_point_pub->publish(virtual_tracking_point_odom);
   look_ahead_pub->publish(look_ahead_point);
   drone_point_pub->publish(drone_point);
@@ -599,7 +651,17 @@ void TrajectoryControlNode::set_trajectory_mode(
   const std::shared_ptr<airstack_msgs::srv::TrajectoryMode::Request> req,
   std::shared_ptr<airstack_msgs::srv::TrajectoryMode::Response> res)
 {
-  switch (req->mode) {
+  if (require_fenced_control) {
+    res->success = req->mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE;
+    if (res->success) {fenced_stop();}
+    return;
+  }
+  res->success = apply_trajectory_mode(req->mode);
+}
+
+bool TrajectoryControlNode::apply_trajectory_mode(int requested_mode)
+{
+  switch (requested_mode) {
     case airstack_msgs::srv::TrajectoryMode::Request::PAUSE:
     case airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE:
     case airstack_msgs::srv::TrajectoryMode::Request::TRACK:
@@ -607,12 +669,11 @@ void TrajectoryControlNode::set_trajectory_mode(
     case airstack_msgs::srv::TrajectoryMode::Request::REWIND:
       break;
     default:
-      RCLCPP_WARN(this->get_logger(), "Rejected invalid trajectory mode: %d", req->mode);
-      res->success = false;
-      return;
+      RCLCPP_WARN(this->get_logger(), "Rejected invalid trajectory mode: %d", requested_mode);
+      return false;
   }
   int prev_trajectory_mode = trajectory_mode;
-  trajectory_mode = req->mode;
+  trajectory_mode = requested_mode;
 
   if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
     time_multiplier = 0.f;
@@ -660,12 +721,145 @@ void TrajectoryControlNode::set_trajectory_mode(
     }
   }
 
+  return true;
+}
+
+void TrajectoryControlNode::fenced_stop()
+{
+  if (fence_generation == std::numeric_limits<uint64_t>::max()) {
+    fence_sealed = true;
+  } else {
+    ++fence_generation;
+  }
+  fence_stop_latched = true;
+  last_fenced_request.reset();
+  apply_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::PAUSE);
+  trajectory->clear();
+  virtual_time = actual_time = prev_vtp_time = 0;
+}
+
+bool TrajectoryControlNode::valid_fenced_trajectory(
+  const airstack_msgs::msg::TrajectoryXYZVYaw & message)
+{
+  if (message.header.frame_id != target_frame || message.waypoints.size() < 2 ||
+    message.waypoints.size() > 1024)
+  {
+    return false;
+  }
+  for (size_t i = 0; i < message.waypoints.size(); ++i) {
+    const auto & point = message.waypoints[i];
+    const double values[] = {point.position.x, point.position.y, point.position.z,
+      point.velocity, point.yaw, point.acceleration.x, point.acceleration.y,
+      point.acceleration.z, point.jerk.x, point.jerk.y, point.jerk.z};
+    for (const double value : values) {
+      if (!std::isfinite(value)) {return false;}
+    }
+    // trajectory_library floors timing speed to 0.01; reject requests it would silently raise.
+    if (point.velocity < 0.01) {return false;}
+    if (i > 0 && point.position == message.waypoints[i - 1].position) {return false;}
+  }
+  return true;
+}
+
+void TrajectoryControlNode::fenced_control(
+  const std::shared_ptr<Fenced::Request> req, std::shared_ptr<Fenced::Response> res)
+{
+  const auto snapshot = [&]() {
+      res->enabled = require_fenced_control;
+      res->controller_instance_id = fence_instance;
+      res->stop_generation = fence_generation;
+      res->last_sequence = fence_sequence;
+      res->stop_latched = require_fenced_control && fence_stop_latched;
+      res->mode = trajectory_mode;
+    };
+  snapshot();
+  if (req->operation == Fenced::Request::QUERY) {
+    res->success = true;
+    res->reason = "query";
+    return;
+  }
+  if (!require_fenced_control) {res->reason = "fenced_control_disabled"; return;}
+  if (req->controller_instance_id != fence_instance) {
+    res->reason = "controller_instance_mismatch";
+    return;
+  }
+  if (req->authority_id != fence_authority) {res->reason = "authority_mismatch"; return;}
+  if (last_fenced_request && req->sequence == fence_sequence &&
+    *req == *last_fenced_request && last_applied_generation == fence_generation)
+  {
+    res->success = res->duplicate = true;
+    res->reason = "duplicate";
+    return;
+  }
+  if (fence_sealed) {res->reason = "generation_exhausted"; return;}
+  if (req->stop_generation != fence_generation) {
+    res->reason = "stop_generation_mismatch";
+    return;
+  }
+  if (req->sequence == 0 || req->sequence == std::numeric_limits<uint64_t>::max()) {
+    res->reason = "invalid_sequence";
+    return;
+  }
+  if (req->sequence <= fence_sequence) {
+    res->reason = req->sequence == fence_sequence ? "sequence_conflict" : "stale_sequence";
+    return;
+  }
+  switch (req->operation) {
+    case Fenced::Request::STOP:
+      fenced_stop();
+      break;
+    case Fenced::Request::RESET:
+      if (!fence_stop_latched) {res->reason = "not_latched"; return;}
+      // RESET grants no mode change and cannot resurrect a buffered trajectory.
+      fence_stop_latched = false;
+      break;
+    case Fenced::Request::SET_MODE:
+      if (fence_stop_latched) {res->reason = "stop_latched"; return;}
+      if (req->mode < 1 || req->mode > 4) {res->reason = "invalid_mode"; return;}
+      if (!apply_trajectory_mode(req->mode)) {res->reason = "invalid_mode"; return;}
+      break;
+    case Fenced::Request::REPLACE_TRAJECTORY:
+    case Fenced::Request::APPEND_TRAJECTORY:
+      {
+        if (fence_stop_latched) {res->reason = "stop_latched"; return;}
+        const bool replace = req->operation == Fenced::Request::REPLACE_TRAJECTORY;
+        const int expected = replace ? airstack_msgs::srv::TrajectoryMode::Request::TRACK :
+          airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
+        if (trajectory_mode != expected) {res->reason = "wrong_mode"; return;}
+        if (!valid_fenced_trajectory(req->trajectory)) {
+          res->reason = "invalid_trajectory";
+          return;
+        }
+        Trajectory candidate = replace ? Trajectory(this, req->trajectory) : *trajectory;
+        if (!replace && !candidate.merge(Trajectory(this, req->trajectory), virtual_time)) {
+          res->reason = "merge_rejected";
+          return;
+        }
+        const double duration = candidate.get_duration();
+        if (!std::isfinite(duration) || duration <= 0) {
+          res->reason = "invalid_trajectory_duration";
+          return;
+        }
+        *trajectory = candidate;
+        if (replace) {virtual_time = actual_time = prev_vtp_time = 0;}
+        break;
+      }
+    default:
+      res->reason = "invalid_operation";
+      return;
+  }
+  fence_sequence = req->sequence;
+  last_fenced_request = *req;
+  last_applied_generation = fence_generation;
   res->success = true;
+  res->reason = "accepted";
+  snapshot();
 }
 
 void TrajectoryControlNode::traj_seg_to_add_callback(
   const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj)
 {
+  if (require_fenced_control) {return;}
   if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT) {
     const auto before = trajectory->get_num_waypoints();
     const bool merged = trajectory->merge(Trajectory(this, *traj), virtual_time);
@@ -688,6 +882,7 @@ void TrajectoryControlNode::traj_seg_to_add_callback(
 void TrajectoryControlNode::traj_override_callback(
   const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj)
 {
+  if (require_fenced_control) {return;}
   if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
                              "Ignored trajectory override while PAUSE is active");
@@ -705,6 +900,11 @@ void TrajectoryControlNode::odom_callback(const nav_msgs::msg::Odometry::SharedP
     // that frame. This line converts the odometry's position AND velocities to the target frame,
     // typically "world" or "map".
   if (tflib::transform_odometry(tf_buffer, *odom, target_frame, target_frame, &(this->odom))) {
+    if (require_fenced_control && !got_odom) {
+      virtual_tracking_point_odom.pose = this->odom.pose.pose;
+      look_ahead_point = virtual_tracking_point_odom;
+      drone_point = virtual_tracking_point_odom;
+    }
     got_odom = true;
   } else {
     RCLCPP_INFO_STREAM(this->get_logger(), "Failed to transform odometry in frame "

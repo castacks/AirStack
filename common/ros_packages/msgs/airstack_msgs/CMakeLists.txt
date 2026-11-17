@@ -25,6 +25,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/query/TextQueryResponse.msg"
   "srv/RobotCommand.srv"
   "srv/TrajectoryMode.srv"
+  "srv/FencedControl.srv"
   "srv/TakeoffLandingCommand.srv"
   DEPENDENCIES std_msgs geometry_msgs sensor_msgs diagnostic_msgs
 )
