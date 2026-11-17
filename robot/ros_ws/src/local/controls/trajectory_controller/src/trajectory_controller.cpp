@@ -37,6 +37,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <iomanip>
 #include <limits>
@@ -75,7 +76,14 @@ private:
   rclcpp::Service<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_srv;
   using Fenced = airstack_msgs::srv::FencedControl;
   rclcpp::Service<Fenced>::SharedPtr fenced_control_srv;
+  rclcpp::Service<Fenced>::SharedPtr prepare_fenced_control_srv;
   bool require_fenced_control{false};
+  bool require_fenced_command_lease{false};
+  double fenced_lease_wall_s{1.0};
+  using FenceClock = std::chrono::steady_clock;
+  FenceClock::time_point fenced_lease_deadline{};
+  uint64_t highest_prepared_sequence{0};
+  std::optional<Fenced::Request> prepared_fenced_request;
   bool fence_stop_latched{true};
   bool fence_sealed{false};
   std::string fence_authority;
@@ -129,6 +137,13 @@ private:
     const std::shared_ptr<Fenced::Request> req,
     std::shared_ptr<Fenced::Response> res);
   bool valid_fenced_trajectory(const airstack_msgs::msg::TrajectoryXYZVYaw & message);
+  void prepare_fenced_control(
+    const std::shared_ptr<Fenced::Request> req,
+    std::shared_ptr<Fenced::Response> res);
+  void handle_fenced_control(
+    const std::shared_ptr<Fenced::Request> req,
+    std::shared_ptr<Fenced::Response> res, bool preparing);
+  static std::string fresh_fence_token();
 
 public:
   TrajectoryControlNode();
@@ -153,16 +168,18 @@ TrajectoryControlNode::TrajectoryControlNode()
   immutable.read_only = true;
   require_fenced_control = declare_parameter<bool>("require_fenced_control", false, immutable);
   fence_authority = declare_parameter<std::string>("fenced_control_authority", "", immutable);
+  require_fenced_command_lease = declare_parameter<bool>(
+    "require_fenced_command_lease", false, immutable);
+  fenced_lease_wall_s = declare_parameter<double>("fenced_command_lease_wall_s", 1.0, immutable);
+  if (require_fenced_command_lease && (!require_fenced_control ||
+    !std::isfinite(fenced_lease_wall_s) || fenced_lease_wall_s <= 0 || fenced_lease_wall_s > 10))
+  {
+    throw std::invalid_argument("command leases require fenced control and a budget in (0,10]s");
+  }
   if (require_fenced_control && fence_authority.empty()) {
     throw std::invalid_argument("fenced_control_authority is required for fenced control");
   }
-  std::random_device random;
-  std::ostringstream identity;
-  identity << std::hex << std::setfill('0');
-  for (int i = 0; i < 4; ++i) {
-    identity << std::setw(8) << static_cast<uint32_t>(random());
-  }
-  fence_instance = identity.str();
+  fence_instance = fresh_fence_token();
     // init params
   target_dt = 1. / airstack::get_param(this, "execute_target", 50.);
   tf_prefix = airstack::get_param(this, "tf_prefix", std::string(""));
@@ -240,6 +257,9 @@ TrajectoryControlNode::TrajectoryControlNode()
                                          std::placeholders::_1, std::placeholders::_2));
   fenced_control_srv = create_service<Fenced>("fenced_control",
     std::bind(&TrajectoryControlNode::fenced_control, this,
+      std::placeholders::_1, std::placeholders::_2));
+  prepare_fenced_control_srv = create_service<Fenced>("prepare_fenced_control",
+    std::bind(&TrajectoryControlNode::prepare_fenced_control, this,
       std::placeholders::_1, std::placeholders::_2));
 
     // timers
@@ -726,6 +746,17 @@ bool TrajectoryControlNode::apply_trajectory_mode(int requested_mode)
   return true;
 }
 
+std::string TrajectoryControlNode::fresh_fence_token()
+{
+  std::random_device random;
+  std::ostringstream identity;
+  identity << std::hex << std::setfill('0');
+  for (int i = 0; i < 4; ++i) {
+    identity << std::setw(8) << static_cast<uint32_t>(random());
+  }
+  return identity.str();
+}
+
 void TrajectoryControlNode::fenced_stop()
 {
   if (fence_generation == std::numeric_limits<uint64_t>::max()) {
@@ -735,6 +766,8 @@ void TrajectoryControlNode::fenced_stop()
   }
   fence_stop_latched = true;
   last_fenced_request.reset();
+  prepared_fenced_request.reset();
+  highest_prepared_sequence = 0;
   apply_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::PAUSE);
   trajectory->clear();
   virtual_time = actual_time = prev_vtp_time = 0;
@@ -766,6 +799,18 @@ bool TrajectoryControlNode::valid_fenced_trajectory(
 void TrajectoryControlNode::fenced_control(
   const std::shared_ptr<Fenced::Request> req, std::shared_ptr<Fenced::Response> res)
 {
+  handle_fenced_control(req, res, false);
+}
+
+void TrajectoryControlNode::prepare_fenced_control(
+  const std::shared_ptr<Fenced::Request> req, std::shared_ptr<Fenced::Response> res)
+{
+  handle_fenced_control(req, res, true);
+}
+
+void TrajectoryControlNode::handle_fenced_control(
+  const std::shared_ptr<Fenced::Request> req, std::shared_ptr<Fenced::Response> res, bool preparing)
+{
   const auto snapshot = [&]() {
       res->enabled = require_fenced_control;
       res->controller_instance_id = fence_instance;
@@ -773,14 +818,21 @@ void TrajectoryControlNode::fenced_control(
       res->last_sequence = fence_sequence;
       res->stop_latched = require_fenced_control && fence_stop_latched;
       res->mode = trajectory_mode;
+      res->lease_required = require_fenced_control && require_fenced_command_lease;
     };
   snapshot();
-  if (req->operation == Fenced::Request::QUERY) {
+  if (!preparing && req->operation == Fenced::Request::QUERY) {
     res->success = true;
     res->reason = "query";
     return;
   }
   if (!require_fenced_control) {res->reason = "fenced_control_disabled"; return;}
+  if (preparing && (!require_fenced_command_lease || req->operation < Fenced::Request::RESET ||
+    req->operation > Fenced::Request::APPEND_TRAJECTORY || !req->admission_lease.empty()))
+  {
+    res->reason = "invalid_lease_preparation";
+    return;
+  }
   if (req->controller_instance_id != fence_instance) {
     res->reason = "controller_instance_mismatch";
     return;
@@ -806,6 +858,41 @@ void TrajectoryControlNode::fenced_control(
     res->reason = req->sequence == fence_sequence ? "sequence_conflict" : "stale_sequence";
     return;
   }
+  if (preparing && req->sequence <= highest_prepared_sequence) {
+    if (req->sequence == highest_prepared_sequence && prepared_fenced_request) {
+      auto original = *prepared_fenced_request;
+      original.admission_lease.clear();
+      if (*req == original) {
+        const double remaining = std::chrono::duration<double>(
+          fenced_lease_deadline - FenceClock::now()).count();
+        if (remaining <= 0) {res->reason = "lease_expired"; return;}
+        res->success = res->duplicate = true;
+        res->reason = "prepared_duplicate";
+        res->admission_lease = prepared_fenced_request->admission_lease;
+        res->lease_valid_for_wall_s = remaining;
+        return;
+      }
+    }
+    res->reason = "stale_or_conflicting_preparation";
+    return;
+  }
+  const auto valid_lease = [&]() {
+      if (preparing || !require_fenced_command_lease || req->operation == Fenced::Request::STOP) {
+        return true;
+      }
+      if (!prepared_fenced_request || req->admission_lease.empty() ||
+        *req != *prepared_fenced_request)
+      {
+        res->reason = "lease_missing_or_mismatch";
+        return false;
+      }
+      if (FenceClock::now() >= fenced_lease_deadline) {
+        res->reason = "lease_expired";
+        return false;
+      }
+      return true;
+    };
+  if (!valid_lease()) {return;}
   switch (req->operation) {
     case Fenced::Request::STOP:
       fenced_stop();
@@ -813,12 +900,14 @@ void TrajectoryControlNode::fenced_control(
     case Fenced::Request::RESET:
       if (!fence_stop_latched) {res->reason = "not_latched"; return;}
       // RESET grants no mode change and cannot resurrect a buffered trajectory.
-      fence_stop_latched = false;
+      if (!valid_lease()) {return;}
+      if (!preparing) {fence_stop_latched = false;}
       break;
     case Fenced::Request::SET_MODE:
       if (fence_stop_latched) {res->reason = "stop_latched"; return;}
       if (req->mode < 1 || req->mode > 4) {res->reason = "invalid_mode"; return;}
-      if (!apply_trajectory_mode(req->mode)) {res->reason = "invalid_mode"; return;}
+      if (!valid_lease()) {return;}
+      if (!preparing && !apply_trajectory_mode(req->mode)) {res->reason = "invalid_mode"; return;}
       break;
     case Fenced::Request::REPLACE_TRAJECTORY:
     case Fenced::Request::APPEND_TRAJECTORY:
@@ -842,14 +931,30 @@ void TrajectoryControlNode::fenced_control(
           res->reason = "invalid_trajectory_duration";
           return;
         }
-        *trajectory = candidate;
-        if (replace) {virtual_time = actual_time = prev_vtp_time = 0;}
+        if (!valid_lease()) {return;}
+        if (!preparing) {
+          *trajectory = candidate;
+          if (replace) {virtual_time = actual_time = prev_vtp_time = 0;}
+        }
         break;
       }
     default:
       res->reason = "invalid_operation";
       return;
   }
+  if (preparing) {
+    prepared_fenced_request = *req;
+    prepared_fenced_request->admission_lease = fresh_fence_token();
+    fenced_lease_deadline = FenceClock::now() + std::chrono::duration_cast<FenceClock::duration>(
+      std::chrono::duration<double>(fenced_lease_wall_s));
+    highest_prepared_sequence = req->sequence;
+    res->success = true;
+    res->reason = "prepared";
+    res->admission_lease = prepared_fenced_request->admission_lease;
+    res->lease_valid_for_wall_s = fenced_lease_wall_s;
+    return;
+  }
+  prepared_fenced_request.reset();
   fence_sequence = req->sequence;
   last_fenced_request = *req;
   last_applied_generation = fence_generation;

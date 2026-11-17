@@ -10,6 +10,30 @@ below retain their original meanings and then-current scope.
 
 ## CURRENT: autonomous development continuation — 2026-11-17
 
+Latest local-expiry increment (17:00 UTC): optional `require_fenced_command_lease`
+(defaultfalse, requires fenced profile) adds server-steady admission expiry via
+`prepare_fenced_control`, using the extended FencedControl type. Preparation binds
+process/gen/sequence and complete typed payload to a token, stages without effect,
+and does not consume accepted sequence. Duplicate preparation never extends expiry;
+expired/superseded preparations cannot remint the same sequence. Execution rechecks
+binding/deadline near commit. STOP invalidates preparation and remains lease-free;
+retry of the already accepted last command acknowledges prior effect without replay,
+even after expiry. Caller labels/tokens are not authentication or full C06 permission.
+Budget defaults1s, readonly and bounded(0,10]s. No live profile/binary enabled.
+
+Actual controller DDS192 normal0.25s, paused-ROS-clock0.25s and configured-default1s
+controls each26/26PASS. Each submits/holds actual RPC past expiry before forwarding;
+all reject without mutation. Raw CDR/hashes/order retained. Invalid preparation
+preserves valid prior token; newer valid preparation supersedes it. Five invalid
+config combos/budgets reject. Full message2/2 and controller11/11CTestPASS;
+aggregate29tests,zero failures/errors,two skips, including existing actual monitor
+integration. Source/raw/compact reports versioned in `docs/uav-results/command-leases-20261117/`
+and sibling JSON; offline10hash/78expectation audit PASS. Source patch context needed
+format-aware follow-up; Python line wraps fixed before clean package run. No change
+to controller dynamics or physical stopping claims. Durable deduplication, full
+C06/C08 admission, authenticated authority and downstream vehicle exclusivity remain
+open. Lease is bounded local admission, not an execution-completion deadline.
+
 Latest combined integration (16:46 UTC): actual monitor plus strict-profile controller
 on DDS193 passes25/25checks. A real reset RPC is held in a proxy while a newer
 stale-source fault makes monitor PAUSE advance controller generation; delayed reset

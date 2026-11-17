@@ -294,3 +294,35 @@ checks generation rejection, then covers fresh commands, automatic stale-source
 reference freeze, outage escalation and restart. Its odometry is synthetic;
 reference freeze is not physical stopping. Empty-buffer completion is0 rather
 than an undefined percentage. These semantics do not imply task completion.
+
+### Optional command admission leases
+
+`require_fenced_command_lease=false` preserves the profile above. Enabling it also
+requires `require_fenced_control=true`. Its read-only
+`fenced_command_lease_wall_s` defaults to1.0 and must be finite, positive and at most
+10seconds. The bound controls local admission checks, not physical execution time.
+
+Use `prepare_fenced_control` with the same `FencedControl` type and the intended
+RESET, SET_MODE, REPLACE_TRAJECTORY or APPEND_TRAJECTORY request. Leave
+`admission_lease` empty. Successful preparation validates/stages without applying
+or consuming accepted-command sequence, and returns a token. Copy that token into
+the unchanged typed request and send it to `fenced_control`. Identity, generation,
+sequence and every typed payload value must match. The controller checks its own
+steady deadline, including immediately before committing staged trajectory data.
+No client/server clock synchronization is assumed. The returned remaining duration
+is diagnostic; transport time may have consumed part of it before receipt.
+
+A duplicate preparation returns the same token and decreasing remaining time;
+it does not extend expiry. An expired preparation cannot mint another token under
+the same sequence. A newer valid preparation supersedes the earlier token; an
+invalid preparation leaves a valid earlier one intact. STOP invalidates preparation
+and needs no lease. Exact retry of the last accepted command remains idempotent
+after lease expiry: it acknowledges the prior effect and does not execute it again.
+A new attempt requires a new sequence and preparation, with external permission
+and safety checks repeated as required by the caller's contract.
+
+These leases enforce local request binding and admission expiry even when ROS
+simulation time is paused. They do not authenticate a caller, prove safe state,
+implement full C06 authorization, guarantee hard execution timing, or provide
+durable cross-process deduplication. The profile remains disabled in the running
+simulation. Isolated tests cover normal/paused clocks and an RPC held until expiry.

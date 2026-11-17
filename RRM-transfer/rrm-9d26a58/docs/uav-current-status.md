@@ -20,6 +20,9 @@ live scene switch, model launch or live control-binary replacement has occurred.
 - Earlier watchdog source repair:PAUSE no longer waits on held resume/rewind responses;
   late/timed-out operator requests remain tracked until reconciliation and renewed
   PAUSE. Actual isolated binary contracts and full package8/8CTest pass.
+- Optional local command leases:26checks each under normal, paused-ROS-clock and
+  configured-default budgets pass. Delayed expired RPCs reject. Controller11/11
+  and message2/2CTest pass, with actual monitor integration retained.
 - Optional controller-local fenced profile:60/60actual protocol/reference checks,
   message2/2 and controller8/8CTest pass. Process/generation/sequence gates cover
   modes and both trajectory inputs. Default remains legacy; live profile disabled.

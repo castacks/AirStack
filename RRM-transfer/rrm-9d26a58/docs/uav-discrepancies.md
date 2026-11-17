@@ -68,3 +68,5 @@ monitor or a requalification of November physical traces.
 | D34 | Tiny requested trajectory speeds are silently raised by the library timing floor. | A precursor control expecting overflow instead accepted1e-308m/s and replaced the path. Final fenced profile rejects speeds below the existing0.01m/s floor; boundary and separate true overflow checks pass. Failed trace/source preserved. |
 
 | D35 | Empty trajectory buffers published NaN completion from0/0. | Actual combined monitor/controller precursor retained34nonfinite samples. Empty buffer now publishes0; final25-check combined contract and full controller package pass.0 denotes no path progress, not successful task completion. |
+
+| D36 | Stop-generation fencing alone leaves same-generation delayed commands admissible indefinitely. | Optional controller-steady command leases bind complete typed proposals and expire without clock synchronization. Three actual26-check controls, including paused ROS time and held RPC delivery after expiry, pass. Default disabled; no authentication/full C06 or physical execution guarantee. |

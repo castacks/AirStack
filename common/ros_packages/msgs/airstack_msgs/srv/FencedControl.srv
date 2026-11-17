@@ -13,6 +13,7 @@ uint64 stop_generation
 uint64 sequence
 int32 mode
 airstack_msgs/TrajectoryXYZVYaw trajectory
+string admission_lease
 ---
 bool success
 bool duplicate
@@ -23,3 +24,6 @@ uint64 stop_generation
 uint64 last_sequence
 bool stop_latched
 int32 mode
+bool lease_required
+string admission_lease
+float64 lease_valid_for_wall_s

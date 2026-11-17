@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-17",
+  "base_revision": "62e9e3057",
+  "scope": "optional controller-local steady command leases; actual controller and delayed RPC proxy on DDS192",
+  "verdict": "PASS",
+  "physical_execution": false,
+  "authenticated_authority": false,
+  "full_C06_authorization": false,
+  "live_profile_enabled": false,
+  "cases": [
+    {
+      "case": "package-normal",
+      "summary": {
+        "verdict": "PASS",
+        "checks": {
+          "lease_profile_advertised": true,
+          "missing_lease_rejected": true,
+          "prepare_does_not_reset_or_consume_sequence": true,
+          "duplicate_prepare_does_not_extend_deadline": true,
+          "expired_reset_rejected": true,
+          "expired_prepare_cannot_renew_same_sequence": true,
+          "expired_reset_keeps_latch_and_sequence": true,
+          "fresh_prepared_reset_accepted": true,
+          "changed_mode_payload_rejected": true,
+          "exact_prepared_mode_accepted": true,
+          "accepted_retry_after_expiry_is_idempotent": true,
+          "changed_trajectory_payload_rejected": true,
+          "leased_command_actually_submitted_and_held": true,
+          "delayed_reply_received": true,
+          "actual_delayed_command_rejected_after_expiry": true,
+          "legacy_pause_still_available_without_lease": true,
+          "stop_advances_generation": true,
+          "stop_invalidates_old_lease": true,
+          "fresh_generation_lease_and_reset_work": true,
+          "invalid_preparation_rejected": true,
+          "invalid_preparation_does_not_cancel_valid_token": true,
+          "superseded_preparation_cannot_remint_token": true,
+          "newer_preparation_invalidates_older_token": true,
+          "newest_preparation_still_accepted": true,
+          "fenced_stop_needs_no_lease": true,
+          "fenced_stop_retry_idempotent": true
+        },
+        "scope": "actual controller local lease/expiry protocol",
+        "paused_simulation_clock": false,
+        "lease_budget_wall_s": 0.25,
+        "physical_execution": false,
+        "authenticated_authority": false,
+        "executable_sha256": "e7a7e24ab41ec902c51fa91fe90ea77a2fb8d0dc59953aeb6d9f59eead831415",
+        "harness_sha256": "8e3c3b6a60db893d1c7ac3d662dae92ac6e8acc159b9ebf2b4c36cc4d87af728"
+      }
+    },
+    {
+      "case": "package-paused",
+      "summary": {
+        "verdict": "PASS",
+        "checks": {
+          "lease_profile_advertised": true,
+          "missing_lease_rejected": true,
+          "prepare_does_not_reset_or_consume_sequence": true,
+          "duplicate_prepare_does_not_extend_deadline": true,
+          "expired_reset_rejected": true,
+          "expired_prepare_cannot_renew_same_sequence": true,
+          "expired_reset_keeps_latch_and_sequence": true,
+          "fresh_prepared_reset_accepted": true,
+          "changed_mode_payload_rejected": true,
+          "exact_prepared_mode_accepted": true,
+          "accepted_retry_after_expiry_is_idempotent": true,
+          "changed_trajectory_payload_rejected": true,
+          "leased_command_actually_submitted_and_held": true,
+          "delayed_reply_received": true,
+          "actual_delayed_command_rejected_after_expiry": true,
+          "legacy_pause_still_available_without_lease": true,
+          "stop_advances_generation": true,
+          "stop_invalidates_old_lease": true,
+          "fresh_generation_lease_and_reset_work": true,
+          "invalid_preparation_rejected": true,
+          "invalid_preparation_does_not_cancel_valid_token": true,
+          "superseded_preparation_cannot_remint_token": true,
+          "newer_preparation_invalidates_older_token": true,
+          "newest_preparation_still_accepted": true,
+          "fenced_stop_needs_no_lease": true,
+          "fenced_stop_retry_idempotent": true
+        },
+        "scope": "actual controller local lease/expiry protocol",
+        "paused_simulation_clock": true,
+        "lease_budget_wall_s": 0.25,
+        "physical_execution": false,
+        "authenticated_authority": false,
+        "executable_sha256": "e7a7e24ab41ec902c51fa91fe90ea77a2fb8d0dc59953aeb6d9f59eead831415",
+        "harness_sha256": "8e3c3b6a60db893d1c7ac3d662dae92ac6e8acc159b9ebf2b4c36cc4d87af728"
+      }
+    },
+    {
+      "case": "lease-default-budget-01",
+      "summary": {
+        "verdict": "PASS",
+        "checks": {
+          "lease_profile_advertised": true,
+          "missing_lease_rejected": true,
+          "prepare_does_not_reset_or_consume_sequence": true,
+          "duplicate_prepare_does_not_extend_deadline": true,
+          "expired_reset_rejected": true,
+          "expired_prepare_cannot_renew_same_sequence": true,
+          "expired_reset_keeps_latch_and_sequence": true,
+          "fresh_prepared_reset_accepted": true,
+          "changed_mode_payload_rejected": true,
+          "exact_prepared_mode_accepted": true,
+          "accepted_retry_after_expiry_is_idempotent": true,
+          "changed_trajectory_payload_rejected": true,
+          "leased_command_actually_submitted_and_held": true,
+          "delayed_reply_received": true,
+          "actual_delayed_command_rejected_after_expiry": true,
+          "legacy_pause_still_available_without_lease": true,
+          "stop_advances_generation": true,
+          "stop_invalidates_old_lease": true,
+          "fresh_generation_lease_and_reset_work": true,
+          "invalid_preparation_rejected": true,
+          "invalid_preparation_does_not_cancel_valid_token": true,
+          "superseded_preparation_cannot_remint_token": true,
+          "newer_preparation_invalidates_older_token": true,
+          "newest_preparation_still_accepted": true,
+          "fenced_stop_needs_no_lease": true,
+          "fenced_stop_retry_idempotent": true
+        },
+        "scope": "actual controller local lease/expiry protocol",
+        "paused_simulation_clock": false,
+        "lease_budget_wall_s": 1.0,
+        "physical_execution": false,
+        "authenticated_authority": false,
+        "executable_sha256": "1861401f6c1eef0d7cc788034c8a6999cd59740f4091adefe0d06af903a16d26",
+        "harness_sha256": "8e3c3b6a60db893d1c7ac3d662dae92ac6e8acc159b9ebf2b4c36cc4d87af728"
+      }
+    }
+  ],
+  "checks_per_case": 26,
+  "total_contract_expectations": 78,
+  "invalid_config_cases_passed": 5,
+  "package": {
+    "controller_ctest": [
+      11,
+      11
+    ],
+    "message_ctest": [
+      2,
+      2
+    ],
+    "aggregate_tests": 29,
+    "errors": 0,
+    "failures": 0,
+    "skips": 2
+  },
+  "source_sha256": {
+    "common/ros_packages/msgs/airstack_msgs/srv/FencedControl.srv": "cfd880c74c9becb7ec0b3a38ebbb6653fd31cc79a43e7d353370316e1473fdfd",
+    "robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp": "3a9b2d6e708a0927c74ed04cf7fe6e81b2fa0c6d2d30a3d2f9a479ac413223ca",
+    "robot/ros_ws/src/local/controls/trajectory_controller/test/isolated_command_lease.py": "8e3c3b6a60db893d1c7ac3d662dae92ac6e8acc159b9ebf2b4c36cc4d87af728",
+    "robot/ros_ws/src/local/controls/trajectory_controller/CMakeLists.txt": "5a9711b584f25c1d1909c7cd7a24d07d91ff8df2431d5660a58e06041eb725e8"
+  },
+  "input_sha256": {
+    "harness.py": "8e3c3b6a60db893d1c7ac3d662dae92ac6e8acc159b9ebf2b4c36cc4d87af728",
+    "package-paused/delayed-command.cdr": "0c0b92b69482940a779335dffc9b462895187b4e01932633b0ad2bb539e41eec",
+    "package-paused/events.json": "0dda10b5fc9713a4b49a592e25d4fc2d6ced511e1304a11c45e2e92c1175e05a",
+    "package-paused/summary.json": "d6336ae1d032a3cf86509633e589d43236d9c41294b08eceaaf25d986edb7b4f",
+    "package-normal/delayed-command.cdr": "0c68c49f22946e8dd82510aa24d8753f5cb3c37758c40244d0fd98034180f65d",
+    "package-normal/events.json": "3ab3f0e96f9fd5c916d418bab286b0af74ff48083ea5fa4c76691eb118b86629",
+    "package-normal/summary.json": "a59f52fb7de0b87339ab72529b23c334bc7aa7600546557b05f134a637d27494",
+    "lease-default-budget-01/delayed-command.cdr": "6c4bcda543dfc3a70af72d0a24b78fbb0370eaceb3106269ae8813a9b68e5671",
+    "lease-default-budget-01/events.json": "e4bbd13267b91325b7359eef40e6b17804c2718aaea621165cd78cc59df070fa",
+    "lease-default-budget-01/summary.json": "e178c5f539a1f88a58434ebdb729ce31cc7afce58bff84d7d90654194fb2491a"
+  },
+  "notes": [
+    "Normal0.25s, paused-ROS-clock0.25s and configured-default1.0s cases; development controls, not independent accuracy trials.",
+    "Lease binds typed request values and controller process/generation/sequence, not a full C06 permission context.",
+    "Duplicate preparation does not renew expiry; accepted last-command retry acknowledges prior effect without reapplying.",
+    "STOP requires no lease; generation changes invalidate pending prepared requests.",
+    "Invalid preparation preserves valid earlier token; newer valid preparation supersedes it.",
+    "No execution-time or physical stopping guarantee, no durable cross-process deduplication, no caller authentication.",
+    "Live binaries and profile remain unchanged."
+  ]
+}

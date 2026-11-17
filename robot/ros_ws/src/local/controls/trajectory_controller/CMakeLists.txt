@@ -90,6 +90,16 @@ if(BUILD_TESTING)
       --monitor "${monitor_prefix}/lib/drone_safety_monitor/drone_safety_monitor")
   set_tests_properties(isolated_monitor_fencing_contract
     PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
+  add_test(NAME isolated_command_lease_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=192 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_command_lease.py
+      --executable $<TARGET_FILE:trajectory_controller>)
+  add_test(NAME isolated_paused_clock_lease_contract
+    COMMAND ${CMAKE_COMMAND} -E env ROS_DOMAIN_ID=192 ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/isolated_command_lease.py
+      --executable $<TARGET_FILE:trajectory_controller> --paused-clock)
+  set_tests_properties(isolated_command_lease_contract isolated_paused_clock_lease_contract
+    PROPERTIES TIMEOUT 60 RUN_SERIAL TRUE)
   find_package(ament_lint_auto REQUIRED)
 
   # the following line skips the linter which checks for copyrights
