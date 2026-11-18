@@ -57,6 +57,18 @@ spacing, kbad decisions span(k−1)*0.5s between samples; these are not continuo
 dropout or VO-recovery durations. Strong moving averages and acceptable low-motion
 availability must be evaluated separately.
 
+## Follow-on recording results
+
+[ViViD++](vivid-zero-rotation-control-2026-11-17.md) adds learned thermal
+proposals, with no gain over identity in the nominal 5° diagnostic.
+[IRS low-dynamics recordings](irs-rtvi-mocap-comparison-2026-11-17.md) favor
+thermal-first in the dark and visual-first in the bright record.
+[IRS faster dark](irs-rtvi-dark-fast-replication-2026-11-17.md) replicates the
+thermal-first direction. Its fixed shorter-interval control improves motion
+agreement, with a longer no-proposal block near the start of the recording.
+These recording-dependent outcomes preserve the need for all four fixed
+comparators and a qualified reference for any stronger accuracy claim.
+
 ## What must be validated independently
 
 The next executable study should be a **prospective recording/reference intake**,

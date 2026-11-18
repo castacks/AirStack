@@ -8,6 +8,30 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
+| IRS RTVI continuous-frame light-loss control | [Natural transition screen and paced dimming pilot](irs-rtvi-photometric-transition-2026-11-18.md) |
+| IRS RTVI visual health signals | [Feature-update rejection and motion disagreement screen](irs-rtvi-tracking-health-screen-2026-11-17.md) |
+| IRS RTVI paced camera fallback | [Causal fallback on easy and fast dark](irs-rtvi-paced-recovery-2026-11-17.md) |
+| IRS RTVI native-state handoff | [Native baseline parity and scheduled handoff](irs-rtvi-single-slot-handoff-2026-11-17.md) |
+| IRS RTVI cross-camera handoff | [Shared-state pilot and native parity failure](irs-rtvi-cross-camera-handoff-2026-11-17.md) |
+| IRS RTVI stateful replay | [Metric position controls and single-camera outage](irs-rtvi-stateful-replay-2026-11-17.md) |
+| IRS RTVI nominal camera pose | [Joint rotation and translation-direction audit](irs-rtvi-nominal-camera-pose-2026-11-17.md) |
+| IRS RTVI faster-dark replication | [Prospective priority test and duration control](irs-rtvi-dark-fast-replication-2026-11-17.md) |
+| IRS RTVI mocap controls | [Bright/dark support and nominal rotation comparison](irs-rtvi-mocap-comparison-2026-11-17.md) |
+| ViViD++ calibration release audit | [Published Microstrain settings and translation-rich check](vivid-calibration-materials-2026-11-18.md) |
+| ViViD++ metric inertial binding | [Acceleration and short stationary noise audit](vivid-imu-metric-audit-2026-11-18.md) |
+| ViViD++ independent stateful control | [Monocular OpenVINS versus the bright gate](vivid-openvins-bright-control-2026-11-18.md) |
+| ViViD++ stateful transfer | [First RRxIO fixed-camera replays and bright gate failure](vivid-stateful-transfer-2026-11-17.md) |
+| ViViD++ registered-depth crosscheck | [Direct and chained depth rotation checks](vivid-depth-reference-crosscheck-2026-11-17.md) |
+| ViViD++ zero-rotation control | [Same-interval baseline for nominal rotation agreement](vivid-zero-rotation-control-2026-11-17.md) |
+| ViViD++ nominal rotation agreement | [Locked proposals against mocap and gyro](vivid-nominal-rotation-agreement-2026-11-17.md) |
+| ViViD++ bright, varying and dark controls | [Three-recording support comparison](vivid-three-condition-support-2026-11-17.md) |
+| ViViD++ varying-light learned matching | [Reference-free learned and SIFT comparison](vivid-varying-learned-support-2026-11-17.md) |
+| ViViD++ varying-light SIFT | [Reference-free proposal support](vivid-varying-sift-support-2026-11-17.md) |
+| ViViD++ handheld payloads | [Varying-flashlight bag and mocap timing preflight](vivid-handheld-payload-intake-2026-11-17.md) |
+| ViViD++ and CART pose reference | [Access and sampled reference provenance](vivid-cart-reference-intake-2026-11-17.md) |
+| M2DGR room reference | [Bright and dark mocap intake](m2dgr-room-reference-intake-2026-11-17.md) |
+| M2P2 night registration and support | [LiDAR consistency and RGB–thermal correspondence findings](m2p2-night-registration-and-support-2026-11-17.md) |
+| M2P2 night reference | [LiDAR-inertial source feasibility and message checks](m2p2-reference-feasibility-2026-11-17.md) |
 | New-recording independent-reference intake | [Completed three-candidate screen and unmet reference gate](independent-recording-intake-findings-2026-11-17.md) · [Protocol](independent-recording-intake-protocol-2026-11-17.md) |
 | Baseline recommendation and validation | [Decision from accuracy, coverage and temporal evidence](baseline-recommendation-2026-11-17.md) |
 | Temporal output/error bursts | [Completed three-record sampled run and censor analysis](temporal-output-bursts-findings-2026-11-17.md) · [Protocol](temporal-output-bursts-protocol-2026-11-17.md) |

@@ -1,4 +1,36 @@
-Latest: [Independent-recording intake](../independent-recording-intake-findings-2026-11-17.md). Fresh targeted SubT-MRS v5§3.2, older v2§5.3, current sequence/folder and relevant maintainer-issue reading. Actual bounded ZIP/text/PNG and complete small reference payloads checked: BlockVisual is paired-input only; LongCorridor/MultiFloor lack thermal; independent-pose gate remains unmet despite integrity checks. No model run, full-paper/reference-generator reproduction or physical-truth claim.
+Latest: [IRS RTVI continuous-frame photometric test](../irs-rtvi-photometric-transition-2026-11-18.md) checks recorded light states, verifies current TartanRGBT pose provenance, and measures a scheduled thermal handoff during artificial dimming.
+
+[ViViD++ calibration release audit](../vivid-calibration-materials-2026-11-18.md) inventories the author mirrors, finds Microstrain.yaml, reruns the bright OpenVINS control and tests one stronger-motion bag. Both qualification gates still fail.
+
+[ViViD++ metric inertial audit](../vivid-imu-metric-audit-2026-11-18.md) compares prebound metric acceleration and raw IMU data. It retains the failed translational gate and the short-time noise limitations described by the OpenVINS and Kalibr calibration guides.
+
+[ViViD++ OpenVINS bright control](../vivid-openvins-bright-control-2026-11-18.md) executes the native monocular v2.7 estimator with the released handheld calibration. The clean replay diverges and misses both frozen bright bounds.
+
+[ViViD++ RRxIO transfer](../vivid-stateful-transfer-2026-11-17.md) runs the six whole-bag stateful controls with released handheld calibration. The bright reference gate fails.
+
+[IRS RTVI health screen](../irs-rtvi-tracking-health-screen-2026-11-17.md) instruments the pinned RRxIO updates and compares native visual and thermal displacements. Neither risk signal meets the frozen fast-dark criteria.
+
+[IRS RTVI paced camera fallback](../irs-rtvi-paced-recovery-2026-11-17.md) benchmarks a causal input timeout after [confirming native visual parity](../irs-rtvi-single-slot-handoff-2026-11-17.md). Fast-dark publication recovers and position exceeds the frozen error bound.
+
+[IRS RTVI cross-camera pilot](../irs-rtvi-cross-camera-handoff-2026-11-17.md) modifies the pinned author loader for independently timed camera inputs. Its selector fills the outage in replay and fails the native visual parity gate.
+
+[IRS RTVI stateful replay](../irs-rtvi-stateful-replay-2026-11-17.md) runs the pinned RRxIO offline loader with the public camera/IMU presets, scores nominal position against Vicon–IMU and checks an easy visual input outage.
+
+[IRS RTVI mocap comparison](../irs-rtvi-mocap-comparison-2026-11-17.md) checks author calibrations and loader timing, selectively acquires two bags, and compares the frozen camera frontends with the published Vicon–IMU reference plus nominal gyro and identity checks.
+
+Prior: [ViViD++ depth crosscheck](../vivid-depth-reference-crosscheck-2026-11-17.md) verifies the recorded structured-light stream and ROS REP 118 representation. Direct and chained ICP do not qualify a fine pose reference.
+
+Prior: [ViViD++ varying-light learned support](../vivid-varying-learned-support-2026-11-17.md) reuses the pinned compiler runtime, official RGB checkpoint and archived thermal checkpoint for a reference-free comparison with the existing SIFT result.
+
+Prior: [ViViD++ varying-light SIFT](../vivid-varying-sift-support-2026-11-17.md) reuses the fixed matcher and compares unchanged grayscale conversion with the released export script’s fixed thermal scaling. Reference-free proposal support only.
+
+Prior: [ViViD++ handheld payload intake](../vivid-handheld-payload-intake-2026-11-17.md) checks the released offset, hand-eye calibration and whole varying-sequence sensor headers. Both controls are indexed, with fine reference accuracy still open.
+
+Prior: [ViViD++ and CART pose-reference intake](../vivid-cart-reference-intake-2026-11-17.md) checked handheld indoor mocap provenance and access, and verified both CART Duck night indices and sampled navigation payloads. No complete bag or qualified scoring reference.
+
+Prior: [M2P2 registration and correspondence support](../m2p2-night-registration-and-support-2026-11-17.md) uses the original ICP reference and pinned M2P2 patcher in a fixed local feasibility test. [M2DGR room intake](../m2dgr-room-reference-intake-2026-11-17.md) checks primary sensor/calibration sections, the official release, maintainer guidance and nine mocap payloads. Both leave independent pose scoring open.
+
+Prior: [Independent-recording intake](../independent-recording-intake-findings-2026-11-17.md). Fresh targeted SubT-MRS v5§3.2, older v2§5.3, current sequence/folder and relevant maintainer-issue reading. Actual bounded ZIP/text/PNG and complete small reference payloads checked: BlockVisual is paired-input only; LongCorridor/MultiFloor lack thermal; independent-pose gate remains unmet despite integrity checks. No model run, full-paper/reference-generator reproduction or physical-truth claim.
 
 Prior: [Baseline recommendation](../baseline-recommendation-2026-11-17.md). Documentary synthesis of audited accuracy, coverage and temporal results; prior SubT-MRS/OpenCV reading reused, no fresh paper-body reading. Original learned RGB-first remains a comparison anchor with fixed-camera/opposite-priority controls, crop a challenger. No universal deployment winner, record-ID switch, new policy or model run. Independent recording/reference and application criteria required before adoption.
 
@@ -194,3 +226,5 @@ retained; no verified MSO reproduction or universal novelty claim.
 2026-11-14: [Local relationship-layer contract](../local-relationship-layer-contract-2026-11-14.md): shared-backend candidate and24input cache; existing DNLS/Deeper-DICE/MSO overlap retained, no trained model or novelty claim.
 
 2026-11-14: [Completed local relationship learning](../local-relationship-learning-findings-2026-11-14.md):18models, positive thermal-weighted translation cases, no demonstrated richer-layer increment; existing prior-art reading retained.
+
+17 November: [M2P2 reference feasibility](../m2p2-reference-feasibility-2026-11-17.md) checks the paper’s LIO-SAM example, released calibration, and upstream Ouster/IMU input contract. Pinned driver source and recorded XYZ/range checks establish the cloud coordinate frame. No estimator execution.

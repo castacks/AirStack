@@ -101,10 +101,20 @@
   note = {Reading/reproduction status in papers.json}
 }
 
+@inproceedings{geneva-openvins-2020,
+  title = {{OpenVINS}: A Research Platform for Visual-Inertial Estimation},
+  author = {Geneva, Patrick and Eckenhoff, Kevin and Lee, Woosik and Yang, Yulin and Huang, Guoquan},
+  booktitle = {IEEE International Conference on Robotics and Automation},
+  year = {2020},
+  url = {https://yangyulin.net/papers/2020_icra_ov.pdf},
+  note = {Released OpenVINS v2.7 pinned at commit 93adc241390d13e99232652cf05cbe18a93c7bea. The project calibration guide informs the short stationary IMU audit.}
+}
+
 @misc{vivid-plusplus,
   title = {ViViD++: Vision for Visibility Dataset},
   url = {https://arxiv.org/abs/2204.06183},
-  note = {Reading/reproduction status in papers.json}
+  note = {Reading/reproduction status in papers.json},
+  note = {Released handheld calibration, including Microstrain.yaml, and marker references used for inertial transfer controls}
 }
 
 @misc{resnet,
@@ -547,3 +557,52 @@
 % 2026-11-17: Baseline/independent-validation recommendation synthesizes audited records; prior SubT-MRS/OpenCV reading reused, no new experiment or deployment adoption.
 
 % 2026-11-17: Fresh targeted SubT-MRS v5 section3.2/v2 section5.3, official release/issue and bounded new-candidate payload reading; fused-reference dependence and unmet independent paired-pose gate retained.
+
+% 2026-11-17: targeted upstream Ouster input and IMU requirements inspected.
+@inproceedings{lio-sam-2020,
+  title = {LIO-SAM: Tightly-coupled Lidar Inertial Odometry via Smoothing and Mapping},
+  author = {Shan, Tixiao and Englot, Brendan and Meyers, Drew and Wang, Wei and Ratti, Carlo and Rus, Daniela},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems},
+  year = {2020},
+  url = {https://arxiv.org/abs/2007.00258}
+}
+
+@article{besl-mckay-icp-1992,
+  title = {A Method for Registration of 3-D Shapes},
+  author = {Besl, Paul J. and McKay, Neil D.},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year = {1992},
+  doi = {10.1109/34.121791}
+}
+
+@misc{m2dgr-2021,
+  title = {M2DGR: A Multi-sensor and Multi-scenario SLAM Dataset for Ground Robots},
+  author = {Yin, Jie and others},
+  year = {2021},
+  url = {https://arxiv.org/abs/2112.13659}
+}
+
+@misc{cart-2024,
+  title = {Caltech Aerial RGB-Thermal Dataset in the Wild},
+  author = {Lee, Connor and others},
+  year = {2024},
+  url = {https://arxiv.org/abs/2403.08997}
+}
+
+@inproceedings{anythermal-tartanrgbt-2026,
+  title = {{AnyThermal}: Towards Learning Universal Representations for Thermal Perception},
+  author = {Maheshwari, Parv and others},
+  booktitle = {IEEE International Conference on Robotics and Automation},
+  year = {2026},
+  url = {https://arxiv.org/abs/2602.06203},
+  note = {Author TartanRGBT release and raw topic inventory checked for pose reference provenance}
+}
+
+@inproceedings{doer-trommer-irs-rtvi-2021,
+  title = {Radar Visual Inertial Odometry and Radar Thermal Inertial Odometry: Robust Motion Estimation even in Challenging Visual Conditions},
+  author = {Doer, Christopher and Trommer, Gert F.},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems},
+  year = {2021},
+  url = {https://ieeexplore.ieee.org/document/9636799},
+  note = {Author RRxIO implementation at commit ae29afe0d7876f3838056b457292e4aecf9656be, also the base of the local handoff prototypes and visual update instrumentation}
+}

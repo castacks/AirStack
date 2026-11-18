@@ -1047,18 +1047,61 @@
       "historical_citations": []
     },
     {
+      "id": "geneva-openvins-2020",
+      "title": "OpenVINS: A Research Platform for Visual-Inertial Estimation",
+      "author": "Patrick Geneva, Kevin Eckenhoff, Woosik Lee, Yulin Yang, and Guoquan Huang",
+      "venue_or_version": "ICRA 2020",
+      "url": "https://yangyulin.net/papers/2020_icra_ov.pdf",
+      "code": "https://github.com/rpng/open_vins/tree/v2.7",
+      "inspection": "Targeted paper abstract and platform overview, tutorial calibration inputs, and released v2.7 serial driver and state-export paths.",
+      "local_status": "Full staged ViViD++ bright monocular control completed after a ROS teardown fix. Both 0.30 m error and 90% coverage gates fail with EuRoC IMU noise as a proxy.",
+      "reading_history": [
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/vivid-openvins-bright-control-2026-11-18.md",
+          "inspection": "Pinned 93adc241390d13e99232652cf05cbe18a93c7bea for a separate monocular bright ViViD++ control with fixed handheld camera calibration."
+        },
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/vivid-imu-metric-audit-2026-11-18.md",
+          "inspection": "Used the OpenVINS and Kalibr IMU noise guidance to bound what the few stationary segments can support. The local metric acceleration check uses raw IMU and nominal mocap only."
+        }
+      ],
+      "updated": "2026-11-18"
+    },
+    {
       "id": "vivid-plusplus",
       "title": "ViViD++: Vision for Visibility Dataset",
       "url": "https://arxiv.org/abs/2204.06183",
       "inspection": "Author project about page and abstract metadata inspected; full method not read.",
-      "local_status": "Dataset-version distinction only. No ViViD++ payload used; author project states it extends the2019 predecessor.",
+      "local_status": "Three staged indoor handheld controls ran through fixed-camera RRxIO. The nominal bright position gate fails, so the stateful transfer is unqualified for switching.",
       "availability_source": "https://visibilitydataset.github.io/1_about.html",
-      "updated": "2026-11-12",
+      "updated": "2026-11-17",
       "code": null,
       "decision_notes": [
         "docs/research/thermal-sfm-execution-plan-2026-11-12.md"
       ],
       "reading_history": [
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/vivid-handheld-payload-intake-2026-11-17.md",
+          "inspection": "Released handheld calibration and sequences checked against published header timing and mocap procedure. No scored pose predictions."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/vivid-cart-reference-intake-2026-11-17.md",
+          "inspection": "Targeted pose provenance, hand-eye, timing and indoor illumination sections plus current author access instructions."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/vivid-stateful-transfer-2026-11-17.md",
+          "inspection": "Used the author sensor header convention, calibration and marker reference to stage six stateful replay controls, verifying the reference axis before scoring and retaining the failed bright gate."
+        },
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/vivid-calibration-materials-2026-11-18.md",
+          "inspection": "Inspected the released ZIP and Drive calibration inventory, extracted the Microstrain setting file, and selected one indexed translation-rich handheld bag for the unchanged metric audit."
+        },
         {
           "source_note": "docs/research/thermal-sfm-execution-plan-2026-11-12.md",
           "inspection": "Author project about page and abstract metadata inspected; full method not read."
@@ -2732,12 +2775,17 @@
           "date": "2026-11-16",
           "source_note": "docs/research/outdoornight-gyro-findings-2026-11-16.md",
           "inspection": "Targeted primary paper III-D/E, IV-D, V and VI-C, official project/README and684bag V4.1 catalog inspected. Raw LiDAR and wheel/filtered odometry distinguished from a supplied qualified trajectory; no ready trajectory sidecar established, no M2P2 model/data execution or full author-system reproduction."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/m2p2-reference-feasibility-2026-11-17.md",
+          "inspection": "Paper section V, pinned M2P2 static calibration and bag patcher, and pinned LIO-SAM Ouster input source and IMU documentation checked. No sensor messages read or reference generated."
         }
       ],
       "decision_notes": [
         "docs/research/rgb-thermal-deployment-data-2026-11-16.md"
       ],
-      "updated": "2026-11-16"
+      "updated": "2026-11-17"
     },
     {
       "id": "opencv5-essential-contract",
@@ -2821,6 +2869,119 @@
       ],
       "local_status": "Established ROI/border exclusion engineering context; no new-method novelty or author-system reproduction.",
       "updated": "2026-11-16"
+    },
+    {
+      "id": "besl-mckay-icp-1992",
+      "title": "A Method for Registration of 3-D Shapes",
+      "author": "Paul J. Besl and Neil D. McKay",
+      "venue_or_version": "IEEE Transactions on Pattern Analysis and Machine Intelligence, 1992",
+      "url": "https://doi.org/10.1109/34.121791",
+      "inspection": "Primary abstract and algorithm statement for rigid nearest-point registration. No author implementation reproduction.",
+      "local_status": "Fixed CPU implementation used for a bounded M2P2 consistency assay.",
+      "reading_history": [
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/m2p2-night-registration-and-support-2026-11-17.md",
+          "inspection": "Targeted original ICP reference and fixed local feasibility assay."
+        }
+      ],
+      "updated": "2026-11-17"
+    },
+    {
+      "id": "m2dgr-2021",
+      "title": "M2DGR: A Multi-sensor and Multi-scenario SLAM Dataset for Ground Robots",
+      "author": "Jie Yin and others",
+      "venue_or_version": "IEEE Robotics and Automation Letters / ICRA 2022; arXiv 2112.13659",
+      "url": "https://arxiv.org/abs/2112.13659",
+      "code": "https://github.com/SJTU-ViSYS/M2DGR",
+      "inspection": "Targeted paper sensor, calibration, sync and sequence sections, official release and maintainer issue 54. Verified all nine room reference payloads at a pinned release revision.",
+      "local_status": "External mocap candidate; non-unit quaternions in all nine room references, dark bag range unavailable.",
+      "reading_history": [
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/m2dgr-room-reference-intake-2026-11-17.md",
+          "inspection": "Targeted primary sections and published reference payload integrity checks. No bag decode or pose scoring."
+        }
+      ],
+      "updated": "2026-11-17"
+    },
+    {
+      "id": "cart-2024",
+      "title": "Caltech Aerial RGB-Thermal Dataset in the Wild",
+      "author": "Connor Lee and others",
+      "url": "https://arxiv.org/abs/2403.08997",
+      "code": "https://github.com/aerorobotics/caltech-aerial-rgbt-dataset",
+      "inspection": "Targeted paper data acquisition and motion tracking sections, supplement S2 and official dataset. Verified complete Duck night bag footers and bounded topic payloads.",
+      "local_status": "Both indexed night bags have RGB, thermal, UAV pose and VN100 IMU. Six sampled raw GPS fixes indicate ordinary 3-D positioning. No independently qualified pair-pose reference.",
+      "reading_history": [
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/vivid-cart-reference-intake-2026-11-17.md",
+          "inspection": "Targeted primary reading and bounded checks; no full bag or estimator reproduction."
+        }
+      ],
+      "updated": "2026-11-17"
+    },
+    {
+      "id": "anythermal-tartanrgbt-2026",
+      "title": "AnyThermal: Towards Learning Universal Representations for Thermal Perception",
+      "author": "Parv Maheshwari and others",
+      "venue_or_version": "ICRA 2026",
+      "url": "https://arxiv.org/abs/2602.06203",
+      "availability_source": "https://huggingface.co/datasets/theairlabcmu/TartanRGBT",
+      "inspection": "Checked current author release card and raw topic inventory. This is a dataset metadata read, without paper replay or payload acquisition.",
+      "local_status": "Current dataset publishes MAC-VO odometry as its pose product and documents no separate external pose stream in the raw topic list. No independent trajectory validation was attempted.",
+      "reading_history": [
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/irs-rtvi-photometric-transition-2026-11-18.md",
+          "inspection": "Targeted release notes for transforms, sensor time and MAC-VO provenance."
+        }
+      ],
+      "updated": "2026-11-18"
+    },
+    {
+      "id": "doer-trommer-irs-rtvi-2021",
+      "title": "Radar Visual Inertial Odometry and Radar Thermal Inertial Odometry: Robust Motion Estimation even in Challenging Visual Conditions",
+      "author": "Christopher Doer and Gert F. Trommer",
+      "venue_or_version": "IROS 2021",
+      "url": "https://christopherdoer.github.io/publications/2021_09_IROS2021",
+      "code": "https://github.com/christopherdoer/rrxio",
+      "inspection": "Author paper abstract, dataset protocol, calibration and pinned evaluator/loader source. Verified ZIP member CRCs, camera payloads and published Vicon–IMU reference schema.",
+      "local_status": "Six camera+IMU stateful runs across three public mocap bags, plus one easy visual outage. Radar and live cross-camera transfer were unevaluated.",
+      "reading_history": [
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/irs-rtvi-mocap-comparison-2026-11-17.md",
+          "inspection": "Targeted author sources and actual bright/dark payloads; no RRxIO reproduction."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/irs-rtvi-stateful-replay-2026-11-17.md",
+          "inspection": "Executed pinned author loader ae29afe0d7876f3838056b457292e4aecf9656be for the six single-camera controls and visual outage; uses a local scorer with the author position-and-yaw alignment convention."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/irs-rtvi-cross-camera-handoff-2026-11-17.md",
+          "inspection": "Inspected image update and transform derivatives, modified the pinned offline loader for a shared-state handoff pilot, and reproduced the failed native visual parity gate."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/irs-rtvi-paced-recovery-2026-11-17.md",
+          "inspection": "Preserved the native monocular state and verified native no-switch parity. Measured detector-driven camera fallback using the pinned filter on two camera/IMU bags at 1x cadence, including fast-dark pose failure."
+        },
+        {
+          "date": "2026-11-17",
+          "source_note": "docs/research/irs-rtvi-tracking-health-screen-2026-11-17.md",
+          "inspection": "Read and instrumented the pinned image update acceptance path. Reproduced native odometry on common stamps and tested update rejection and dual-estimator motion disagreement on frozen future-error anchors."
+        },
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/irs-rtvi-photometric-transition-2026-11-18.md",
+          "inspection": "Cross-checked the author sequence descriptions with complete visible-image luma logs, and evaluated the pinned estimator during a paced fixed artificial light reduction."
+        }
+      ],
+      "updated": "2026-11-17"
     }
   ]
 }

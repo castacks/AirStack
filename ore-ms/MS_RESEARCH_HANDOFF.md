@@ -1,10 +1,9 @@
 # Current research handoff
 
-17 November 2026. Resumed checkpoint: independent-recording intake complete.
+18 November 2026. Checkpoint: IRS timed dimming shows no handoff accuracy gain.
 Branch `ore-ms-orb-development`; study execution base `4408b7fb8`. Start with the
 [completed recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md)
-and [research index](docs/research/INDEX.md). Historical proposed next steps do not
-supersede this page.
+and [research index](docs/research/INDEX.md) for current evidence.
 
 ## Current question and decision
 
@@ -97,12 +96,13 @@ control outperforms thermal backup on these low-motion gaps. Whole projected
 matching overhead3.3%. SIFT instead favors thermal during motion:≤5°17.2%RGB,
 57.3%thermal,38.0%fallback; preserve frontend dependence and incorrect additions.
 
-[New-recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md):
-BlockVisual has8624RGB/15512thermal frames but no qualified reference in inspected sources.
-LongCorridor/MultiFloor have1385/2061reference rows but no thermal in complete ZIP listings.
-92integrity/schema checks PASS; independent paired-pose readiness FAIL; no model runs.
-Fresh SubT-MRS v5§3.2 confirms fused visual/LiDAR/IMU reference; prior nominal tiers remain.
-Next: M2P2 night camera-independent LiDAR-reference feasibility, before sensor download.
+[Initial recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md): no qualified paired-pose candidate; M2P2, M2DGR and CART qualification limits are in the [index](docs/research/INDEX.md).
+[ViViD++ input preflight](docs/research/vivid-handheld-payload-intake-2026-11-17.md) verifies published timing nominally; [three-record support](docs/research/vivid-three-condition-support-2026-11-17.md) shows learned thermal adds proposals in all three recordings.
+[ViViD++ RRxIO](docs/research/vivid-stateful-transfer-2026-11-17.md) and [OpenVINS](docs/research/vivid-openvins-bright-control-2026-11-18.md) miss the bright trajectory gate. The [metric audit](docs/research/vivid-imu-metric-audit-2026-11-18.md) finds 1.59 m/s² bright acceleration discrepancy. The [release audit](docs/research/vivid-calibration-materials-2026-11-18.md) locates Microstrain.yaml and confirms a 6.09 m/s² discrepancy on the translation-rich candidate. Raw same-rig calibration remains unavailable.
+[Identity control](docs/research/vivid-zero-rotation-control-2026-11-17.md): learned 197/392 versus zero rotation 254/392 within 5° of both. [Depth](docs/research/vivid-depth-reference-crosscheck-2026-11-17.md) did not qualify a stronger reference.
+[IRS RTVI](docs/research/irs-rtvi-mocap-comparison-2026-11-17.md): dark 5° nominal agreement thermal-first 161/239 versus visual-first 83/239; easy favors visual-first 146/157 versus 140/157.
+[IRS faster dark](docs/research/irs-rtvi-dark-fast-replication-2026-11-17.md): direction replicated at 0.5 s (thermal-first 56/139 versus visual-first 33/139), with lower long-interval support; at 0.1 s learned thermal agrees on 85/85 shared moving anchors versus 15/85 at 0.5 s. [Nominal joint pose](docs/research/irs-rtvi-nominal-camera-pose-2026-11-17.md) confirms the ordering for rotation plus translation direction.
+[RRxIO controls](docs/research/irs-rtvi-stateful-replay-2026-11-17.md) favor thermal in fixed darkness. [Paced fallback](docs/research/irs-rtvi-paced-recovery-2026-11-17.md) restores publication after frame loss, with 0.236 m fast-dark RMSE. [Health signals](docs/research/irs-rtvi-tracking-health-screen-2026-11-17.md) remain unqualified. [Timed dimming](docs/research/irs-rtvi-photometric-transition-2026-11-18.md) confirms zero median visual tracks but no pose benefit from switching in easy. Natural-transition validation still lacks a qualified recording.
 
 ## Prior evidence and closed routes
 
