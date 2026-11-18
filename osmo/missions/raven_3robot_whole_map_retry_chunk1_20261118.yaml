@@ -156,7 +156,7 @@ environments:
       z: 0.0
   voxel_min_cluster_size: 30
   voxel_score_threshold: 0.5
-iteration_attempts: 2
+iteration_attempts: 1
 iterations: 1
 name: raven_3robot_whole_map_retry_chunk1_20261118
 nas_dest: /volume4/dsta/raven-ablations/
