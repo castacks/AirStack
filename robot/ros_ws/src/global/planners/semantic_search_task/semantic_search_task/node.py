@@ -1089,6 +1089,7 @@ class SemanticSearchTaskNode(Node):
                 # stamps line up with the controllers' sim clock.
                 '-p', 'use_sim_time:=true',
                 '-p', f'share_rays:={os.getenv("RAVEN_SHARE_RAYS", "true").strip().lower()}',
+                '-p', f'share_raw_rays:={os.getenv("RAVEN_SHARE_RAW_RAYS", "false").strip().lower()}',
                 '-p', f'share_bbs:={os.getenv("RAVEN_SHARE_BBS", "true").strip().lower()}',
                 '-p', f'semantic_map_sharing:={os.getenv("RAVEN_SEMANTIC_MAP_SHARING", "false").strip().lower()}',
                 '-p', f'semantic_map_voxel_size:={float(os.getenv("RAVEN_SEMANTIC_MAP_VOXEL_SIZE", "0.5"))}',

@@ -13,6 +13,18 @@ flowchart LR
   Behavior --> Navigation[Navigation goals and local planning]
 ```
 
+## Raw ray sharing
+
+`RAVEN_SHARE_RAW_RAYS=true` (`share_raw_rays` ROS parameter, default `false`)
+sends every finite row from the robot’s RayFronts `rays_sim/all` cloud, including
+all query scores, without the usual sender target-score prefilter. Gossip uses
+the existing coordinate transform and `shared_rays` schema. Each receiver stacks
+its own rays and peer rays before the unchanged target/background argmax, score,
+altitude and clustering filters. Peer rays are never republished as own rays.
+This changes communication volume; it does not change local perception, query
+thresholds, target association or BB sharing. Result JSON and auction traces
+record source/wire row counts and receiver fleet row counts for verification.
+
 ## Enabling ablations on multi-raven
 
 All variants live together on **`multi-raven`**. Select them with mission `env`
@@ -23,6 +35,7 @@ are mutually exclusive and require the mode settings documented below.
 
 | Ablation | Mission environment / goal setting |
 |---|---|
+| Raw ray sharing, filter after fleet fusion | `RAVEN_SHARE_RAW_RAYS=true` (keep `RAVEN_SHARE_RAYS=true`) |
 | No shared rays | `RAVEN_SHARE_RAYS=false` |
 | No shared unfinished BBs | `RAVEN_SHARE_BBS=false` |
 | Neither rays nor unfinished BBs | Set both sharing flags above to `false` |

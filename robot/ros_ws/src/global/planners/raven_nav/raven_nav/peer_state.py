@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set
 
@@ -64,6 +65,10 @@ class PeerState:
     peer_nav_modes:  Dict[str, str]        = field(default_factory=dict)
     peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)
     peer_rays:       Dict[str, 'PeerRays']  = field(default_factory=dict)
+    # Diagnostics only: freshness advances on a new source cloud, not a GPS heartbeat.
+    peer_ray_stamps: Dict[str, float] = field(default_factory=dict)
+    peer_ray_received_at: Dict[str, float] = field(default_factory=dict)
+    peer_ray_updates: Dict[str, int] = field(default_factory=dict)
     # Per-group bids (one BidEntry per ray group). Imported lazily in update()
     # to avoid a hard dependency from this module on bid_manager.
     peer_bids:       Dict[str, list] = field(default_factory=dict)
@@ -218,6 +223,11 @@ class PeerState:
         if rays_msg is not None:
             self.peer_rays[name] = self._parse_shared_rays(
                 rays_msg, my_boot_enu, my_alt_ground)
+            stamp = _stamp_to_sec(rays_msg.header.stamp)
+            if stamp > self.peer_ray_stamps.get(name, -1.):
+                self.peer_ray_stamps[name] = stamp
+                self.peer_ray_received_at[name] = time.monotonic()
+                self.peer_ray_updates[name] = self.peer_ray_updates.get(name, 0) + 1
 
         grid_msg, _ = profile.get_payload_by_name_with_stamp("explored_area_coverage")
         if grid_msg is not None:

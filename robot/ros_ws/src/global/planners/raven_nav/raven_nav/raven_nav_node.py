@@ -520,6 +520,8 @@ class RavenNavNode(Node):
         self._debug_auction = bool(self.declare_parameter(
             'debug_auction', True).value)
         self._share_rays = bool(self.declare_parameter('share_rays', True).value)
+        self._share_raw_rays = bool(self.declare_parameter('share_raw_rays', False).value)
+        self._ray_share_stats = {'source_rows': 0, 'wire_rows': 0, 'snapshots': 0}
         self._share_bbs = bool(self.declare_parameter('share_bbs', True).value)
         self._semantic_map_sharing = bool(self.declare_parameter(
             'semantic_map_sharing', False).value)
@@ -571,7 +573,8 @@ class RavenNavNode(Node):
         self._independent_greedy = self._assignment_mode == 'independent_greedy'
         self.get_logger().info(
             f'[auction] mode={self._assignment_mode} L={self._bundle_len} '
-            f'share_rays={self._share_rays} share_bbs={self._share_bbs} '
+            f'share_rays={self._share_rays} share_raw_rays={self._share_raw_rays} '
+            f'share_bbs={self._share_bbs} '
             f'semantic_map_sharing={self._semantic_map_sharing} '
             f'use_shared_completion={self._use_shared_completion} '
             f'use_peer_allocation_state={self._use_peer_allocation_state} '
@@ -788,9 +791,13 @@ class RavenNavNode(Node):
     def _publish_shared_rays(self, origins, dirs, scores, sim_field_names, stamp):
         """Republish rays in FLU/local frame for gossip distribution.
 
-        Pre-filtered to only rays where some target column passes threshold —
+        By default, pre-filtered to rays where a target column passes threshold —
         peers re-filter locally but starting from a smaller cloud cuts gossip
         bandwidth and the merged-ray count significantly.
+
+        share_raw_rays bypasses this sender filter; each receiver merges own and
+        peer rows before the unchanged compute_ray_groups filter and clustering.
+        Only own rays are published, never the fused fleet cloud.
 
         VLFM is exempt: it ranks raw cosine similarities with no threshold, so a
         thresholded peer cloud would hand it a different distribution than its
@@ -800,7 +807,9 @@ class RavenNavNode(Node):
         gossip_node translates only x,y,z; dx,dy,dz pass through unchanged.
         """
         from sensor_msgs.msg import PointField
-        if self._target_objects and not self._vlfm_baseline:
+        source_rows = len(origins)
+        if (self._target_objects and not self._vlfm_baseline
+                and not getattr(self, '_share_raw_rays', False)):
             label_indices = [self._query_labels.index(t)
                              for t in self._target_objects
                              if t in self._query_labels]
@@ -811,6 +820,13 @@ class RavenNavNode(Node):
                 dirs = dirs[keep]
                 scores = scores[keep]
         n = len(origins)
+        stats = getattr(self, '_ray_share_stats', None)
+        if stats is not None:
+            stats['source_rows'] += source_rows
+            stats['wire_rows'] += n
+            stats['snapshots'] += 1
+            stats['last_source_rows'] = source_rows
+            stats['last_wire_rows'] = n
         if n == 0:
             return
         K = scores.shape[1]
@@ -2218,6 +2234,8 @@ class RavenNavNode(Node):
             'confirmed_targets_enu': targets,
             'target_events': events,
             'intent_events': list(self._intent_events),
+            'share_raw_rays': getattr(self, '_share_raw_rays', False),
+            'ray_share_stats': dict(getattr(self, '_ray_share_stats', {})),
         }
         tmp = os.path.join(self._results_dir, f'.{self._robot_name}.json.tmp')
         final = os.path.join(self._results_dir, f'{self._robot_name}.json')
@@ -3246,6 +3264,15 @@ class RavenNavNode(Node):
                        ts=round(now, 2))
             dbg.setdefault('params', {}).update(
                 share_rays=self._share_rays, share_bbs=self._share_bbs,
+                share_raw_rays=self._share_raw_rays,
+                ray_share_stats=dict(self._ray_share_stats),
+                own_ray_rows=(len(self._ray_origins) if self._ray_origins is not None else 0),
+                peer_ray_updates=dict(self._peer_state.peer_ray_updates),
+                peer_ray_age_wall_s={name: round(time.monotonic()-t, 3)
+                                     for name, t in self._peer_state.peer_ray_received_at.items()},
+                peer_ray_rows={name: len(pr.origins)
+                               for name, pr in self._peer_state.peer_rays.items()},
+                merged_ray_rows=(len(merged_origins) if merged_origins is not None else 0),
                 semantic_map_sharing=self._semantic_map_sharing,
                 reusable_feature_map=self._reusable_feature_map,
                 feature_dimension=(len(self._semantic_feature_labels)-4 if self._semantic_feature_labels else 0),
