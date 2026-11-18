@@ -1,4 +1,4 @@
-"""Local OSMO client: one validated episode per workflow, one in flight at a time."""
+"""Local OSMO client: one validated episode per workflow, isolated optional job state."""
 import argparse
 import fcntl
 import json
@@ -157,25 +157,35 @@ def preflight(planner):
         if not shutil.which('osmo'):errors.append('Install the OSMO CLI and log in using the lab guide')
         if (RUNTIME/'osmo_pending_cleanup.json').exists():errors.append('Resolve osmo_pending_cleanup.json before another submission')
         if (read_json(RUNTIME/'remote_live.json') or {}).get('active'):errors.append('An OSMO workflow is still marked active; recover/cancel it before another submission')
+        from osmo_parallel import unresolved_jobs
+        if unresolved_jobs(RUNTIME):errors.append('Recover/cancel active isolated OSMO jobs before starting another campaign')
     except (OSError, ValueError) as exc:
         errors.append(str(exc))
     return {'ok':not errors,'errors':errors,'warnings':['Pool permissions, image pull and GPU compatibility require remote validation.'],
             'planner':planner,'scope':'OSMO configuration only; no GPU job submitted'}
 
 
-def run_remote_episode(raw, output, *, camera='overview', record_bag=True, control_path=None, record_video=False, client=None):
+def run_remote_episode(raw, output, *, camera='overview', record_bag=True, control_path=None,
+                       record_video=False, client=None, state_dir=None, settings_override=None):
     from episode import resolved, fingerprint
-    c=resolved(raw);settings=load_settings()
+    c=resolved(raw);settings=dict(settings_override) if settings_override is not None else load_settings()
+    live_root=Path(state_dir).resolve() if state_dir is not None else RUNTIME
+    live_root.relative_to(RUNTIME.resolve());live_root.mkdir(parents=True,exist_ok=True)
+    if state_dir is None:
+        from osmo_parallel import unresolved_jobs
+        if unresolved_jobs(RUNTIME):raise RuntimeError('Recover/cancel active isolated OSMO jobs first')
     if client is None:
         client=Client();client.check_credentials(settings)
-    if (RUNTIME/'osmo_pending_cleanup.json').exists():
+    if (live_root/'osmo_pending_cleanup.json').exists():
         raise RuntimeError('Resolve osmo_pending_cleanup.json before another submission')
-    if (read_json(RUNTIME/'remote_live.json') or {}).get('active'):
+    if (read_json(live_root/'remote_live.json') or {}).get('active'):
         raise RuntimeError('Recover/cancel the active remote_live.json workflow before another submission')
     out=Path(output).resolve();out.relative_to(RUNTIME.resolve())
     payload,spec,uri=prepare(c,settings,uuid.uuid4().hex,camera=camera,record_bag=record_bag,record_video=record_video)
     RUNTIME.mkdir(parents=True,exist_ok=True)
-    with (RUNTIME/'sequence.lock').open('a') as lock:
+    # The parallel scheduler holds the global sequence lock for the entire pair;
+    # each child owns only this isolated job lock and its own tunnel port.
+    with (live_root/'sequence.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         out.mkdir(parents=True,exist_ok=False)
         if control_path is None:
@@ -195,7 +205,7 @@ def run_remote_episode(raw, output, *, camera='overview', record_bag=True, contr
         reported_phase=None
         def publish(phase, **extra):
             nonlocal reported_phase
-            atomic_json(RUNTIME/'live_episode.json',{'planner':c['planner'],'scenario':c['name'],
+            atomic_json(live_root/'live_episode.json',{'planner':c['planner'],'scenario':c['name'],
                 'directory':str(out),'phase':phase,'event':phase,'condition':c['condition'],
                 'wall_time':time.time(),**extra})
             if phase != reported_phase:
@@ -210,20 +220,32 @@ def run_remote_episode(raw, output, *, camera='overview', record_bag=True, contr
             publish('osmo_submitting')
             try:name=client.submit(specfile)
             except Exception:
-                atomic_json(RUNTIME/'osmo_pending_cleanup.json',{'workflow_name_prefix':spec['workflow']['name'],
+                atomic_json(live_root/'osmo_pending_cleanup.json',{'workflow_name_prefix':spec['workflow']['name'],
                     'message':'Submission outcome unknown. Inspect workflow list before retrying; do not submit twice.'})
                 raise
             atomic_json(transport/'job.json',{'workflow_id':name,'run_id':payload['run_id'],
                 'output_uri':uri,'image':target_image(settings,c['planner']),'configuration_hash':fingerprint(c)})
-            atomic_json(RUNTIME/'remote_live.json',dict(session,active=True,workflow_id=name))
-            (RUNTIME/'remote_live.json').chmod(0o600)
+            atomic_json(live_root/'remote_live.json',dict(session,active=True,workflow_id=name))
+            (live_root/'remote_live.json').chmod(0o600)
+            query_failures=0
             while True:
                 now=time.monotonic()
                 choice=operator_request(control_path)
                 if now-started>(settings['exec_minutes']+settings['queue_minutes'])*60+300:
                     raise TimeoutError('OSMO workflow exceeded its execution/queue deadline')
                 if now-last_query>=settings['poll_seconds']:
-                    status,details=client.status(name);last_query=now
+                    last_query=now
+                    try:
+                        status,details=client.status(name)
+                        query_failures=0
+                    except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
+                        query_failures+=1
+                        atomic_json(transport/'query_error.json',{'consecutive_failures':query_failures,
+                            'reason':str(exc)[:400],'wall_time':time.time()})
+                        if query_failures>=4:raise
+                        # A transient read failure is not a failed flight. Keep
+                        # the known job and live tunnel; never submit a duplicate.
+                        details=read_json(transport/'status.json') or {'status':status}
                     atomic_json(transport/'status.json',details)
                     tasks=[t for g in details.get('groups',[]) for t in g.get('tasks',[]) if t.get('name')=='flight']
                     task_phase=tasks[0].get('status') if tasks else None
@@ -245,10 +267,10 @@ def run_remote_episode(raw, output, *, camera='overview', record_bag=True, contr
                 try:
                     snapshot=json.loads(request(session,'/snapshot'))
                     snapshot=mapped_paths(snapshot,session['remote_output'],str(out))
-                    atomic_json(RUNTIME/'remote_snapshot.json',dict(snapshot,received_at=time.time(),run_id=payload['run_id']))
+                    atomic_json(live_root/'remote_snapshot.json',dict(snapshot,received_at=time.time(),run_id=payload['run_id']))
                     if choice!=last_control:
                         request(session,'/control',{'action':choice});last_control=choice
-                    if snapshot.get('episode'):atomic_json(RUNTIME/'live_episode.json',snapshot['episode'])
+                    if snapshot.get('episode'):atomic_json(live_root/'live_episode.json',snapshot['episode'])
                 except (OSError,ValueError):
                     phase='initializing' if task_phase=='INITIALIZING' else status.lower()
                     publish('osmo_'+phase,viewer='connecting')
@@ -293,11 +315,11 @@ def run_remote_episode(raw, output, *, camera='overview', record_bag=True, contr
                 except Exception:
                     atomic_json(transport/'cancellation_required.json',{'workflow_id':name,
                         'message':'Automatic cancellation failed; cancel this workflow before submitting another.'})
-                    atomic_json(RUNTIME/'osmo_pending_cleanup.json',{'workflow_id':name})
+                    atomic_json(live_root/'osmo_pending_cleanup.json',{'workflow_id':name})
             if tunnel:
                 from runtime_process import stop_process
                 stop_process(tunnel)
-            atomic_json(RUNTIME/'remote_live.json',{'active':False,'run_id':payload['run_id'],
+            atomic_json(live_root/'remote_live.json',{'active':False,'run_id':payload['run_id'],
                 'workflow_id':name,'local_output':str(out),'control_path':str(control_path)})
             publish('result',result=result)
 

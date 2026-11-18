@@ -387,8 +387,6 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
             if time.monotonic()-last_advance>5:raise RuntimeError('simulation clock stopped')
             if not oracle['available']:raise RuntimeError('collision oracle unavailable')
             if t-oracle['sim_time']>.25:raise RuntimeError('collision oracle stopped updating')
-            if h.get('image_stamp') is not None and t-h['image_stamp']>c['condition']['delay']+2:
-                raise RuntimeError('camera/bridge data stale beyond configured delay')
             if recording and bag.poll() is not None:raise RuntimeError('bag recorder stopped during episode')
             command=h.get('last_command')
             if command and command.get('published') and command['stamp']!=last_command:
@@ -408,6 +406,16 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
                     terminate('planner_stopped' if worker.returncode==0 else 'infrastructure_error',
                               'planner_process_exit',worker.returncode);break
                 raise RuntimeError('planner process exited before execution: '+str(worker.returncode))
+            if h.get('image_stamp') is not None and t-h['image_stamp']>c['condition']['delay']+2:
+                from camera_exposure import interruption_at_guard
+                evidence = interruption_at_guard(diagnostic.records, c['condition'], str(out)) if mission_start is not None else None
+                if evidence:
+                    evidence.update(input_age_sim_s=t-h['image_stamp'],
+                                    threshold_sim_s=c['condition']['delay']+2)
+                    terminate('planner_stopped', 'camera_input_guard', evidence)
+                    result['termination']['source']='bench_guard'
+                    break
+                raise RuntimeError('camera/bridge data stale beyond configured delay')
             text=(out/'worker.log').read_text()
             if mission_start is not None:
                 if not samples or samples[-1]['sim_time_s']!=t:

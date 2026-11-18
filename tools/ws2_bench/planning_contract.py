@@ -33,9 +33,9 @@ def prediction_schema():
         probabilities=_object({name:dict(type='number',minimum=0,maximum=1) for name in OUTCOMES})))
 
 
-def response_schema(target):
-    from corridor_space import schema
-    base=schema(target)['properties'];text=_text_schema()
+def response_schema(target,action_version=None):
+    from corridor_space import schema, VERSION as ACTION_VERSION
+    base=schema(target,action_version or ACTION_VERSION)['properties'];text=_text_schema()
     allocation=_object({key:dict(type='integer',minimum=0) for key in ALLOCATION_KEYS})
     step=_object(dict(operation=dict(type='string',enum=['inspect','test']),
         budget_intent=dict(type='string',enum=list(INTENTS)),

@@ -98,6 +98,9 @@ def scheduled_effects(result_dir,condition):
     Return None for legacy constant-disturbance trials. Validation errors are
     explicit evidence errors; callers must not interpret them as zero exposure.
     """
+    if 'camera_program' in condition:
+        from camera_exposure import record
+        return record(result_dir,condition)
     if not any(k in condition for k in ('noise_schedule','delay_schedule')):return None
     initial=read(Path(result_dir)/'condition_evidence.json')['frame']
     return audit_scheduled_sensors(result_dir,condition,initial)

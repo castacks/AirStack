@@ -3,6 +3,8 @@
 Runs MonoNav, Kim/FCRN and PULP-DroNet v3 through the same AirStack/PX4
 execution and evaluation path. Office supports feedback/random/search;
 corridors support fixed suites and optional Claude/Codex experiment selection.
+For composed camera fault programs and LLM-proposed flight budgets, see
+[adaptive corridor testing](CORRIDOR_AGENT.md#composed-camera-programs).
 
 Choose **local** or **OSMO** execution. The instructions below install the local
 Docker/GPU runtime. For remote jobs, follow [OSMO setup](osmo/README.md) instead:

@@ -8,6 +8,7 @@ from mission import SUCCESSES, EXCLUDED
 
 KINDS = ('explore', 'repeat', 'isolate', 'threshold')
 FACTORS = {'rgb_noise': ('rgb_noise_stddev',), 'delay': ('delay_s',),
+           'frame_drop': ('frame_drop_probability',), 'frame_freeze': ('frame_freeze_enabled',),
            'patch': ('patch_enabled', 'patch_size_m', 'patch_start_s', 'patch_duration_s')}
 
 
@@ -29,7 +30,10 @@ def disable(a, factor):
     if factor == 'patch':
         a.update(patch_enabled=False, patch_start_s=0., patch_duration_s=0.)
     else:
-        a[FACTORS[factor][0]] = 0.
+        key=FACTORS[factor][0]
+        if key in a:a[key] = False if factor=='frame_freeze' else 0.
+    if 'camera_program' in a:
+        a['camera_program']=[e for e in a['camera_program'] if e['factor']!=factor]
 
 
 def attack_evidence_eligible(action, pair):

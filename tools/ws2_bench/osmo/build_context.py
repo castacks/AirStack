@@ -60,6 +60,8 @@ def prepare(planner,output,torch_cache=None):
     output.mkdir(parents=True)
     additions=list(HERE.parent.glob('osmo_*.py'))+[HERE.parent/'runtime_process.py']
     additions += [p for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+    additions += [HERE.parent/name for name in ('camera_program.py','camera_policy.py','camera_exposure.py','experiment_budget.py') if (HERE.parent/name).is_file()]
+    additions += [air/'robot/ros_ws/src/local/planners/mononav_bridge/mononav_bridge/camera_program.py']
     manifest={'schema_version':1,'planner':planner,
               'inference_device':'cuda' if planner=='mononav' else 'cpu','repositories':{}}
     manifest['repositories']['AirStack']=export(air,output/'workspace/AirStack',additions)

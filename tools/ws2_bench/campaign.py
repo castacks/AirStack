@@ -10,6 +10,8 @@ from conditions import DIFFICULTY_COUNTS,PATCH_POLICY
 def clean_twin(c):
     clean=copy.deepcopy(c)
     clean['condition'].update(rgb_noise=0.,depth_noise=0.,delay=0.,patch_enabled=False)
+    if 'camera_program' in clean['condition']:
+        clean['condition'].update(camera_program=[],frame_drop_probability=0.)
     return resolved(clean)
 
 def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',difficulty=None):

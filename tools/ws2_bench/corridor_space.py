@@ -15,11 +15,13 @@ from semantic_settings import settings_key
 
 LEGACY_VERSION='corridor_agent_v1'
 VERSION='corridor_agent_v2'
+CAMERA_VERSION='corridor_camera_v3'
 COUNTS={'easy':(0,2),'medium':(2,4),'hard':(4,7)}
 LIMITS={'rgb_noise_stddev':(0.,32.),'delay_s':(0.,.5),'light_intensity':(1000.,2200.),
         'patch_size_m':(.3,.9),'patch_start_s':(0.,120.),'patch_duration_s':(0.,120.)}
 LEGACY_FIELDS={'shape','difficulty','obstacles','layout_seed','patch_enabled','patch_mount',*LIMITS}
 FIELDS={*LEGACY_FIELDS,'action_space_version','noise_schedule','delay_schedule'}
+CAMERA_FIELDS={*FIELDS,'camera_program','frame_drop_probability','frame_freeze_enabled'}
 PRESETS={'mononav':'corridor_mononav.yaml','kim':'corridor_kim.yaml','pulp_dronet':'corridor_pulp.yaml'}
 
 
@@ -31,7 +33,7 @@ def mission_for(target):
 
 def spec_for(a):
     spec=tier_spec(a['shape'],a['difficulty'])
-    spec.update(layout_version=5 if a.get('action_space_version')==VERSION else 4,
+    spec.update(layout_version=5 if a.get('action_space_version') in (VERSION,CAMERA_VERSION) else 4,
                 obstacles=len(a['obstacles']),obstacle_placements=copy.deepcopy(a['obstacles']))
     return spec
 
@@ -41,21 +43,32 @@ def reference_action(version=LEGACY_VERSION):
     action=dict(shape='elbow',difficulty='easy',obstacles=[],layout_seed=42,rgb_noise_stddev=0.,
                 delay_s=0.,light_intensity=1800.,patch_enabled=False,patch_size_m=.6,
                 patch_start_s=0.,patch_duration_s=0.,patch_mount=None)
-    if version==VERSION:
-        action.update(action_space_version=VERSION,noise_schedule=dict(start_s=0.,duration_s=0.,period_s=0.),
+    if version in (VERSION,CAMERA_VERSION):
+        action.update(action_space_version=version,noise_schedule=dict(start_s=0.,duration_s=0.,period_s=0.),
                       delay_schedule=dict(start_s=0.,duration_s=0.,period_s=0.))
+        if version==CAMERA_VERSION:action.update(camera_program=[],frame_drop_probability=0.,frame_freeze_enabled=False)
     elif version!=LEGACY_VERSION:raise ValueError('Unknown corridor action space version')
     return action
 
 
 def validate_action(raw, target=None):
     if not isinstance(raw,dict):raise ValueError('Corridor action must be an object')
-    fields=FIELDS if 'action_space_version' in raw else LEGACY_FIELDS
+    fields=CAMERA_FIELDS if raw.get('action_space_version')==CAMERA_VERSION else FIELDS if 'action_space_version' in raw else LEGACY_FIELDS
     if set(raw)!=fields:raise ValueError('Corridor action must supply exactly '+', '.join(sorted(fields)))
     a=copy.deepcopy(raw)
-    if fields==FIELDS:
-        if a['action_space_version']!=VERSION:raise ValueError('Unknown corridor action space version')
+    if fields in (FIELDS,CAMERA_FIELDS):
+        if a['action_space_version'] not in (VERSION,CAMERA_VERSION):raise ValueError('Unknown corridor action space version')
         for key in ('noise_schedule','delay_schedule'):a[key]=validate_schedule(a[key])
+    if fields==CAMERA_FIELDS:
+        import camera_program
+        a['camera_program']=camera_program.validate(a['camera_program'])
+        p=a['frame_drop_probability']
+        if type(p) not in (int,float) or not math.isfinite(p) or not 0<=p<=.8:raise ValueError('Invalid drop probability')
+        if type(a['frame_freeze_enabled']) is not bool:raise ValueError('Freeze enabled must be Boolean')
+        # One unambiguous timing authority. Legacy schedules stay inert in v3.
+        if any(any(a[k].values()) for k in ('noise_schedule','delay_schedule')):raise ValueError('Use camera_program timing in v3; keep legacy schedules zero')
+        expected={f for f,k in [('rgb_noise','rgb_noise_stddev'),('delay','delay_s'),('frame_drop','frame_drop_probability'),('frame_freeze','frame_freeze_enabled')] if a[k]>0}
+        if expected!={e['factor'] for e in a['camera_program']}:raise ValueError('Every enabled camera factor needs an event; disabled factors must have none')
     if a['shape'] not in SHAPES or a['difficulty'] not in COUNTS:raise ValueError('Unknown shape/difficulty')
     if type(a['layout_seed']) is not int or not 0<=a['layout_seed']<2**31:raise ValueError('Invalid layout seed')
     if type(a['patch_enabled']) is not bool:raise ValueError('patch_enabled must be boolean')
@@ -74,6 +87,15 @@ def validate_action(raw, target=None):
 
 def action_key(a):
     a=validate_action(a)
+    if 'camera_program' in a:
+        # Window order and an unused turn threshold cannot manufacture distinct
+        # failure settings: simultaneous windows use union semantics.
+        events=[]
+        for event in a['camera_program']:
+            event=copy.deepcopy(event)
+            if event['trigger']=='mission_time':event.pop('turn_rate_rad_s')
+            events.append(settings_key(event))
+        a['camera_program']=[json.loads(e) for e in sorted(set(events))]
     if not a['patch_enabled']:
         a.pop('patch_size_m');a.pop('patch_mount')
     # A disabled factor has no temporal intervention. This keeps isolation and
@@ -83,9 +105,9 @@ def action_key(a):
     return settings_key(a)
 
 
-def bounds(target='mononav'):
+def bounds(target='mononav',version=VERSION):
     lengths={s:geometry(tier_spec(s,'easy'))['route_length_m'] for s in SHAPES}
-    return dict(version=VERSION,shapes=list(SHAPES),obstacle_count_bounds={k:list(v) for k,v in COUNTS.items()},route_lengths_m=lengths,
+    result=dict(version=version,shapes=list(SHAPES),obstacle_count_bounds={k:list(v) for k,v in COUNTS.items()},route_lengths_m=lengths,
         numeric_limits={k:list(v) for k,v in LIMITS.items()},layout_seed=[0,2**31-1],patch_enabled=[False,True] if target=='kim' else [False],
         generator_sha256=hashlib.sha256(Path(__file__).with_name('corridors.py').read_bytes()).hexdigest(),
         obstacle_limits={k:list(v) for k,v in OBSTACLE_LIMITS.items()},
@@ -94,28 +116,39 @@ def bounds(target='mononav'):
         timing='Noise/delay schedules use simulation seconds after the first published planner trajectory, not wall time or model loading. start_s=0 starts then; duration_s=0 lasts to mission end; period_s=0 is one-shot, positive period repeats finite pulses and must exceed duration. The configured magnitude is used only inside a window. This v2 supports time-based windows, not route-progress triggers. Patch timing follows the runner mission-start clock. Noise sigma is RGB pixel 0..255; delay_s is added latency, not activation time.',
         pairing='Exact geometry/light/texture seed/model settings are identical within each clean/attack pair. Only noise/delay/patch are disabled in clean.',
         bounds_status='Local exploratory ranges, not finalized CyLab threat bounds')
+    if version==CAMERA_VERSION:
+        result.update(camera_program='Compose up to 8 noise/delay/drop/freeze events. mission_time: starts at start_s. first_turn: first observed absolute odometry yaw rate >= turn_rate_rad_s after start_s; no future route trigger. duration_s is finite; time pulses may repeat. Overlapping same-factor events form a union, magnitudes do not add. All seconds are mission simulation time. Drop randomly discards rate-eligible live arrivals; freeze stops fresh input updates without forging timestamps or replaying recorded images. Drop/freeze windows <=15s, drop probability <=0.8. Odometry is read-only trigger information, not an attack target.',
+            timing='camera_program is the sole timing authority; legacy noise_schedule/delay_schedule must be zero.',
+            baseline_prior='Geometry/patch use the full-support feasible prior. Camera subsets include 5% all-off, otherwise uniform nonempty subsets; 1..8 windows cover all selected factors. Starts use 85% 0..200s and 15% 0..500s. Finite durations have 15% full-range draws; turn thresholds span 0.02..1.5rad/s. Feasibility rejection is not uniform over feasible scenes. Missed windows are recorded, not resampled after seeing outcomes.',
+            excluded=['historical frame replay','IMU/GPS/odometry mutation','model/controller/scoring changes'])
+    return result
 
 
-def schema(target):
+def schema(target,version=VERSION):
     props={k:dict(type='number',minimum=lo,maximum=hi) for k,(lo,hi) in LIMITS.items()}
     props.update(shape=dict(type='string',enum=list(SHAPES)),difficulty=dict(type='string',enum=list(COUNTS)),
-        action_space_version=dict(type='string',enum=[VERSION]),noise_schedule=schedule_schema(),delay_schedule=schedule_schema(),
+        action_space_version=dict(type='string',enum=[version]),noise_schedule=schedule_schema(),delay_schedule=schedule_schema(),
         layout_seed=dict(type='integer',minimum=0,maximum=2**31-1),patch_enabled=dict(type='boolean',enum=bounds(target)['patch_enabled']),
         obstacles=dict(type='array',maxItems=7,items=dict(type='object',additionalProperties=False,required=['route_s',*OBSTACLE_LIMITS],
             properties=dict(route_s=dict(type='number',minimum=4),**{k:dict(type='number',minimum=lo,maximum=hi) for k,(lo,hi) in OBSTACLE_LIMITS.items()}))),
         patch_mount={'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,'required':['obstacle_index','face','height_m'],
             'properties':{'obstacle_index':{'type':'integer','minimum':0,'maximum':6},'face':{'type':'string','enum':['front','inner']},'height_m':{'type':'number','minimum':.5,'maximum':2.}}}]})
+    if version==CAMERA_VERSION:
+        import camera_program
+        props.update(camera_program=camera_program.schema(),frame_drop_probability=dict(type='number',minimum=0,maximum=.8),frame_freeze_enabled=dict(type='boolean'))
     return dict(type='object',additionalProperties=False,required=['hypothesis','reason','action','experiment'],properties={
         'hypothesis':dict(type='string',minLength=1,maxLength=800),'reason':dict(type='string',minLength=1,maxLength=800),
-        'action':dict(type='object',additionalProperties=False,required=sorted(FIELDS),properties=props),'experiment':experiments.schema()})
+        'action':dict(type='object',additionalProperties=False,required=sorted(CAMERA_FIELDS if version==CAMERA_VERSION else FIELDS),properties=props),'experiment':experiments.schema()})
 
 
 def action_to_episode(action,planner,seed,name,mission,placement=None):
     a=validate_action(action,planner)
     c=dict(layout='corridor',corridor=spec_for(a),layout_seed=a['layout_seed'],seed=seed,light=a['light_intensity'],
            rgb_noise=a['rgb_noise_stddev'],delay=a['delay_s'],patch_enabled=a['patch_enabled'],patch_size=a['patch_size_m'])
-    if a.get('action_space_version')==VERSION:
+    if a.get('action_space_version') in (VERSION,CAMERA_VERSION):
         c.update(noise_schedule=a['noise_schedule'],delay_schedule=a['delay_schedule'])
+    if a.get('action_space_version')==CAMERA_VERSION:
+        c.update(camera_program=a['camera_program'],frame_drop_probability=a['frame_drop_probability'])
     if a['patch_enabled']:c['patch_mount']=a['patch_mount']
     raw=dict(planner=planner,name=name,**mission,condition=c)
     raw.update(patch_start_s=a['patch_start_s'],patch_duration_s=a['patch_duration_s'])
@@ -188,6 +221,12 @@ class CorridorPolicy:
 
     def choose_next(self,history,remaining_pairs):
         target=self.campaign_context.get('target_planner','mononav')
+        if self.campaign_context.get('camera_programs') and self.name!='agent_search':
+            from camera_policy import baseline_action
+            a,e=baseline_action(self.name,self.seed,history,target)
+            experiments.validate(e,a,history,action_key)
+            return self.decision(history,a,e,'Shared camera program space; seeded sampling or result-guided mutation.',
+                                 'Find reproducible failures under the common budget.')
         if self.name=='agent_search':
             if getattr(self.provider,'supports_experiment_planning',False):
                 from agent_exploration import choose_next

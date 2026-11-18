@@ -30,10 +30,13 @@ def feedback_command(payload,output):
 
 def adaptive_command(payload,output):
     """Build the saved-layout, no-noise adaptive campaign command."""
-    if not isinstance(payload,dict) or set(payload)-{'planner','budget','timeout','goal_distance','policy','provider','qualified_layouts','clean_validation_runs','infrastructure_retries','clean_failure_policy','action_space'} or not isinstance(payload.get('planner'),str) or payload.get('planner') not in REGISTRY:
+    if not isinstance(payload,dict) or set(payload)-{'planner','budget','timeout','goal_distance','policy','provider','qualified_layouts','clean_validation_runs','infrastructure_retries','clean_failure_policy','action_space','camera_programs','auto_budget','max_parallel'} or not isinstance(payload.get('planner'),str) or payload.get('planner') not in REGISTRY:
         raise ValueError('Select one registered target model: '+', '.join(REGISTRY))
     policy=payload.get('policy','search')
     action_space=payload.get('action_space','saved')
+    camera_programs=payload.get('camera_programs',False)
+    if type(payload.get('auto_budget',False)) is not bool:raise ValueError('auto_budget must be Boolean')
+    if type(camera_programs) is not bool or (camera_programs and action_space!='corridor'):raise ValueError('Camera programs require corridor mode')
     if os.environ.get('WS2_EXECUTION_BACKEND','local')=='osmo' and action_space!='corridor':
         raise ValueError('Select Corridors for OSMO; Office assets are not included in the task image')
     if action_space not in ('saved','expanded','corridor'):raise ValueError('Unknown action space')
@@ -73,10 +76,22 @@ def adaptive_command(payload,output):
         for flag in ('--timeout','--goal-distance'):
             i=command.index(flag);del command[i:i+2]
     for layout,seed in qualified:command+=['--qualified-layout',f'{layout}:{seed}']
+    if camera_programs:command+=['--camera-programs']
+    if payload.get('auto_budget',False):
+        if not camera_programs or policy!='agent_search' or validations or retries:
+            raise ValueError('LLM budget requires camera programs, agent mode and zero extra clean checks/retries')
+        command+=['--auto-budget']
+    concurrency=payload.get('max_parallel',1)
+    if type(concurrency) is not int or concurrency not in (1,2):raise ValueError('Parallel flights must be 1 or 2')
+    if concurrency>1:
+        if os.environ.get('WS2_EXECUTION_BACKEND')!='osmo' or validations or retries or clean_policy!='record':
+            raise ValueError('Parallel flights need OSMO, zero extra checks/retries, and continue after clean failure')
+        command+=['--max-parallel',str(concurrency)]
     if policy=='agent_search':command+=['--provider',provider]
     return command
 
 def standalone_remote_root():
+    if (read_json(RUNTIME/'remote_parallel.json') or {}).get('active'):return None
     remote=read_json(RUNTIME/'remote_live.json') or {}
     if not remote.get('active') and os.environ.get('WS2_EXECUTION_BACKEND','local')!='osmo':return None
     if not remote.get('local_output') or not remote.get('control_path'):return None
@@ -107,6 +122,10 @@ def comparison_root():
     root=Path(current['output']).resolve();root.relative_to((RUNTIME/'campaigns').resolve())
     return root
 
+def remote_state():
+    from osmo_parallel import selected_state
+    return selected_state(RUNTIME) or RUNTIME
+
 def set_view(payload):
     if not isinstance(payload,dict) or set(payload)-{'mode','distance','height','azimuth'}:raise ValueError('Invalid camera settings')
     view=read_json(RUNTIME/'view_settings.json') or {'mode':'follow','distance':2.5,'height':1.5,'azimuth':180.}
@@ -115,7 +134,7 @@ def set_view(payload):
     for key,lo,hi in [('distance',1.5,25),('height',.3,15),('azimuth',0,360)]:
         v=view[key]
         if isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or not lo<=v<=hi:raise ValueError('Invalid '+key)
-    session=read_json(RUNTIME/'remote_live.json') or {}
+    session=read_json(remote_state()/'remote_live.json') or {}
     if session.get('active'):
         from osmo_transport import request
         # Local saved preferences can contain legacy/internal fields (for
@@ -128,9 +147,10 @@ def read_json(path):
     except (OSError,ValueError):return None
 
 def flight_view():
-    session=read_json(RUNTIME/'remote_live.json') or {}
+    root=remote_state()
+    session=read_json(root/'remote_live.json') or {}
     if session.get('active'):
-        snapshot=read_json(RUNTIME/'remote_snapshot.json') or {}
+        snapshot=read_json(root/'remote_snapshot.json') or {}
         if snapshot.get('run_id')!=session['run_id']:snapshot={}
         return {**snapshot,'execution':{'backend':'osmo','workflow_id':session.get('workflow_id'),
                                       'received_at':snapshot.get('received_at')}}
@@ -142,7 +162,7 @@ def flight_view():
             'execution':{'backend':os.environ.get('WS2_EXECUTION_BACKEND','local')}}
 
 def flight_frame(path):
-    session=read_json(RUNTIME/'remote_live.json') or {}
+    session=read_json(remote_state()/'remote_live.json') or {}
     if session.get('active'):
         from osmo_transport import request
         return request(session,path)
@@ -161,7 +181,17 @@ def launch_status():
         code=job.poll()
         record.update(status='running' if code is None else 'failed' if code else 'exited',exit_code=code)
     elif record.get('status') in ('starting','running'):
-        record.update(status='unknown',error='Viewer restarted; inspect the campaign log before starting another run.')
+        # A detached CLI controller survives a viewer restart. Verify the
+        # process arguments as well as its PID, so a reused PID is not active.
+        try:
+            argv=(Path('/proc')/str(int(record['pid']))/'cmdline').read_bytes().split(b'\0')
+            alive=(str(record['output']).encode() in argv and
+                   any(a.endswith(b'/agent_campaign.py') or a.endswith(b'/campaign.py') for a in argv))
+        except (OSError,KeyError,ValueError):alive=False
+        if alive:record.update(status='running')
+        elif campaign and campaign.get('output')==record['output'] and campaign.get('phase') in ('complete','stopped','agent_stopped','quota_wait'):
+            record.update(status='exited')
+        else:record.update(status='unknown',error='Controller is no longer running; inspect the campaign log before resuming.')
     return record
 
 def launch_log_tail():
@@ -185,6 +215,7 @@ def watch_launch(process,output):
 
 def active():
     if job is not None and job.poll() is None:return True
+    if (launch_status() or {}).get('status')=='running':return True
     for name in ['feedback.lock','adaptive.lock','sequence.lock']:
         with (RUNTIME/name).open('a') as lock:
             try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -203,6 +234,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path=='/':self.send((HERE/'presentation.html').read_bytes(),'text/html; charset=utf-8')
             elif path=='/state':
+                from osmo_parallel import public_jobs
                 preview=flight_view()
                 campaign=read_json(RUNTIME/'live_campaign.json')
                 launch=launch_status()
@@ -220,7 +252,8 @@ class Handler(BaseHTTPRequestHandler):
                     llm_analysis=read_json(root/'llm_analysis.json');campaign_error=read_json(root/'campaign_error.json')
                     campaign_config=read_json(root/'config.json')
                 except ValueError:report=None;control=None;llm_analysis=None;campaign_error=None;campaign_config=None
-                self.send({'campaign':campaign,'episode':read_json(RUNTIME/'live_episode.json'),
+                self.send({'campaign':campaign,'episode':read_json(remote_state()/'live_episode.json'),
+                           'parallel':public_jobs(RUNTIME),'selected_job':remote_state().name,
                            'running':active(),'read_only':MONITOR,
                            'view':preview.get('view'),'view_settings':preview.get('view_settings'),
                            'scene':preview.get('scene'),'analysis':report,'control':control,
@@ -252,11 +285,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global job,job_output
         if MONITOR:self.send({'error':'Read-only monitor'},status=403);return
-        if self.path not in ['/start/feedback','/start/adaptive','/control','/view']:self.send({'error':'not found'},status=404);return
+        if self.path not in ['/start/feedback','/start/adaptive','/control','/view','/select-job']:self.send({'error':'not found'},status=404);return
         try:
             size=int(self.headers.get('Content-Length','0'))
             if not 0<size<=4096:raise ValueError('Select a target model before starting')
             payload=json.loads(self.rfile.read(size))
+            if self.path=='/select-job':
+                from osmo_parallel import public_jobs
+                registry=public_jobs(RUNTIME)
+                if not isinstance(payload,dict) or set(payload)!={'job_id'} or not registry.get('active') or not (
+                    payload['job_id']=='auto' or any(j['job_id']==payload['job_id'] for j in registry.get('jobs',[]))):
+                    raise ValueError('Select a registered active campaign job')
+                atomic(RUNTIME/'remote_selected.json',payload);self.send({'ok':True});return
             if self.path=='/view':
                 with job_lock:self.send({'ok':True,'view':set_view(payload)})
                 return

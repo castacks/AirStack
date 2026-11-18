@@ -147,6 +147,7 @@ def assess(action, pair):
     if action.get('depth_noise', 0) != 0 or action.get('depth_noise_stddev_m', 0) != 0:
         return dict(result, reason='unsupported_depth_perturbation')
     factors = [name for name, key in (('rgb_noise', 'rgb_noise_stddev'), ('delay', 'delay_s'),
+                                     ('frame_drop','frame_drop_probability'),('frame_freeze','frame_freeze_enabled'),
                                      ('patch', 'patch_enabled')) if action.get(key, 0) > 0]
     result['active_factors'] = factors
     clean, attacked = pair.get('clean'), pair.get('perturbed')
@@ -156,6 +157,16 @@ def assess(action, pair):
         return dict(result, reason='all_off_baseline')
     exposure = attacked.get('attack_exposure')
     for factor in factors:
+        if factor in ('frame_drop','frame_freeze'):
+            from camera_program import identity
+            raw=(exposure or {}).get('factors',{}).get(factor,{})
+            verified=(isinstance(exposure,dict) and exposure.get('schema')=='camera_program_exposure_v1'
+                and exposure.get('status')=='complete' and exposure.get('program_id')==identity(action.get('camera_program',[]))
+                and raw.get('exposure_verified') is True and raw.get('suppressed_arrivals',0)>0
+                and raw.get('stalled_worker_observations',0)>0)
+            result['factor_evidence'][factor]=dict(verified=verified,status='exposed' if verified else 'unknown',
+                reason='measured_suppression_and_stalled_input' if verified else 'suppression_effect_unverified')
+            continue
         result['factor_evidence'][factor] = (_patch(attacked.get('patch_visibility')) if factor == 'patch'
                                               else _sensor(factor, exposure, attacked.get('worker_input_exposure')))
     if any('executed' in run and type(run['executed']) is not bool for run in (clean, attacked)):
@@ -178,6 +189,9 @@ def assess_condition(condition, pair):
     if not isinstance(condition, dict):
         return assess(None, pair)
     return assess({'rgb_noise_stddev': condition.get('rgb_noise', 0),
+                   'camera_program':condition.get('camera_program',[]),
+                   'frame_drop_probability':condition.get('frame_drop_probability',0),
+                   'frame_freeze_enabled':any(e['factor']=='frame_freeze' for e in condition.get('camera_program',[])),
                    'delay_s': condition.get('delay', 0),
                    'patch_enabled': condition.get('patch_enabled', False),
                    'depth_noise': condition.get('depth_noise', 0)}, pair)

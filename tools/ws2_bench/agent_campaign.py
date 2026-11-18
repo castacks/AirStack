@@ -6,6 +6,7 @@ import csv
 import fcntl
 import json
 import math
+import os
 from pathlib import Path
 import time
 
@@ -107,7 +108,8 @@ def _load_json(path):
 def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="mononav", retries=1,
                           record_bags=False, pause_seconds=5, timeout=None, goal_distance=None,
                           provider=None, qualified_layouts=(("easy", 2),), clean_validation_runs=2,
-                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved", study_objective="", matched_protocol=None):
+                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved", study_objective="", matched_protocol=None, camera_programs=False,
+                          max_parallel=1, budget_plan=None):
     """Run one paired campaign after repeated pristine-clean validation.
 
     The scheduled budget counts matched clean/attack flights. Validation and
@@ -116,6 +118,10 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if policy_name not in BACKEND_LABELS:
         raise ValueError("policy must be random, search, or agent_search")
     adapter=get_adapter(planner)
+    if type(max_parallel) is not int or max_parallel not in (1,2):raise ValueError('max_parallel must be 1 or 2')
+    if max_parallel>1 and (os.environ.get('WS2_EXECUTION_BACKEND')!='osmo' or
+                          clean_failure_policy!='record' or retries or clean_validation_runs):
+        raise ValueError('Parallel pairs require OSMO, record mode, zero extra clean checks and zero retries')
     if matched_protocol is not None:
         if (action_space != "corridor" or planner != "pulp_dronet" or budget != 16
                 or retries != 0 or clean_validation_runs != 0 or clean_failure_policy != "record"):
@@ -132,6 +138,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if not 0 <= pause_seconds <= 60 or not math.isfinite(pause_seconds):
         raise ValueError("pause_seconds must be 0..60")
 
+    if camera_programs and (action_space!='corridor' or matched_protocol is not None):raise ValueError('Camera programs require a new corridor campaign')
     if action_space not in ('saved','expanded','corridor'):raise ValueError('action_space must be saved, expanded or corridor')
     if action_space=='saved':
         qualified_layouts = parse_qualified_layouts([f"{layout}:{layout_seed}" for layout, layout_seed in qualified_layouts])
@@ -154,6 +161,13 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         provider.check_auth()  # fail before any simulator or validation flight
     config = _config(policy_name, budget, seed, planner, retries, record_bags, timeout, goal_distance,
                      qualified_layouts, clean_validation_runs, clean_failure_policy)
+    if max_parallel>1:config['parallel_execution']={'version':1,'max_parallel':max_parallel,'admission':'available_node_resources_and_quota'}
+    if budget_plan is not None:
+        from experiment_budget import validate as validate_budget
+        if budget_plan.get('target')!=planner or budget_plan.get('proposal',{}).get('flight_cap')!=budget:
+            raise ValueError('Frozen budget plan does not match campaign target/cap')
+        validate_budget(budget_plan['proposal'],budget_plan['resource_ceiling'])
+        config['budget_plan']=budget_plan
     if action_space=='expanded':
         from expanded_space import bounds, VERSION
         config.update(action_space='expanded',action_schema=VERSION,profile='expanded',noise='configurable',expanded_bounds=bounds(planner),study_objective=study_objective,
@@ -166,6 +180,9 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         config.update(action_space='corridor',action_schema=VERSION,profile='corridor_agent',noise='configurable',
                       expanded_bounds=bounds(planner),study_objective=study_objective,mission=mission_for(planner),
                       label={'random':'Random + diagnostic follow-ups','search':'Heuristic search + diagnostic follow-ups','agent_search':'LLM corridor testing'}[policy_name])
+    if camera_programs:
+        from corridor_space import CAMERA_VERSION
+        config.update(camera_programs=True,action_schema=CAMERA_VERSION,expanded_bounds=bounds(planner,CAMERA_VERSION))
     if matched_protocol is not None:
         from matched_policy import MatchedPolicy
         MatchedPolicy(policy_name, seed, provider, matched_protocol)  # Validate before saving or flying.
@@ -219,7 +236,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
     if hasattr(policy, 'campaign_context'):
         policy.campaign_context = {'target_planner': planner, 'mission': config['mission'],
                                    'model_adapter':adapter.describe(),'study_objective':study_objective,
-                                   'campaign_dir':str(root),'total_pairs':budget//2,
+                                   'campaign_dir':str(root),'total_pairs':budget//2,'camera_programs':camera_programs,
+                                   'budget_plan':budget_plan,
                                    **{k:config[k] for k in VERSION_KEYS if k in config},
                                    'metric_notes': 'clearance is a nominal envelope margin; collision is simulator contact'}
     completed = sum(p[role].get('executed',True) for r in history for p in r['pairs'] for role in ('clean','perturbed'))
@@ -356,6 +374,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                     return finish('agent_stopped')
                 decision["action"] = validate_selected(decision["action"])
             decision, candidate = _candidate(decision, config, index)
+            if camera_programs and decision['schema']!=config['action_schema']:
+                raise ValueError('Camera campaign must use its pinned camera-program action version')
             if decision_path.exists() and _load_json(decision_path) != decision:
                 raise ValueError("saved decision differs from its resolved action")
             if not decision_path.exists():
@@ -366,16 +386,25 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                 return finish("stopped", decision)
             publish("selecting_configuration", decision)
             pair = {"planner": planner}
-            for role, trial in (("clean", clean_twin(candidate)), ("perturbed", candidate)):
+            trials=(("clean",clean_twin(candidate)),("perturbed",candidate))
+            parallel_results=None
+            if max_parallel>1:
+                from osmo_parallel import run_pair
+                before=sum((round_root/planner/role/'attempt_0').is_dir() for role,_ in trials)
+                parallel_results=run_pair(trials,round_root,planner,control_path,max_parallel=max_parallel,
+                    record_bag=record_bags,publish=lambda phase,jobs:publish(phase,decision,
+                        {'planner':planner,'role':'clean / attack','round':index+1,'jobs':jobs}))
+                actual_attempts+=sum((round_root/planner/role/'attempt_0').is_dir() for role,_ in trials)-before
+            for role, trial in trials:
                 try:
-                    wait_between_trials(control_path, lambda phase: publish(phase, decision))
+                    if parallel_results is None:wait_between_trials(control_path, lambda phase: publish(phase, decision))
                 except UserStop:
                     return finish("stopped", decision)
                 # Expanded experiments never spend an attack flight after a failed clean control.
                 # The unspent slot is retained, not silently reallocated to more experiments.
-                if (role == 'perturbed' and action_space in ('expanded','corridor')
+                if (parallel_results is None and role == 'perturbed' and action_space in ('expanded','corridor')
                         and pair['clean']['outcome'] not in SUCCESSES
-                        and (matched_protocol is None or pair['clean']['outcome'] in ('infrastructure_error', 'user_stopped'))):
+                        and ((matched_protocol is None and not camera_programs) or pair['clean']['outcome'] in ('infrastructure_error', 'user_stopped'))):
                     pair[role] = {'outcome':'not_run_clean_failed','metrics':{},'executed':False,
                                   'termination':{'reason':'clean control failed; attack effect not evaluable'},'attempts':[]}
                     atomic(round_root / planner / (role + '.json'), pair[role])
@@ -385,7 +414,9 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                     folder = round_root / planner / role / f"attempt_{attempt}"
                     publish("running", decision, {"planner": planner, "role": role, "round": index + 1,
                                                   "condition": trial["condition"], "directory": str(folder)})
-                    if (folder / "result.json").exists():
+                    if parallel_results is not None:
+                        result=parallel_results[role]
+                    elif (folder / "result.json").exists():
                         result = _load_json(folder / "result.json")
                         if result["configuration_hash"] != fingerprint(trial):
                             raise ValueError("saved trial config changed")
@@ -399,7 +430,7 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                     attempts.append({"directory": str(folder), "outcome": result["outcome"]})
                     if result["outcome"] != "infrastructure_error":
                         break
-                if action_space == 'corridor' and any(k in trial['condition'] for k in ('noise_schedule', 'delay_schedule')):
+                if folder.exists() and action_space == 'corridor' and any(k in trial['condition'] for k in ('noise_schedule', 'delay_schedule')):
                     from audit_corridor_campaign import scheduled_effects
                     try:
                         exposure = scheduled_effects(folder, trial['condition'])
@@ -407,18 +438,18 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                         exposure = {'exposure_verified': False, 'status': 'evidence_error', 'reason': str(exc)[:600]}
                     result = dict(result, attack_exposure=exposure)
                     atomic(folder / 'attack_exposure.json', exposure)
-                if config.get('evaluation_version'):
+                if folder.exists() and config.get('evaluation_version'):
                     from consumed_input_audit import record_episode_consumption
                     result = dict(result, worker_input_exposure=record_episode_consumption(result, RUNTIME))
                 pair[role] = dict(result, attempts=attempts)
-                if matched_protocol is not None:
+                if matched_protocol is not None or parallel_results is not None:
                     # Explicit execution identity for new comparison records; raw results stay unchanged.
                     pair[role]["executed"] = (folder / "result.json").is_file()
-                completed += 1
+                completed += int(pair[role].get('executed',True))
                 live_rows.append({"round": index + 1, "planner": planner, "role": role,
                                   "outcome": result["outcome"], **result["metrics"]})
                 atomic(round_root / planner / (role + ".json"), pair[role])
-                if result["outcome"] == "user_stopped":
+                if result["outcome"] == "user_stopped" and parallel_results is None:
                     return finish("stopped", decision)
                 if role == "clean" and result["outcome"] not in SUCCESSES:
                     halting = clean_failure_policy == "halt"
@@ -426,8 +457,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
                         "phase": "unstable_clean_baseline", "decision": decision, "result": pair["clean"],
                         "policy": clean_failure_policy,
                         "message": ("Attack flight was not run because its pristine clean control failed."
-                                    if halting or (action_space in ('expanded','corridor') and
-                                        (matched_protocol is None or result['outcome'] == 'infrastructure_error')) else
+                                    if halting or (parallel_results is None and action_space in ('expanded','corridor') and
+                                        ((matched_protocol is None and not camera_programs) or result['outcome'] == 'infrastructure_error')) else
                                     "Legacy record mode executes the attack but the failed clean invalidates attack attribution."),
                     })
                     if halting:
@@ -443,6 +474,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
             if matched_protocol is not None:
                 write_matched_evaluation()
             atomic(history_path, history)
+            if parallel_results is not None and any(pair[r]['outcome']=='user_stopped' for r,_ in trials):
+                return finish('stopped',decision,interpret=False)
             if action_space == 'corridor':
                 from agent_exploration import prediction_audit
                 atomic(root / 'hypothesis_predictions.json', prediction_audit(history))
@@ -476,6 +509,8 @@ def main():
                         help="claude/codex: official subscription CLI; openai: compatible API endpoint")
     parser.add_argument("--no-llm-report", action="store_true", help="skip final LLM interpretation")
     parser.add_argument("--budget", type=int, default=8)
+    parser.add_argument("--budget-plan",type=Path,help="Frozen LLM-proposed flight cap shared with Random/Search")
+    parser.add_argument('--auto-budget',action='store_true',help='Ask the selected LLM for a cap within --budget before flying')
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--planner", choices=sorted(REGISTRY), required=True)
     parser.add_argument("--infrastructure-retries", choices=(0, 1, 2), type=int, default=1)
@@ -490,11 +525,35 @@ def main():
     parser.add_argument("--clean-validation-runs", choices=(0, 1, 2, 3), type=int, default=2,
                         help="pristine clean successes required before the paired flight budget (default: 2)")
     parser.add_argument('--action-space',choices=('saved','expanded','corridor'),default='saved')
+    parser.add_argument('--camera-programs',action='store_true',help='Compose live camera noise/delay/drop/freeze events in corridor tests')
+    parser.add_argument('--max-parallel',type=int,choices=(1,2),default=1,
+                        help='OSMO only: admit up to two independent clean/attack flights using current free resources')
     parser.add_argument("--study-objective",default="",help="Recorded scope/priorities for agent experiment selection; does not change budget or metrics")
     parser.add_argument("--matched-protocol", type=Path, help="Frozen matched pilot protocol; optional, free agent remains default")
     parser.add_argument("--qualified-layout", action="append", metavar="LAYOUT:SEED",
                         help="a layout that has already passed a clean flight, e.g. easy:2 (repeatable)")
     args = parser.parse_args()
+    if args.auto_budget:
+        if args.budget_plan or args.policy!='agent_search' or not args.camera_programs:
+            raise ValueError('Auto budget requires a camera-program LLM campaign, without an existing --budget-plan')
+        if args.clean_validation_runs or args.infrastructure_retries:
+            raise ValueError('Auto budget counts all attempts: set extra clean checks and retries to zero')
+        from experiment_budget import propose
+        root=Path(args.output).resolve();root.relative_to(RUNTIME.resolve());root.mkdir(parents=True,exist_ok=True)
+        budget_provider=provider_from_name(args.provider,audit_dir=root/'budget_llm_calls')
+        budget_provider.check_auth()
+        args.budget_plan=root/'budget_plan.json'
+        propose(budget_provider,args.planner,args.budget,args.budget_plan)
+    plan=None
+    if args.budget_plan:
+        from experiment_budget import load, campaign_objective
+        plan=load(args.budget_plan,args.planner,100000)
+        if not args.camera_programs or args.clean_validation_runs or args.infrastructure_retries:
+            raise ValueError("Shared camera budget needs --camera-programs and zero extra qualification/retries")
+        args.budget=plan["proposal"]["flight_cap"]
+        previous_path = Path(args.output) / 'config.json'
+        previous = _load_json(previous_path) if previous_path.exists() else None
+        args.study_objective = campaign_objective(args.study_objective, plan, previous)
     run_adaptive_campaign(args.output, args.policy, args.budget, args.seed, args.planner,
                           args.infrastructure_retries, args.record_bags, args.review_seconds,
                           args.timeout, args.goal_distance,
@@ -502,7 +561,8 @@ def main():
                           clean_validation_runs=args.clean_validation_runs,
                            clean_failure_policy=args.clean_failure_policy,
                            provider_name=args.provider, llm_report=not args.no_llm_report,action_space=args.action_space,study_objective=args.study_objective,
-                           matched_protocol=_load_json(args.matched_protocol) if args.matched_protocol else None)
+                           matched_protocol=_load_json(args.matched_protocol) if args.matched_protocol else None,camera_programs=args.camera_programs,
+                           max_parallel=args.max_parallel,budget_plan=plan)
 
 
 if __name__ == "__main__":

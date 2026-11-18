@@ -13,7 +13,7 @@ from vulnerability_report import active_factors
 from expanded_space import scene_evidence
 from semantic_settings import settings_key
 
-ANALYSIS_VERSION='corridor_diagnostics_v10_scheduled_exposure_plans'
+ANALYSIS_VERSION='corridor_diagnostics_v11_camera_interruptions'
 
 
 def evidence_for_report(report):
@@ -28,7 +28,8 @@ def evidence_for_report(report):
                        "active_factors": active_factors(pair['condition']),"experiment":pair.get("experiment"),
                        "hypothesis":pair.get('hypothesis'),"plan":pair.get('plan'),
                        "hypothesis_reviews":pair.get('hypothesis_reviews'),
-                       "clean_perturbations": {"rgb_noise":0,"depth_noise":0,"delay":0,"patch_enabled":False},
+                       "clean_perturbations": {"rgb_noise":0,"depth_noise":0,"delay":0,"patch_enabled":False,
+                                               "camera_program":[],"frame_drop_probability":0},
                        "attack_executed": pair['perturbed']['outcome']!='not_run_clean_failed',
                        "scene_evidence":scene_evidence({"condition":pair["condition"]}),
                        "attack_effect_evaluable": pair["attack_effect_evaluable"],
@@ -38,7 +39,7 @@ def evidence_for_report(report):
                        "metric_delta": pair["delta_attack_minus_clean"]})
     repetitions={};layouts={}
     for r in rounds:
-        layout={k:v for k,v in r['condition'].items() if k not in ('rgb_noise','depth_noise','delay','noise_schedule','delay_schedule','patch_enabled','patch_size','patch_mount','patch_start_s','patch_duration_s','name')}
+        layout={k:v for k,v in r['condition'].items() if k not in ('rgb_noise','depth_noise','delay','noise_schedule','delay_schedule','camera_program','frame_drop_probability','patch_enabled','patch_size','patch_mount','patch_start_s','patch_duration_s','name')}
         layouts.setdefault(settings_key(layout),{'shared_environment':layout,'round_ids':[]})['round_ids'].append(r['id'])
         key=settings_key(r['condition'])
         group=repetitions.setdefault(key,{'active_factors':r['active_factors'],'round_ids':[]})
@@ -72,6 +73,8 @@ def evidence_for_report(report):
                 "patch_duration_s": "Zero is a sentinel: remain active for the rest of the mission. It does NOT mean zero exposure. Missing schedule fields in older records have the same zero defaults.",
                 "patch_size": "Physical metres. Size is a condition, not a validated monotonic measure of attack effect.",
                 "delay": "Additional camera delivery delay in simulation seconds, distinct from patch activation timing.",
+                "camera_program": "Live noise/delay/drop/freeze windows triggered by mission time or observed first-turn rate. Dropped/frozen arrivals and stalled same-run input must be observed; a scheduled event not reached before termination is unexposed. Freeze stops updates, not replay of recorded frames.",
+                "camera_input_guard": "Fixed bench watchdog stops a flight at camera age > configured delay + 2 simulation seconds. A measured live interruption yields planner_stopped with source bench_guard; missing evidence remains infrastructure_error. This is a protected availability interruption, not a collision or proof that the neural policy failed.",
                 "rgb_noise":"Gaussian RGB pixel standard deviation in 0..255 units. No direct perturbation of inferred depth.",
                 "noise_schedule / delay_schedule":"Mission-relative simulation start/duration/period from first accepted planner command. Duration0 means remainder; period0 means one-shot. Configured values alone do not prove an attack window was reached; use measured attack_exposure.",
                 "placement":"Generated offsets are saved explicit coordinates shared by both flights. Challenge scenes check a feasible route instead of clearing the center line. Neither geometric check guarantees planner success.",

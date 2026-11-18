@@ -34,6 +34,14 @@ SYSTEM = (
     'For a test, specify an exact allowed action, supporting/refuting observations and a short plan. '
     'Prioritize distinct reproducible failures and externally checkable diagnoses per flight. '
     'Reserve confirmation budget for promising failures; explain choosing discovery or diagnosis instead. '
+    'The initial budget allocation is provisional: reallocate remaining pairs within the frozen total cap when '
+    'a clean control fails, an event is not reached, or no eligible candidate exists. Explain the new allocation; '
+    'do not stop solely because an initial discovery sub-budget was spent. A simpler layout or earlier isolated '
+    'camera event can restore an informative comparison. Never expand the cap or invent a failure to spend a reserve. '
+    'The fixed camera watchdog stops at input age greater than configured delay plus 2 simulation seconds. '
+    'A measured injected drop/freeze causing that guard is a protected availability interruption, not a collision '
+    'or proof of neural-policy weakness. Prefer informative short windows and verify event exposure; stop for '
+    'persistent infrastructure failure, exhausted budget, or a specific lack of useful authorized tests. '
     'The bench executes only your validated next test and replans after its measured result. '
     'A last-budget newly observed failure remains candidate_unconfirmed until a matching confirmation actually runs. '
     'Clean failure is a baseline limitation, not an attack effect; passing clean alone does not establish attack causality. '
@@ -205,7 +213,8 @@ def bounded_context(policy, history, remaining_pairs, inspections, encounters,
     target = policy.campaign_context.get('target_planner', 'mononav')
     image_metadata = _image_audit(images, inspections)
     fixed = {key: copy.deepcopy(value) for key, value in policy.campaign_context.items() if key != 'campaign_dir'}
-    fixed.update(planning_version=VERSION, action_space=bounds(target), remaining_pairs=remaining_pairs,
+    from corridor_space import CAMERA_VERSION, VERSION as ACTION_VERSION
+    fixed.update(planning_version=VERSION, action_space=bounds(target,CAMERA_VERSION if policy.campaign_context.get('camera_programs') else ACTION_VERSION), remaining_pairs=remaining_pairs,
                  experiment_protocol=experiments.INSTRUCTIONS, prediction_target=contract.PREDICTION_TARGET,
                  evidence_catalog=_catalog(history, RUNTIME), prior_prediction_checks=contract.prediction_audit(history),
                  matched_timing_comparisons=history_contrasts(history),
@@ -291,7 +300,8 @@ def choose_next(policy, history, remaining_pairs):
     target = policy.campaign_context.get('target_planner', 'mononav')
     root = Path(policy.campaign_context['campaign_dir']).resolve(); root.relative_to(RUNTIME.resolve())
     folder, attempt = _new_attempt(root/'agent_evidence'/f'round_{len(history)+1:02d}')
-    schema = contract.response_schema(target)
+    from corridor_space import CAMERA_VERSION
+    schema = contract.response_schema(target,CAMERA_VERSION if policy.campaign_context.get('camera_programs') else None)
     encounters = recent_encounters(history, RUNTIME, folder/'encounters',
         encounter_context_version=policy.campaign_context.get('encounter_context_version'))
     images = []; inspections = []
@@ -311,7 +321,11 @@ def choose_next(policy, history, remaining_pairs):
             # Never validate repeat/isolate/threshold against compact summaries.
             return contract.validate_response(raw, target, history, remaining_pairs, index < MAX_INSPECTIONS)
         kwargs = {'images': images} if images else {}
-        proposal = policy.provider.complete('corridor_planning_v2', SYSTEM, context, schema, validate, **kwargs)
+        system=SYSTEM
+        if policy.campaign_context.get('camera_programs'):
+            from camera_policy import THREAT_MODEL
+            system=SYSTEM.replace('Clean failure is environment/baseline evidence: the attack twin is skipped.', 'Clean failure is baseline evidence; record mode still executes both flights.')+' '+THREAT_MODEL
+        proposal = policy.provider.complete('corridor_planning_v2', system, context, schema, validate, **kwargs)
         atomic(folder/f'proposal_{index:02d}.json', {'planning_version': VERSION,
                'llm_call_id': policy.provider.last_call_id, 'proposal': proposal, 'attempt': attempt})
         if checkpoint: checkpoint()

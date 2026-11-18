@@ -172,7 +172,7 @@ def test_runtime_parameter_update_is_atomic_and_clears_clock_and_samples():
             SetParametersResult=lambda **kw:SimpleNamespace(**kw),DelayedSampleBuffer=disturbances.DelayedSampleBuffer)
     exec(compile(module,str(BRIDGE/'bridge_node.py'),'exec'),ns)
     node=SimpleNamespace(_lock=threading.Lock(),_schedule_clock=disturbances.SensorScheduleClock(),
-                         _fixed_sensor_delay_s=0.,_rgb_noise_stddev=0.,_disturbance_revision=0,
+                         _fixed_sensor_delay_s=0.,_rgb_noise_stddev=0.,_disturbance_revision=0,_camera_program=None,
                          _sample='old',_depth_sample='old',_sequence=123,_depth_sequence=123,_last_recorded_sample=(123,0))
     node._schedule_clock.arm(100)
     p=lambda name,value:SimpleNamespace(name=name,value=value)

@@ -48,6 +48,7 @@ SENSOR_FIELDS = (
     'rgb_noise_stddev', 'depth_noise_stddev_m', 'fixed_delay_s',
     'noise_window_active', 'delay_window_active', 'schedule_elapsed_s',
     'schedule_start_sim_s',
+    'camera_program_state', 'camera_program_telemetry', 'frame_drop_probability',
 )
 COMMAND_FIELDS = ('command_index', 'primitive_index', 'sim_stamp', 'published',
                   'velocity_m_s', 'first_waypoint_m', 'last_waypoint_m')

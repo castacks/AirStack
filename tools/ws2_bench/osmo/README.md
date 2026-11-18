@@ -153,6 +153,15 @@ WS2_OSMO_CONFIG="$PWD/robot/ros_ws/ws2_runtime/osmo.yaml" \
 ```
 
 For an agent, use `--policy agent_search --provider codex` or `--provider claude`.
+For resource-aware paired execution, add `--max-parallel 2`; retain zero extra
+clean checks/retries and `--clean-failure-policy record`. Each flight has its
+own preview connection and artifacts. The viewer's **Preview flight** selector
+switches between jobs; Pause/Stop controls both. The scheduler checks physical
+node resources as well as quota, and leaves at most one queued job when no
+compatible GPU is free. It waits for both results before the next LLM decision.
+Combine this with `--camera-programs --auto-budget --budget 12` to let the
+LLM propose the campaign cap within a 12-flight resource ceiling; see
+[camera programs and budget](../CORRIDOR_AGENT.md#composed-camera-programs).
 For local execution, explicitly select `local` and follow the local install
 instructions. Use a new output directory after changing backend, image or study
 settings. The campaign's `--backend` option selects a *testing policy*, not

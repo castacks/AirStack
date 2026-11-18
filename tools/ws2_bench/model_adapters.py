@@ -21,7 +21,7 @@ class ModelAdapter:
     worker_arguments: tuple
     weight_patterns: tuple = ()
     torch_cache: bool = False
-    attacks: tuple = ('rgb_noise','delay')
+    attacks: tuple = ('rgb_noise','delay','frame_drop','frame_freeze')
     frame_rate: float = 3.
     min_tracking_speed: float = .2
     input_contract: str = 'RGB + camera calibration + odometry over HTTP /frame'
@@ -46,7 +46,7 @@ def register(adapter):
         raise ValueError('Supported evaluation contracts are goal and avoidance')
     if adapter.mission_defaults.get('mission_mode')!=adapter.mission_mode:
         raise ValueError('Mission mode differs from adapter defaults')
-    if set(adapter.attacks)-{'rgb_noise','delay','fcrn_patch'}:
+    if set(adapter.attacks)-{'rgb_noise','delay','frame_drop','frame_freeze','fcrn_patch'}:
         raise ValueError('Unknown attack capability')
     REGISTRY[adapter.name]=adapter
 
@@ -56,6 +56,8 @@ def get_adapter(name):
 
 def validate_attacks(planner, condition, allow_patch=True):
     capabilities=get_adapter(planner).attacks
+    for event in condition.get('camera_program',[]):
+        if event['factor'] not in capabilities:raise ValueError('Unsupported camera factor: '+event['factor'])
     for key,cap in [('rgb_noise','rgb_noise'),('delay','delay'),('patch_enabled','fcrn_patch')]:
         if condition.get(key) and (cap not in capabilities or (cap=='fcrn_patch' and not allow_patch)):
             raise ValueError(f'{planner}: {cap} is outside the selected attack capabilities; Rui patch is FCRN/Kim only, no ZoeDepth or DroNet patch is available')
@@ -80,7 +82,7 @@ register(ModelAdapter('kim',WORKSPACE/'Collision-avoidance','collision-avoidance
      '--initial-speed','{initial_speed}','--maximum-speed','{maximum_speed}',
      '--trajectory-horizon','{trajectory_horizon}','--yaw-reference','{yaw_reference_mode}'),
     ('airstack_models/NYU_FCRN-checkpoint/NYU_FCRN.ckpt.*','save_model/D3QN_V_3_single.h5','real_world_test/Saved_models/D3QN_V_17_single.h5'),
-    attacks=('rgb_noise','delay','fcrn_patch'),min_tracking_speed=.01))
+    attacks=('rgb_noise','delay','frame_drop','frame_freeze','fcrn_patch'),min_tracking_speed=.01))
 register(ModelAdapter('pulp_dronet',WORKSPACE/'pulp-dronet',
     os.environ.get('WS2_PULP_IMAGE','pulp-dronet-airstack:1.0'),'pulp_dronet_airstack.py','avoidance',
     dict(COMMON,mission_mode='avoidance',timeout=120.,initial_speed=0.,maximum_speed=.35,velocity=.35,

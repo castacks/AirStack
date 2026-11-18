@@ -28,6 +28,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from .disturbances import (DelayedSampleBuffer, SensorScheduleClock, add_depth_noise,
                           add_rgb_noise, parse_schedule, schedule_active)
+from .camera_program import CameraProgram
 
 
 def _transform_matrix(transform):
@@ -140,6 +141,8 @@ class VisionPlannerBridge(Node):
         self.declare_parameter("depth_noise_stddev_m", 0.0)
         self.declare_parameter("rgb_noise_schedule_json", "{}")
         self.declare_parameter("sensor_delay_schedule_json", "{}")
+        self.declare_parameter("camera_program_json", "null")
+        self.declare_parameter("frame_drop_probability", 0.0)
 
         self._planner_name = str(self.get_parameter("planner_name").value)
         self._target_frame = self.get_parameter("target_frame").value
@@ -163,6 +166,10 @@ class VisionPlannerBridge(Node):
         self._noise_schedule=parse_schedule(self.get_parameter("rgb_noise_schedule_json").value)
         self._delay_schedule=parse_schedule(self.get_parameter("sensor_delay_schedule_json").value)
         self._schedule_clock=SensorScheduleClock()
+        program=json.loads(self.get_parameter('camera_program_json').value)
+        self._camera_program=None if program is None else CameraProgram(program)
+        self._frame_drop_probability=float(self.get_parameter('frame_drop_probability').value)
+        self._observed_yaw_rate=None
         for name, value in (
             ("fixed_sensor_delay_s", self._fixed_sensor_delay_s),
             ("rgb_noise_stddev", self._rgb_noise_stddev),
@@ -234,10 +241,15 @@ class VisionPlannerBridge(Node):
                   "fixed_sensor_delay_s": "_fixed_sensor_delay_s",
                   "rgb_noise_stddev": "_rgb_noise_stddev",
                   "depth_noise_stddev_m": "_depth_noise_stddev_m"}
+        fields['frame_drop_probability']='_frame_drop_probability'
         changed = {p.name: p.value for p in parameters if p.name in fields}
         schedules={"rgb_noise_schedule_json":"_noise_schedule","sensor_delay_schedule_json":"_delay_schedule"}
         try:
             changed_schedules={schedules[p.name]:parse_schedule(p.value) for p in parameters if p.name in schedules}
+            for p in parameters:
+                if p.name=='camera_program_json':
+                    raw=json.loads(p.value)
+                    changed_schedules['_camera_program']=None if raw is None else CameraProgram(raw)
         except (ValueError,TypeError) as exc:
             return SetParametersResult(successful=False,reason=str(exc))
         for name, value in changed.items():
@@ -245,6 +257,8 @@ class VisionPlannerBridge(Node):
                 return SetParametersResult(successful=False, reason=f"{name} must be finite and nonnegative")
             if name == "disturbance_seed" and not isinstance(value, int):
                 return SetParametersResult(successful=False, reason="seed must be an integer")
+            if name == 'frame_drop_probability' and value > .8:
+                return SetParametersResult(successful=False, reason='frame_drop_probability must be <= 0.8')
         if changed or changed_schedules:
             with self._lock:
                 for name, value in changed.items():
@@ -254,6 +268,7 @@ class VisionPlannerBridge(Node):
                 self._sample = None
                 self._depth_sample = None
                 self._schedule_clock.reset()
+                if self._camera_program is not None:self._camera_program.reset()
                 # A fresh condition is replayable without inheriting RNG frame
                 # indices or the previous run's first-command anchor.
                 self._sequence=0
@@ -273,6 +288,7 @@ class VisionPlannerBridge(Node):
 
     def _odometry_callback(self, msg):
         with self._lock:
+            self._observed_yaw_rate=float(msg.twist.twist.angular.z)
             self._last_odom_stamp = msg.header.stamp.sec + 1.0e-9 * msg.header.stamp.nanosec
             self._last_odom_position = np.array(
                 [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z],
@@ -335,6 +351,17 @@ class VisionPlannerBridge(Node):
             depth_sample = self._depth_sample
             disturbance=self.sensor_disturbance(stamp)
             revision=self._disturbance_revision
+            if camera_info is not None and self._camera_program is not None:
+                program_state=self._camera_program.arrival(disturbance['schedule_elapsed_s'],
+                    self._current_yaw_rate(),self._disturbance_seed,self._frame_drop_probability)
+                disturbance['camera_program_state']=program_state
+                if program_state['suppress']:
+                    self._last_frame_time_s=now
+                    # Do not queue dropped/frozen arrivals for later playback.
+                    # A freeze also prevents pending delayed frames becoming new input.
+                    if program_state['suppression']=='freeze':
+                        self._sample_buffer=DelayedSampleBuffer(self._fixed_sensor_delay_s)
+                    return
         if camera_info is None:
             return
         try:
@@ -402,13 +429,14 @@ class VisionPlannerBridge(Node):
             self._sample_buffer.push(
                 (metadata, encoded.tobytes(), depth_bytes), self._clock_now_s(), disturbance['fixed_delay_s']
             )
-            self._sample = self._sample_buffer.latest(self._clock_now_s())
+            updated=self._sample_buffer.latest(self._clock_now_s())
+            if updated is not None:self._sample=updated
             self._sequence += 1
         self._last_frame_time_s = now
 
     def latest_sample(self):
         with self._lock:
-            self._sample = self._sample_buffer.latest(self._clock_now_s())
+            self._refresh_sample()
             if self._sample is not None:
                 metadata,jpeg,_ = self._sample
                 identity=(metadata['sequence'],metadata['disturbance_revision'])
@@ -421,6 +449,18 @@ class VisionPlannerBridge(Node):
                     self._last_recorded_sample=identity
             return self._sample
 
+    def _current_yaw_rate(self):
+        if self._last_odom_stamp is None or abs(self._clock_now_s()-self._last_odom_stamp) > .5:
+            return None
+        return self._observed_yaw_rate
+
+    def _refresh_sample(self):
+        state=self.sensor_disturbance().get('camera_program_state',{})
+        if 'frame_freeze' in state.get('active_factors',[]):
+            return
+        updated=self._sample_buffer.latest(self._clock_now_s())
+        if updated is not None:self._sample=updated
+
     def sensor_disturbance(self,capture_time_s=None):
         now=self._clock_now_s()
         previous=self._schedule_clock.last_s
@@ -429,11 +469,12 @@ class VisionPlannerBridge(Node):
             self._sample_buffer=DelayedSampleBuffer(self._fixed_sensor_delay_s)
             self._sample=None
             self._disturbance_revision+=1
-        if capture_time_s is not None and self._schedule_clock.start_s is not None:
+            if self._camera_program is not None:self._camera_program.reset()
+        if self._camera_program is None and capture_time_s is not None and self._schedule_clock.start_s is not None:
             elapsed=float(capture_time_s)-self._schedule_clock.start_s
         noise_active=schedule_active(self._noise_schedule,elapsed)
         delay_active=schedule_active(self._delay_schedule,elapsed)
-        return {
+        result = {
             "seed": self._disturbance_seed,
             "fixed_delay_s": self._fixed_sensor_delay_s if delay_active else 0.,
             "rgb_noise_stddev": self._rgb_noise_stddev if noise_active else 0.,
@@ -446,10 +487,20 @@ class VisionPlannerBridge(Node):
             "schedule_start_sim_s":self._schedule_clock.start_s,"schedule_elapsed_s":elapsed,
             "noise_window_active":noise_active,"delay_window_active":delay_active,
         }
+        if self._camera_program is not None:
+            state=self._camera_program.state(elapsed,self._current_yaw_rate())
+            active=state['active_factors']
+            result.update(camera_program=self._camera_program.program,camera_program_state=state,
+                camera_program_telemetry=self._camera_program.telemetry(),
+                frame_drop_probability=self._frame_drop_probability,
+                rgb_noise_stddev=self._rgb_noise_stddev if 'rgb_noise' in active else 0.,
+                fixed_delay_s=self._fixed_sensor_delay_s if 'delay' in active else 0.,
+                noise_window_active='rgb_noise' in active,delay_window_active='delay' in active)
+        return result
 
     def health(self):
         with self._lock:
-            self._sample = self._sample_buffer.latest(self._clock_now_s())
+            self._refresh_sample()
             sample = self._sample
             odom_stamp = self._last_odom_stamp
             last_command = self._last_command

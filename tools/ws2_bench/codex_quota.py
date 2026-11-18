@@ -184,23 +184,9 @@ def read_quota(executable=None):
 
 
 def send_slack(message):
-    """Use the user-authorized helper; helper exit 0 alone does not mean sent."""
-    helper = Path.home() / 'notify_slack.py'
-    if not helper.is_file():
-        return False
-    if os.environ.get('SLACK_WEBHOOK_URL'):
-        argv = [sys.executable, str(helper), message]
-    else:
-        # Pass message as argv, never interpolate it into shell code. The login
-        # file owns its webhook and no credential is copied into our state/logs.
-        argv = ['bash', '-ic', 'python3 "$HOME/notify_slack.py" "$1"', 'ws2-quota', message]
-    try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=20)
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return not result.returncode and not any(x in result.stderr for x in
-            ('warning: SLACK_WEBHOOK_URL', 'warning: Slack notification failed', 'Traceback',
-             'No such file or directory', 'command not found'))
+    """Notifications were disabled by the workspace owner; never call a helper."""
+    return False
+
 
 
 @contextmanager
@@ -252,7 +238,7 @@ def record_quota(snapshot, state_path=DEFAULT_STATE, *, notify=True, notifier=se
         return state
 
 
-def check_quota(state_path=DEFAULT_STATE, *, executable=None, notify=True):
+def check_quota(state_path=DEFAULT_STATE, *, executable=None, notify=False):
     try:
         snapshot = read_quota(executable)
     except (RuntimeError, ValueError, OSError) as exc:
@@ -263,7 +249,7 @@ def check_quota(state_path=DEFAULT_STATE, *, executable=None, notify=True):
 
 
 def ensure_quota(state_path=DEFAULT_STATE, *, executable=None):
-    state = check_quota(state_path, executable=executable)
+    state = check_quota(state_path, executable=executable, notify=False)
     if state['status'] == 'low':
         raise QuotaLowError('Codex weekly quota has <=1% remaining; new requests are paused')
     if state['status'] != 'ok':

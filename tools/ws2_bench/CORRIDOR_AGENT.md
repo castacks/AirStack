@@ -4,6 +4,92 @@ Run from your own AirStack checkout. Choose the [local Docker runtime](README.md
 or [remote OSMO runtime](osmo/README.md). The campaign and LLM run on your
 computer in both modes; the execution backend only changes where flights run.
 
+## Composed camera programs
+
+Add `--camera-programs` to a **new** corridor campaign to let the agent compose
+noise, added delay, frame-drop and frame-freeze windows. It chooses numeric
+values, timing, repeated pulses, or the first observed turn after a chosen time.
+Existing corridor geometry/lighting choices and Kim-only opaque patch controls
+remain available. Historical frame replay and IMU/GPS/odometry mutation are
+excluded. The model, controller, success criteria and collision evaluator stay fixed.
+
+The web viewer exposes **Camera programs** and **LLM chooses budget below limit**.
+Select corridor conditions and Codex/Claude agent mode. The flight limit is a
+resource ceiling: the LLM proposes a smaller or equal even cap and records its
+allocation. This mode uses zero extra qualification flights/retries and runs
+both controls and perturbations in record mode; failed controls invalidate
+attack attribution. Old OSMO images must be rebuilt before using this feature.
+
+```bash
+python tools/ws2_bench/agent_campaign.py \
+  --planner pulp_dronet --policy agent_search --provider codex \
+  --action-space corridor --camera-programs --auto-budget --budget 12 \
+  --clean-validation-runs 0 --infrastructure-retries 0 \
+  --clean-failure-policy record --review-seconds 0 \
+  --output robot/ros_ws/ws2_runtime/campaigns/camera_agent
+```
+
+The chosen cap and rationale are saved in `budget_plan.json`. Discovery,
+confirmation and diagnosis allocations are initial intentions: the agent may
+reallocate unused pairs after inconclusive tests while keeping the total cap fixed.
+The camera watchdog still stops at input age greater than configured delay + 2
+simulation seconds. Verified live drop/freeze causing that stop is recorded as
+`planner_stopped` / `camera_input_guard` (`source: bench_guard`), not a collision
+or evidence of a neural-policy defect. Unexplained stale input remains an
+infrastructure error. Use a fresh campaign after changing execution/scoring code.
+For a subsequent
+matched baseline, use the same command with `--policy random` or `search`, omit
+`--auto-budget`, pass `--budget-plan <agent campaign>/budget_plan.json`, and use
+a different output directory. Also retain the same seed, images, action bounds
+and prior evidence. This fixes the cap; it does not establish comparative
+advantage. Unused slots and infrastructure attempts remain reported.
+
+Prompt sources: `camera_policy.py:THREAT_MODEL` adds attack permissions and
+objectives to `agent_exploration_v2.py:SYSTEM`; `experiment_budget.py:SYSTEM`
+requests the shared budget. Exact submitted prompts/responses are stored in
+each campaign's `llm_calls/` and `budget_llm_calls/` folders.
+
+For OSMO, add `--max-parallel 2` (or select **Concurrent flights → Up to 2**
+in the viewer). Clean and attack use separate jobs, state, previews and result
+archives. Admission checks pool quota and each compatible node's free GPU,
+CPU, RAM and disk; one queued job is allowed to trigger cluster autoscaling.
+The LLM waits for both results before selecting the next pair. Select a flight
+in **Preview flight** to observe it; Pause/Stop applies to the whole campaign.
+Use record mode and zero extra clean checks/retries. Local execution remains
+sequential. A failed clean run invalidates attack attribution even if its
+paired attack has already run. Parallel trials count against the same budget.
+
+The viewer starts the controller as a background process. From a terminal,
+use `nohup` with the same command, redirect its output to an ignored runtime
+log, and append `&`. This survives a terminal close, but not necessarily an
+IDE shutdown that terminates its process group. On Linux, launch the viewer
+from an independent user service to keep it and its campaigns outside the IDE:
+
+```bash
+systemd-run --user --unit=ws2-viewer \
+  --property=WorkingDirectory="$PWD" --property=MemoryMax=8G \
+  --property=MemorySwapMax=256M --setenv=PATH="$PATH" \
+  "$PWD/.venv-ws2/bin/python" tools/ws2_bench/dashboard.py \
+  --port 8892 --execution-backend osmo \
+  --osmo-config "$PWD/robot/ros_ws/ws2_runtime/osmo.yaml"
+```
+
+Run from the AirStack directory with port 8892 free. Check the service with
+`systemctl --user status ws2-viewer`; logs use `journalctl --user -u ws2-viewer`.
+The memory limit covers the local viewer, campaign and CLI children, not remote
+GPU tasks. If the local service stops, inspect recorded OSMO jobs and recover
+their results before resuming; do not blindly resubmit completed flights.
+Keep the local computer awake and connected: it owns
+LLM calls, job submission and result collection. The campaign stops at its
+chosen cap, an agent stop decision, a quota pause or an execution error;
+it does not silently launch another campaign or increase its budget.
+
+Program times are simulation seconds after the first executed planner command.
+Drop affects rate-eligible live RGB arrivals. Freeze retains the last delivered
+frame with its original timestamp and discards new arrivals; it does not replay
+recorded images. Coverage telemetry distinguishes requested, triggered and
+observed input effects. A missed trigger or missing evidence stays unverified.
+
 ## Sign in with your own account
 
 Install the selected official CLI, then authenticate as the **same OS user**
@@ -72,9 +158,8 @@ Run the account watcher independently of flights:
 python3 tools/ws2_bench/codex_quota.py --watch --interval 30
 ```
 
-At weekly remaining<=1%, it stops new Codex calls. If you have configured your
-own optional `~/notify_slack.py`, it also sends three notifications through that
-helper; no author-specific webhook is shipped. Each Codex call checks quota. No new calls start at low
+At weekly remaining<=1%, it stops new Codex calls. Notification helpers are disabled.
+Each Codex call checks quota. No new calls start at low
 or unknown quota. Reset and resume the same campaign, or start a new campaign
 with Claude. Provider changes never rewrite the original campaign identity.
 `--policy`: `random`, `search`, `agent_search`. Search is a local heuristic,

@@ -1,6 +1,6 @@
-"""Inactive full-support Random and elite-mutation Search discovery proposals.
+"""Full-support Random and elite-mutation Search discovery proposals.
 
-No runner imports this module yet. It changes neither execution nor evaluation.
+Camera-program baselines reuse its feasible geometry prior. Legacy campaign execution and evaluation remain unchanged.
 The common prior is a documented proposal distribution, not uniform sampling of
 feasible scenes. Partial-geometry rejection preserves support while avoiding
 exponentially unlikely all-at-once valid seven-obstacle draws. Every final action

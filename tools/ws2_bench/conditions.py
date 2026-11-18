@@ -34,12 +34,20 @@ def validate(raw):
     if {'patch_strength','patch_height'} & raw.keys():
         raise ValueError('Legacy patch controls are unsupported: use patch_enabled and patch_size only. '
                          'Start a new campaign; historical settings/results must not be silently converted.')
-    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor", "patch_mount", "noise_schedule", "delay_schedule"}
+    allowed = {"name", "layout", "layout_seed", "seed", "light", "rgb_noise", "depth_noise", "delay", "patch_enabled", "patch_size", "placement", "corridor", "patch_mount", "noise_schedule", "delay_schedule", "camera_program", "frame_drop_probability"}
     if set(raw) - allowed:
         raise ValueError(f"unknown condition fields: {set(raw) - allowed}")
     c = dict(name="clean", layout="furnished_a", layout_seed=0, seed=42, light=1800., rgb_noise=0.,
              depth_noise=0., delay=0., patch_enabled=False, patch_size=.8)
     c.update(raw)
+    if 'camera_program' in c:
+        from camera_program import validate as validate_program
+        c['camera_program']=validate_program(c['camera_program'])
+        value=c.get('frame_drop_probability',0.)
+        if type(value) not in (float,int) or not math.isfinite(value) or not 0<=value<=.8:
+            raise ValueError('frame_drop_probability must be in [0, 0.8]')
+        c['frame_drop_probability']=float(value)
+    elif 'frame_drop_probability' in c:raise ValueError('Frame drop requires a camera_program')
     for key in ('noise_schedule','delay_schedule'):
         if key in c:c[key]=validate_schedule(c[key])
     if not isinstance(c["name"], str) or not c["name"].strip():
@@ -84,4 +92,7 @@ def sensor_parameters(c):
             "depth_noise_stddev_m": c["depth_noise"], "fixed_sensor_delay_s": c["delay"]}
     for source,target in [('noise_schedule','rgb_noise_schedule_json'),('delay_schedule','sensor_delay_schedule_json')]:
         if source in c:result[target]=json.dumps(validate_schedule(c[source]),sort_keys=True)
+    if 'camera_program' in c:
+        result['camera_program_json']=json.dumps(c['camera_program'],sort_keys=True)
+        result['frame_drop_probability']=c['frame_drop_probability']
     return result

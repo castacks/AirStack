@@ -65,6 +65,11 @@ def _factor_states(evidence, condition):
         if condition is not None:
             requested = condition.get(setting, 0.)
             active = _scheduled(condition.get(schedule_key), disturbance.get('schedule_elapsed_s'))
+            if 'camera_program' in condition:
+                from camera_program import identity
+                program=disturbance.get('camera_program_state',{})
+                active=(('rgb_noise' if factor=='noise' else 'delay') in program.get('active_factors',[]))
+                if program.get('program_id')!=identity(condition['camera_program']):active=None
             if (not _finite(requested) or requested < 0 or active is None or
                     disturbance.get(schedule_key) != condition.get(schedule_key) or
                     magnitude != (requested if active else 0.)):
