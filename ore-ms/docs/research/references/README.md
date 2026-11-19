@@ -1,3 +1,9 @@
+[Super Odometry v1 and v2](../super-odometry-handoff-relevance-2026-11-18.md) records the inertial-state and adaptation methods, pins the slim public implementation, and checks horizontal versus vertical handoff errors.
+
+[Fast-dark common-timestamp replay](../irs-rtvi-fast-dark-common-support-2026-11-18.md) reruns the pinned IRS loader on the CRC-verified public bag and scores metric position after a 10-second alignment.
+
+[OdomBeyondVision transition intake](../odombeyondvision-transition-intake-2026-11-18.md) checks the author paper, sequence inventory and released UAV bag names. All Vicon sequences are labeled bright.
+
 Latest: [IRS RTVI continuous-frame photometric test](../irs-rtvi-photometric-transition-2026-11-18.md) checks recorded light states, verifies current TartanRGBT pose provenance, and measures a scheduled thermal handoff during artificial dimming.
 
 [ViViD++ calibration release audit](../vivid-calibration-materials-2026-11-18.md) inventories the author mirrors, finds Microstrain.yaml, reruns the bright OpenVINS control and tests one stronger-motion bag. Both qualification gates still fail.

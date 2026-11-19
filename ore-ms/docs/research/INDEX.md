@@ -8,6 +8,23 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
+| IRS RTVI continuation | [Pose baselines, completed controls and recovery](pose-accuracy-baseline-comparison-2026-11-18.md#irs-rtvi-continuation-checkpoint) |
+| IRS RTVI early recovery error | [Boundary offset and subsequent error change](irs-rtvi-early-recovery-error-origin-2026-11-19.md) |
+| IRS RTVI fixed thermal extrinsics | [Matched switch calibration ablation](irs-rtvi-fixed-thermal-extrinsics-2026-11-18.md) |
+| IRS RTVI warm thermal output | [Independent estimator alignment and accuracy](irs-rtvi-warm-thermal-shadow-2026-11-18.md) |
+| IRS RTVI paced bridge delivery | [Receipt gaps and timestamp ordering](irs-rtvi-paced-imu-bridge-delivery-2026-11-18.md) |
+| IRS RTVI IMU-only output | [Restore pose timestamps across withheld updates](irs-rtvi-imu-only-output-bridge-2026-11-18.md) |
+| IRS RTVI dimmed measurement admission | [Matched-switch visible-update ablation](irs-rtvi-flagged-visible-update-ablation-2026-11-18.md) |
+| Super Odometry and switching | [Prior art and directional recovery audit](super-odometry-handoff-relevance-2026-11-18.md) |
+| IRS RTVI image-triggered switching | [Causal brightness trigger and metric recovery](irs-rtvi-causal-dimming-2026-11-18.md) |
+| IRS RTVI higher-motion dimming transfer | [Scheduled thermal hold on a new recording](irs-rtvi-difficult-dimming-transfer-2026-11-18.md) |
+| IRS RTVI delayed visible return | [Two-second delay and metric accuracy](irs-rtvi-medium-delayed-return-2026-11-18.md) |
+| IRS RTVI post-dimming recovery | [Keep thermal active versus immediate return](irs-rtvi-medium-thermal-hold-2026-11-18.md) |
+| IRS RTVI sustained dimming | [Scheduled handoff metric accuracy](irs-rtvi-medium-dimming-2026-11-18.md) |
+| IRS RTVI medium-motion bright replay | [Common-timestamp position errors](irs-rtvi-bright-medium-metric-2026-11-18.md) |
+| IRS RTVI fast-dark metric replay | [Common-timestamp position errors](irs-rtvi-fast-dark-common-support-2026-11-18.md) |
+| Redcourse Box archive | [Pose-reference coverage and qualification](redcourse-pose-reference-intake-2026-11-18.md) |
+| OdomBeyondVision | [Natural-transition metadata intake](odombeyondvision-transition-intake-2026-11-18.md) |
 | IRS RTVI continuous-frame light-loss control | [Natural transition screen and paced dimming pilot](irs-rtvi-photometric-transition-2026-11-18.md) |
 | IRS RTVI visual health signals | [Feature-update rejection and motion disagreement screen](irs-rtvi-tracking-health-screen-2026-11-17.md) |
 | IRS RTVI paced camera fallback | [Causal fallback on easy and fast dark](irs-rtvi-paced-recovery-2026-11-17.md) |

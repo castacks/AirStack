@@ -2979,9 +2979,68 @@
           "date": "2026-11-18",
           "source_note": "docs/research/irs-rtvi-photometric-transition-2026-11-18.md",
           "inspection": "Cross-checked the author sequence descriptions with complete visible-image luma logs, and evaluated the pinned estimator during a paced fixed artificial light reduction."
+        },
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/irs-rtvi-fast-dark-common-support-2026-11-18.md",
+          "inspection": "Read the release sensor and archive contract, verified the fast-dark bag CRC, and rebuilt and ran the pinned 15-feature camera/IMU loader for two fixed controls."
         }
       ],
       "updated": "2026-11-17"
+    },
+    {
+      "id": "li2022odombeyondvision",
+      "title": "OdomBeyondVision: An Indoor Multi-modal Multi-platform Odometry Dataset Beyond the Visible Spectrum",
+      "author": "Peize Li and Kunhong Cai and Muhamad Risqi U. Saputra and Zhuangzhuang Dai and Andrew Markham and Niki Trigoni",
+      "venue_or_version": "IROS 2022",
+      "url": "https://arxiv.org/abs/2206.01589",
+      "code": "https://github.com/mfkiwl/OdomBeyondVision/tree/d30b06427457bf65a06c9c52245874d736b585fa",
+      "inspection": "Targeted sections III-B to III-D, author sequence CSVs and public UAV bag inventory.",
+      "local_status": "Metadata-only intake. All Vicon-backed sequences labeled bright. No bag or estimator execution.",
+      "reading_history": [
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/odombeyondvision-transition-intake-2026-11-18.md",
+          "inspection": "Cross-checked lighting labels, bag dates and reference types across platforms."
+        }
+      ],
+      "updated": "2026-11-18"
+    },
+    {
+      "id": "zhao2021super",
+      "title": "Super Odometry: IMU-centric LiDAR-Visual-Inertial Estimator for Challenging Environments",
+      "author": "Shibo Zhao, Hengrui Zhang, Peng Wang, Lucas Nogueira, and Sebastian Scherer",
+      "venue_or_version": "IROS 2021 / arXiv:2104.14938v2",
+      "url": "https://arxiv.org/abs/2104.14938v2",
+      "code": "https://github.com/superxslam/SuperOdom/tree/f10e65cd50007767b22e4c401689665e20d827d6",
+      "inspection": "Sections III\u2013IV on inertial state, preintegration, and external relative pose constraints.",
+      "local_status": "Prior art and retrospective RRxIO error decomposition. Public code pin is the slim LiDAR or LiDAR\u2013IMU system. No Super Odometry execution.",
+      "reading_history": [
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/super-odometry-handoff-relevance-2026-11-18.md",
+          "inspection": "Sections III\u2013IV on inertial state, preintegration, and external relative pose constraints."
+        }
+      ],
+      "updated": "2026-11-18"
+    },
+    {
+      "id": "zhao2025resilient",
+      "title": "Resilient odometry via hierarchical adaptation",
+      "author": "Shibo Zhao, Sifan Zhou, Yuchen Zhang, Ji Zhang, Chen Wang, Wenshan Wang, and Sebastian Scherer",
+      "venue_or_version": "Science Robotics 2025 / arXiv:2608.25427v1",
+      "url": "https://doi.org/10.1126/scirobotics.adv1818",
+      "code": "https://github.com/superxslam/SuperOdom/tree/f10e65cd50007767b22e4c401689665e20d827d6",
+      "inspection": "Author manuscript methods on feature, direction and engine selection; SubT-MRS accuracy and completeness comparison; author release scope.",
+      "local_status": "Prior art and retrospective RRxIO error decomposition. Public code pin is the slim LiDAR or LiDAR\u2013IMU system. No Super Odometry execution.",
+      "reading_history": [
+        {
+          "date": "2026-11-18",
+          "source_note": "docs/research/super-odometry-handoff-relevance-2026-11-18.md",
+          "inspection": "Author manuscript methods on feature, direction and engine selection; SubT-MRS accuracy and completeness comparison; author release scope."
+        }
+      ],
+      "updated": "2026-11-18"
     }
   ]
 }

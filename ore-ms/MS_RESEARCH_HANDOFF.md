@@ -1,9 +1,10 @@
 # Current research handoff
 
-18 November 2026. Checkpoint: IRS timed dimming shows no handoff accuracy gain.
-Branch `ore-ms-orb-development`; study execution base `4408b7fb8`. Start with the
-[completed recording intake](docs/research/independent-recording-intake-findings-2026-11-17.md)
-and [research index](docs/research/INDEX.md) for current evidence.
+18 November 2026. Checkpoint: thermal handoff improves sustained artificial
+dimming. Early recovery remains above 0.15 m on both causal single-filter runs.
+Branch `ore-ms-orb-development` at `1c8b7ee55`. Start with the
+[IRS RTVI checkpoint](docs/research/pose-accuracy-baseline-comparison-2026-11-18.md#irs-rtvi-continuation-checkpoint)
+and [research index](docs/research/INDEX.md).
 
 ## Current question and decision
 
@@ -100,9 +101,7 @@ matching overhead3.3%. SIFT instead favors thermal during motion:≤5°17.2%RGB,
 [ViViD++ input preflight](docs/research/vivid-handheld-payload-intake-2026-11-17.md) verifies published timing nominally; [three-record support](docs/research/vivid-three-condition-support-2026-11-17.md) shows learned thermal adds proposals in all three recordings.
 [ViViD++ RRxIO](docs/research/vivid-stateful-transfer-2026-11-17.md) and [OpenVINS](docs/research/vivid-openvins-bright-control-2026-11-18.md) miss the bright trajectory gate. The [metric audit](docs/research/vivid-imu-metric-audit-2026-11-18.md) finds 1.59 m/s² bright acceleration discrepancy. The [release audit](docs/research/vivid-calibration-materials-2026-11-18.md) locates Microstrain.yaml and confirms a 6.09 m/s² discrepancy on the translation-rich candidate. Raw same-rig calibration remains unavailable.
 [Identity control](docs/research/vivid-zero-rotation-control-2026-11-17.md): learned 197/392 versus zero rotation 254/392 within 5° of both. [Depth](docs/research/vivid-depth-reference-crosscheck-2026-11-17.md) did not qualify a stronger reference.
-[IRS RTVI](docs/research/irs-rtvi-mocap-comparison-2026-11-17.md): dark 5° nominal agreement thermal-first 161/239 versus visual-first 83/239; easy favors visual-first 146/157 versus 140/157.
-[IRS faster dark](docs/research/irs-rtvi-dark-fast-replication-2026-11-17.md): direction replicated at 0.5 s (thermal-first 56/139 versus visual-first 33/139), with lower long-interval support; at 0.1 s learned thermal agrees on 85/85 shared moving anchors versus 15/85 at 0.5 s. [Nominal joint pose](docs/research/irs-rtvi-nominal-camera-pose-2026-11-17.md) confirms the ordering for rotation plus translation direction.
-[RRxIO controls](docs/research/irs-rtvi-stateful-replay-2026-11-17.md) favor thermal in fixed darkness. [Paced fallback](docs/research/irs-rtvi-paced-recovery-2026-11-17.md) restores publication after frame loss, with 0.236 m fast-dark RMSE. [Health signals](docs/research/irs-rtvi-tracking-health-screen-2026-11-17.md) remain unqualified. [Timed dimming](docs/research/irs-rtvi-photometric-transition-2026-11-18.md) confirms zero median visual tracks but no pose benefit from switching in easy. Natural-transition validation still lacks a qualified recording.
+The IRS checkpoint above records completed controls and the 0.15 m / 0.15 s criteria. A qualified real light transition remains open. [Redcourse](docs/research/redcourse-pose-reference-intake-2026-11-18.md) has unverified GNSS reference provenance. [OdomBeyondVision](docs/research/odombeyondvision-transition-intake-2026-11-18.md) lists all eight Vicon bags as bright.
 
 ## Prior evidence and closed routes
 
