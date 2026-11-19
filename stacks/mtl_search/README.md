@@ -93,6 +93,18 @@ needs `pip install -r scripts/requirements-mtl-viz.txt` on the host.
 
 The tutorial covers the manual per-robot commands, topic checks and the Foxglove topics.
 
+## Quadrotor mode (body-fixed camera)
+
+With `quad.enabled` (mission.yaml, or `sim_scenario.py fly --quad`) and `planner.type: curve`,
+the planner re-plans its gimbal plan for a quadrotor whose camera is bolted to the airframe
+(the vendored `mtl::curve` quadrotor conversion: the quad banks, pitches and yaws so the camera
+follows the gimbal plan's ground points within its tilt / rate / look limits). The plan becomes
+a 6-DOF reference in time (`SearchPlan.platform = quadrotor`), the follower tracks it with an
+attitude feed-forward into `pid_controller`, and the Isaac scene bolts the camera to the
+airframe (`airstack.sim_gimbal.mount: body_fixed`), so every attitude error moves the camera.
+The logger scores the measured camera as always. See
+[`scripts/planner_benchmark/quad/README.md`](../../scripts/planner_benchmark/quad/README.md).
+
 ## Known limits
 
 - Each robot plans the whole team problem independently, and the result is

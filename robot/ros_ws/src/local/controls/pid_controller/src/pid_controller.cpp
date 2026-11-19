@@ -10,6 +10,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <pid_controller_msgs/msg/pid_info.hpp>
 #include <std_msgs/msg/empty.hpp>
+#include <geometry_msgs/msg/quaternion_stamped.hpp>
+#include <pid_controller/attitude_feedforward.hpp>
 
 class PID {
 public:
@@ -107,6 +109,13 @@ private:
   // params
   std::string target_frame;
   double max_roll_pitch;
+  // attitude feed-forward (6-DOF references; see attitude_feedforward.hpp). Active only
+  // while a reference attitude younger than ff_timeout arrives on `attitude_feedforward`
+  // (nothing publishes it in the stock stacks, so the controller is then unchanged).
+  double ff_timeout;
+  double ff_max_tilt;
+  double ff_velocity_gain;
+  bool ff_thrust_compensation;
 
   PID x_pid, y_pid, z_pid, vx_pid, vy_pid, vz_pid;
 
@@ -118,6 +127,11 @@ private:
   rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr reset_integrators_sub;
+  rclcpp::Subscription<geometry_msgs::msg::QuaternionStamped>::SharedPtr attitude_ff_sub;
+  geometry_msgs::msg::QuaternionStamped attitude_ff;
+  rclcpp::Time attitude_ff_time;
+  bool got_attitude_ff;
+  bool ff_was_active;
   tf2_ros::Buffer* tf_buffer;
   tf2_ros::TransformListener* tf_listener;
 
@@ -136,6 +150,12 @@ public:
     // init params
     target_frame = airstack::get_param(this, "target_frame", std::string("base_link"));
     max_roll_pitch = airstack::get_param(this, "max_roll_pitch", 10.)*M_PI/180.;
+    ff_timeout = airstack::get_param(this, "attitude_feedforward_timeout_s", 0.25);
+    ff_max_tilt = airstack::get_param(this, "attitude_feedforward_max_tilt_deg", 35.)*M_PI/180.;
+    ff_velocity_gain = airstack::get_param(this, "attitude_feedforward_velocity_gain", 1.0);
+    ff_thrust_compensation = airstack::get_param(this, "attitude_feedforward_thrust_compensation", true);
+    got_attitude_ff = false;
+    ff_was_active = false;
 
     // init subscribers
     odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>("odometry", 1,
@@ -147,6 +167,13 @@ public:
     reset_integrators_sub = this->create_subscription<std_msgs::msg::Empty>("reset_integrators", 1,
 									    std::bind(&PIDControllerNode::reset_integrators_callback,
 										      this, std::placeholders::_1));
+    attitude_ff_sub = this->create_subscription<geometry_msgs::msg::QuaternionStamped>(
+        "attitude_feedforward", 1,
+        [this](const geometry_msgs::msg::QuaternionStamped::SharedPtr m) {
+          attitude_ff = *m;
+          attitude_ff_time = this->now();
+          got_attitude_ff = true;
+        });
     
     tf_buffer = new tf2_ros::Buffer(this->get_clock());
     //tf_buffer->setUsingDedicatedThread(true);
@@ -185,14 +212,25 @@ public:
     tf2::Vector3 tp_vel = tflib::to_tf(tp.twist.linear);
     tf2::Vector3 odom_pos = tflib::to_tf(odom.pose.pose.position);
     tf2::Vector3 odom_vel = tflib::to_tf(odom.twist.twist.linear);
+
+    // attitude feed-forward: on while a fresh reference attitude arrives
+    const bool ff_active = got_attitude_ff && (this->now() - attitude_ff_time).seconds() <= ff_timeout;
+    if(ff_active != ff_was_active){
+      RCLCPP_INFO_STREAM(get_logger(), "attitude feed-forward " << (ff_active ? "ON (6-DOF reference)" : "OFF"));
+      ff_was_active = ff_active;
+    }
+    const double kv = ff_active ? ff_velocity_gain : 0.;
     
     x_pid.set_target(tp_pos.x());
     y_pid.set_target(tp_pos.y());
     z_pid.set_target(tp_pos.z());
 
-    double vx = x_pid.get_control(odom_pos.x());
-    double vy = y_pid.get_control(odom_pos.y());
-    double vz = z_pid.get_control(odom_pos.z());
+    // with the feed-forward on, the reference velocity is added AFTER the position loop's
+    // clamp: the clamp bounds the correction, not the planned speed (a quadrotor plan can
+    // exceed the x/y_max that sets the gimbal plans' cruise speed)
+    double vx = x_pid.get_control(odom_pos.x()) + kv*tp_vel.x();
+    double vy = y_pid.get_control(odom_pos.y()) + kv*tp_vel.y();
+    double vz = z_pid.get_control(odom_pos.z()) + kv*tp_vel.z();
 
     vx_pid.set_target(vx);
     vy_pid.set_target(vy);
@@ -201,6 +239,18 @@ public:
     double roll = -vy_pid.get_control(odom_vel.y());
     double pitch = vx_pid.get_control(odom_vel.x());
     double thrust = vz_pid.get_control(odom_vel.z());
+
+    if(ff_active){
+      double _r, _p, vehicle_yaw;
+      tf2::Matrix3x3(tflib::to_tf(odometry.pose.pose.orientation)).getRPY(_r, _p, vehicle_yaw);
+      const auto& q = attitude_ff.quaternion;
+      const pid_controller::TiltAngles ff = pid_controller::feedforward_tilt(q.x, q.y, q.z, q.w, vehicle_yaw);
+      const pid_controller::TiltAngles cmd = pid_controller::combine_tilt({roll, pitch}, ff, ff_max_tilt);
+      roll = cmd.roll;
+      pitch = cmd.pitch;
+      if(ff_thrust_compensation)
+        thrust = std::min(1.0, pid_controller::tilt_compensated_thrust(thrust, roll, pitch));
+    }
 
     // compute control
     mav_msgs::msg::RollPitchYawrateThrust command;

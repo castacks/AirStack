@@ -283,6 +283,18 @@ private:
                             track_.curve.sweepFreq, track_.curve.sweepPeakRate * 180.0 / mtl::kPi,
                             track_.gimbalRate * 180.0 / mtl::kPi, track_.curve.swathHalfWidth);
             }
+            if (track_.platform == "quadrotor") {
+                const mtl_search::QuadTrackInfo& q = track_.quad;
+                RCLCPP_INFO(get_logger(),
+                            "QUADROTOR mode (body-fixed camera, tilt %.1f deg, no gimbal): 6-DOF reference of "
+                            "%.0f s; boresight vs the gimbal plan rms %.1f m (p95 %.1f), path rms %.1f m; "
+                            "max tilt %.1f deg, roll/pitch rate %.1f deg/s, yaw rate %.1f deg/s, speed %.1f m/s; "
+                            "%s (%.2f s)",
+                            q.camTilt * 180.0 / mtl::kPi, track_.flightTime, q.boreRms, q.boreP95, q.pathRms,
+                            q.maxTiltDeg, q.maxRateXYDegS, q.maxYawRateDegS, q.maxSpeed,
+                            q.feasible ? "every quad limit holds" : "SOME QUAD LIMITS EXCEEDED (best effort)",
+                            q.solveTime);
+            }
             if (track_.samples.size() < 2) {
                 throw std::runtime_error("agent '" + agent_name_ + "' has a " +
                                          std::to_string(track_.samples.size()) +
@@ -327,6 +339,8 @@ private:
         msg.gimbal_rate_rad_s = track_.gimbalRate;
         msg.pitch_nudge_max_rad = track_.pitchNudgeMax;
         msg.gimbal_law = track_.gimbalLaw;
+        msg.platform = track_.platform;
+        const bool quad = track_.platform == "quadrotor";
         msg.map_origin_in_world.x = track_.homeEnu.x();
         msg.map_origin_in_world.y = track_.homeEnu.y();
         msg.map_origin_in_world.z = track_.homeEnu.z();
@@ -343,6 +357,15 @@ private:
             wp.position = point(s.x, s.y, s.z);
             wp.velocity = s.speed;
             wp.yaw = s.yaw;
+            if (quad) {
+                wp.acceleration.x = s.ax;
+                wp.acceleration.y = s.ay;
+                geometry_msgs::msg::Vector3 v;
+                v.x = s.vx;
+                v.y = s.vy;
+                msg.planned_velocity.push_back(v);
+                msg.planned_yaw_rate_rad_s.push_back(s.yawRate);
+            }
             msg.trajectory.waypoints.push_back(wp);
             msg.boresight.push_back(point(s.bx, s.by, s.bz));
             msg.arc_length_m.push_back(s.arc);

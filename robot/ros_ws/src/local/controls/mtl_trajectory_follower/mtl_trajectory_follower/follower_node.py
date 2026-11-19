@@ -13,6 +13,8 @@ Topics (relative names; the module launch file maps them to /$ROBOT_NAME/...):
   out  gimbal/cmd_pitch_yaw                      geometry_msgs/Vector3 (x roll, y pitch, z yaw)
   out  search/follower_status                    mtl_msgs/FollowerStatus
   out  search/carrot, search/aim_point           geometry_msgs/PointStamped (viz)
+  out  trajectory_controller/attitude_feedforward geometry_msgs/QuaternionStamped (quadrotor plans only:
+                                                 the reference attitude, map frame, for pid_controller)
   srv  trajectory_controller/set_trajectory_mode airstack_msgs/srv/TrajectoryMode (client)
   tf   base_link -> camera_gimbal_link -> camera_optical_frame
 
@@ -22,6 +24,14 @@ to ``tracking_point_nominal``; this node is the only publisher of
 land and hover keep working); during a sortie it publishes the carrot. At the
 end (or on abort) it asks the trajectory controller to hold (ROBOT_POSE) and
 goes back to forwarding.
+
+Quadrotor plans (``SearchPlan.platform == "quadrotor"``, curve planner + quad.enabled)
+are a 6-DOF reference in time for a BODY-FIXED camera: the node flies them with
+``QuadTrackFollower`` (time-indexed position / velocity / yaw tracking point) and
+publishes the reference attitude on ``trajectory_controller/attitude_feedforward``
+every tick, which pid_controller adds to its attitude command (roll, pitch) while it
+is fresh. The gimbal command then reports where the bolted-on camera looks (the
+odometry attitude composed with the mount tilt); there is nothing to actuate.
 """
 
 from __future__ import annotations
@@ -36,7 +46,7 @@ from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profi
 
 from airstack_msgs.msg import Odometry as TrackingPoint
 from airstack_msgs.srv import TrajectoryMode
-from geometry_msgs.msg import PointStamped, TransformStamped, Vector3
+from geometry_msgs.msg import PointStamped, QuaternionStamped, TransformStamped, Vector3
 from mtl_msgs.msg import FollowerStatus, SearchPlan
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Empty
@@ -44,7 +54,8 @@ from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
 
 from mtl_trajectory_follower import follower_core as fc
 from mtl_trajectory_follower.gimbal_math import (OPTICAL_FROM_GIMBAL_QUAT, euler_zyx_to_matrix,
-                                                 mat_mul, mat_t, matrix_to_quat, quat_to_matrix)
+                                                 mat_mul, mat_t, matrix_to_euler_zyx, matrix_to_quat,
+                                                 quat_to_matrix)
 
 
 def _yaw_of(q) -> float:
@@ -58,7 +69,25 @@ def track_from_plan(msg: SearchPlan) -> fc.Track:
         yaw=[w.yaw for w in wps], speed=[w.velocity for w in wps],
         bx=[p.x for p in msg.boresight], by=[p.y for p in msg.boresight], bz=[p.z for p in msg.boresight],
         arc=list(msg.arc_length_m), t=list(msg.time_s), phi=list(msg.planned_gimbal_phi_rad),
-        roll=_float_list(getattr(msg, "planned_roll_rad", None)))
+        roll=_float_list(getattr(msg, "planned_roll_rad", None)), **_six_dof_fields(msg))
+
+
+def is_quadrotor(msg: SearchPlan) -> bool:
+    return getattr(msg, "platform", "") == "quadrotor"
+
+
+def _six_dof_fields(msg: SearchPlan) -> dict:
+    """The quadrotor plan's extra references (pitch, velocity, acceleration, yaw rate);
+    nothing for a gimbal plan, so its Track is exactly what it was."""
+    if not is_quadrotor(msg):
+        return {}
+    vel = list(getattr(msg, "planned_velocity", []) or [])
+    wps = msg.trajectory.waypoints
+    return {"pitch": _float_list(msg.planned_pitch_rad),
+            "vx": [float(v.x) for v in vel], "vy": [float(v.y) for v in vel],
+            "ax": [float(w.acceleration.x) for w in wps] if vel else [],
+            "ay": [float(w.acceleration.y) for w in wps] if vel else [],
+            "yaw_rate": _float_list(getattr(msg, "planned_yaw_rate_rad_s", None))}
 
 
 def _float_list(v) -> list:
@@ -101,6 +130,14 @@ class MtlTrajectoryFollower(Node):
         # under the SAME plan_id with a newer stamp; accept those as in-flight revisions.
         # Off by default: the mtl_search stack never revises a plan.
         self.accept_plan_revisions = bool(p("accept_plan_revisions", False).value)
+        # quadrotor (body-fixed camera, 6-DOF) plans: time-index governor and feed-forward lead
+        self.quad_lag_soft_m = float(p("quad_lag_soft_m", 5.0).value)
+        self.quad_lag_hard_m = float(p("quad_lag_hard_m", 20.0).value)
+        self.quad_attitude_lead_s = float(p("quad_attitude_lead_s", 0.25).value)
+        self.quad_yaw_lead_s = float(p("quad_yaw_lead_s", 0.45).value)
+        self.quad_ingress_yaw_tol_deg = float(p("quad_ingress_yaw_tolerance_deg", 20.0).value)
+        self.quad_finish_timeout_s = float(p("quad_finish_timeout_s", 10.0).value)
+        self.quad = False
         self.plan_stamp = None
 
         latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
@@ -118,6 +155,7 @@ class MtlTrajectoryFollower(Node):
         self.status_pub = self.create_publisher(FollowerStatus, "search/follower_status", 10)
         self.carrot_pub = self.create_publisher(PointStamped, "search/carrot", 10)
         self.aim_pub = self.create_publisher(PointStamped, "search/aim_point", 10)
+        self.att_ff_pub = self.create_publisher(QuaternionStamped, "trajectory_controller/attitude_feedforward", 10)
         self.mode_client = self.create_client(TrajectoryMode, "trajectory_controller/set_trajectory_mode")
 
         self.tf = TransformBroadcaster(self) if self.publish_tf else None
@@ -178,6 +216,10 @@ class MtlTrajectoryFollower(Node):
         except ValueError as exc:
             self.get_logger().error(f"rejecting plan {msg.plan_id}: {exc}")
             return
+        if is_quadrotor(msg):
+            self._start_quad(msg, track)
+            return
+        self.quad = False
         cfg = fc.FollowerConfig(
             lookahead_m=self.lookahead_m, lookahead_turn_radii=self.lookahead_turn_radii,
             min_turn_radius_m=msg.min_turn_radius_m, window_lookaheads=self.window_lookaheads,
@@ -200,6 +242,33 @@ class MtlTrajectoryFollower(Node):
             f"sortie {msg.plan_id}: {len(track)} samples, {track.total:.0f} m, "
             f"{'single-axis tau=%.0f deg, gimbal law %s' % (math.degrees(cfg.tilt_rad), cfg.gimbal_law) if cfg.single_axis else '2-axis'}, "
             f"lookahead {cfg.lookahead:.1f} m")
+
+    def _start_quad(self, msg: SearchPlan, track: fc.Track) -> None:
+        qcfg = fc.QuadFollowerConfig(
+            min_turn_radius_m=msg.min_turn_radius_m or 12.0, lookahead_turn_radii=self.lookahead_turn_radii,
+            ingress_tolerance_m=self.ingress_tolerance_m, ingress_alt_tolerance_m=self.ingress_alt_tolerance_m,
+            ingress_yaw_tolerance_rad=math.radians(self.quad_ingress_yaw_tol_deg),
+            finish_tolerance_m=self.finish_tolerance_m, finish_timeout_s=self.quad_finish_timeout_s,
+            lag_soft_m=self.quad_lag_soft_m, lag_hard_m=self.quad_lag_hard_m,
+            attitude_lead_s=self.quad_attitude_lead_s, yaw_lead_s=self.quad_yaw_lead_s, speed_mps=msg.speed_mps or 6.0,
+            tilt_rad=msg.mount_tilt_rad)
+        try:
+            follower = fc.QuadTrackFollower(track, qcfg)
+        except ValueError as exc:
+            self.get_logger().error(f"rejecting quadrotor plan {msg.plan_id}: {exc}")
+            return
+        if self.active:
+            self.get_logger().warn(f"replacing active sortie {self.plan_id} with {msg.plan_id}")
+        self.plan, self.plan_id = msg, msg.plan_id
+        self.plan_stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+        self.follower, self.quad = follower, True
+        self.state, self.active = fc.IDLE, True
+        self.t_start, self.t_complete, self.last_out = self.get_clock().now(), None, None
+        self.get_logger().info(
+            f"sortie {msg.plan_id}: QUADROTOR 6-DOF reference, {len(track)} samples over "
+            f"{track.duration:.0f} s, {track.total:.0f} m; body-fixed camera tilt "
+            f"{math.degrees(msg.mount_tilt_rad):.1f} deg; attitude feed-forward on "
+            f"trajectory_controller/attitude_feedforward (lead roll/pitch {qcfg.attitude_lead_s:.2f} s, yaw {qcfg.yaw_lead_s:.2f} s)")
 
     def _revise(self, msg: SearchPlan) -> None:
         stamp = rclpy.time.Time.from_msg(msg.header.stamp)
@@ -237,8 +306,10 @@ class MtlTrajectoryFollower(Node):
         if self.active and self.follower is not None:
             out = self.follower.step(pos, vehicle_yaw, max(dt, 0.0))
             self.last_out, self.state = out, out.state
+            if out.attitude_ref is not None:  # before the tracking point: the PID reads the latest one
+                self._publish_attitude_ff(out.attitude_ref, now, odom.header.frame_id or "map")
             self._publish_tracking_point(out, now, odom.header.frame_id or "map")
-            self._publish_gimbal(out.gimbal)
+            self._publish_gimbal(self._body_fixed_camera(odom) if self.quad else out.gimbal)
             self._publish_points(out, now, odom.header.frame_id or "map")
             total_m = float(self.follower.track.total)
             now_s = now.nanoseconds * 1e-9
@@ -293,6 +364,22 @@ class MtlTrajectoryFollower(Node):
         tp.pose.orientation.w = math.cos(0.5 * out.carrot_yaw)
         tp.twist.linear.x, tp.twist.linear.y, tp.twist.linear.z = out.carrot_velocity
         self.tp_pub.publish(tp)
+
+    def _publish_attitude_ff(self, rpy, now, frame: str) -> None:
+        q = QuaternionStamped()
+        q.header.stamp = now.to_msg()
+        q.header.frame_id = frame
+        (q.quaternion.x, q.quaternion.y, q.quaternion.z, q.quaternion.w) = matrix_to_quat(
+            euler_zyx_to_matrix(float(rpy[0]), float(rpy[1]), float(rpy[2])))
+        self.att_ff_pub.publish(q)
+
+    def _body_fixed_camera(self, odom: Odometry):
+        """Earth-frame angles of the BOLTED-ON camera (quadrotor plans): the odometry
+        attitude composed with the plan's mount tilt (gimbal/cmd_pitch_yaw convention)."""
+        q = odom.pose.pose.orientation
+        r_body = quat_to_matrix(q.x, q.y, q.z, q.w)
+        roll, pitch, yaw = matrix_to_euler_zyx(r_body)
+        return fc.body_fixed_camera_euler(roll, pitch, yaw, self.plan.mount_tilt_rad if self.plan else 0.0)
 
     def _publish_gimbal(self, rpy) -> None:
         self.last_cmd = tuple(rpy)

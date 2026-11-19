@@ -8,6 +8,12 @@ down, nadir = +pi/2. The mount is earth-stabilised (a real 3-axis gimbal's
 behaviour), so the camera orientation does not follow airframe attitude; its
 POSITION rides the airframe: ``p_cam = p_body + R_body * mount_offset``.
 
+``body_fixed`` mount (``airstack.sim_gimbal.mount: body_fixed``, the quadrotor mode of
+the curve planner): there is no gimbal. The camera is bolted to the airframe, its
+boresight tilted ``tilt`` from body -z toward body +x, so its orientation is
+``R_body * Ry(pi/2 - tilt)`` and follows every roll / pitch / yaw of the vehicle;
+commands are ignored and the state is that orientation's earth-frame angles.
+
 The USD camera looks along its local -Z with +Y up, so the camera prim carries a
 fixed rotation :data:`USD_CAMERA_IN_GIMBAL_QUAT` under the gimbal Xform.
 """
@@ -22,8 +28,8 @@ Quat = tuple[float, float, float, float]  # (x, y, z, w)
 Vec3 = tuple[float, float, float]
 
 __all__ = ["USD_CAMERA_IN_GIMBAL_QUAT", "quat_mul", "quat_conj", "quat_rotate", "quat_from_euler_zyx",
-           "euler_zyx_from_quat", "quat_from_matrix", "gimbal_world_pose", "relative_pose",
-           "focal_length_mm", "GimbalLimits", "GimbalAxis"]
+           "euler_zyx_from_quat", "quat_from_matrix", "gimbal_world_pose", "body_fixed_world_pose",
+           "body_fixed_mount_quat", "relative_pose", "focal_length_mm", "GimbalLimits", "GimbalAxis"]
 
 
 def quat_mul(a: Quat, b: Quat) -> Quat:
@@ -100,6 +106,23 @@ def gimbal_world_pose(body_pos: Sequence[float], body_quat: Quat, mount_offset: 
     off = quat_rotate(quat_norm(body_quat), mount_offset)
     pos = (body_pos[0] + off[0], body_pos[1] + off[1], body_pos[2] + off[2])
     return pos, quat_from_euler_zyx(*rpy)
+
+
+def body_fixed_mount_quat(tilt: float) -> Quat:
+    """Camera frame in the BODY frame for a body-fixed mount whose boresight is tilted
+    ``tilt`` [rad] from body -z toward body +x (pitched down pi/2 - tilt from the nose)."""
+    return quat_from_euler_zyx(0.0, 0.5 * math.pi - tilt, 0.0)
+
+
+def body_fixed_world_pose(body_pos: Sequence[float], body_quat: Quat, mount_offset: Sequence[float],
+                          tilt: float) -> tuple[Vec3, Quat, Vec3]:
+    """World pose of a BODY-FIXED camera frame and its earth-frame (roll, pitch, yaw)
+    (the gimbal/state convention)."""
+    bq = quat_norm(body_quat)
+    off = quat_rotate(bq, mount_offset)
+    pos = (body_pos[0] + off[0], body_pos[1] + off[1], body_pos[2] + off[2])
+    q = quat_norm(quat_mul(bq, body_fixed_mount_quat(tilt)))
+    return pos, q, euler_zyx_from_quat(q)
 
 
 def relative_pose(parent_pos: Sequence[float], parent_quat: Quat, child_pos: Sequence[float],

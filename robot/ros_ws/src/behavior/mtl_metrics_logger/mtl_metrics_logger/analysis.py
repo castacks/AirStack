@@ -154,7 +154,7 @@ def write_comparison_csv(path: str | Path, comparison: Mapping[str, Any]) -> Non
 def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scenario: Mapping[str, Any],
                  ground_truth: Mapping[str, Any], *, use_command_fallback: bool = True,
                  dt: float | None = None, prior: PriorGrid | None = None,
-                 residual_snapshot_s: float | None = None, progress=None
+                 residual_snapshot_s: float | None = None, residual_snapshot_block: int = 2, progress=None
                  ) -> tuple[TeamScorer, dict[str, dict[str, list]], dict[str, float]]:
     """Fuse every agent's telemetry rows on one hold-last-value timeline.
 
@@ -172,7 +172,7 @@ def score_agents(rows_by_agent: Mapping[str, Sequence[Mapping[str, Any]]], scena
     if prior is None:
         prior = prior_from_scenario(scenario, progress=progress)
     scorer = TeamScorer(targets_world(ground_truth), cells, masses, model, fov, prior=prior,
-                        residual_snapshot_s=residual_snapshot_s)
+                        residual_snapshot_s=residual_snapshot_s, residual_snapshot_block=residual_snapshot_block)
 
     tracks: dict[str, dict[str, list]] = {}
     measured_fraction: dict[str, float] = {}

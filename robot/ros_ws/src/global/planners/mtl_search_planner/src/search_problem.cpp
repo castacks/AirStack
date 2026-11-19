@@ -13,6 +13,8 @@
 // =============================================================================
 #include "mtl_search_planner/search_problem.hpp"
 
+#include "mtl_curve/quadrotor/flatness.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -218,6 +220,56 @@ const std::set<std::string> kCurveSectorKeys = {"size_m", "box_frac", "budget_fr
                                                 "max_candidates", "grid_step_m"};
 const std::set<std::string> kCurveKernelKeys = {"table_step_m","lambda_cap", "grid_step_m", "track_len_m", "edge_width_m",
                                                 "edge_inset_m", "tail_sigma_m", "tail_weight"};
+
+/// The top-level "quad" block: mtl::curve::QuadParams (upstream quadrotor/, the
+/// C++ twin of main_curve_planner.m step 6b).  AirStack host keys, not mtlc_plan's
+/// (mtlc_plan does not read a quad block): angles in degrees, every key optional,
+/// an absent key keeps the upstream default (speed: aircraft.speed_mps).
+const std::set<std::string> kQuadKeys = {
+    "enabled", "speed_mps", "max_speed_mps", "max_tilt_deg", "max_roll_pitch_rate_deg_s", "max_yaw_rate_deg_s",
+    "max_yaw_acc_deg_s2", "thrust_to_weight", "min_thrust_frac", "drag_spec_speed_mps", "drag_spec_tilt_deg",
+    "drag_quad", "drag_lin", "camera_mount", "cam_tilt_deg", "max_look_angle_deg", "look_range_margin",
+    "use_yaw", "knot_spacing_s", "dt_opt_s", "sigma_bore_m", "sigma_cross_m", "sigma_along_m", "max_iter",
+    "verbose"};
+
+void quadFromScenario(const J::Value& sc, mc::PlannerParams& p) {
+    const J::Value& qb = sc["quad"];
+    refuseUnknownKeys(qb, kQuadKeys, "quad");
+    mc::QuadParams& q = p.quad;
+    q.enabled = qb["enabled"].flag(false);
+    q.speed = qb["speed_mps"].num(sc["aircraft"]["speed_mps"].num(q.speed));
+    q.maxSpeed = qb["max_speed_mps"].num(q.maxSpeed);
+    q.maxTilt = mc::deg2rad(qb["max_tilt_deg"].num(mc::rad2deg(q.maxTilt)));
+    q.maxRollPitchRate = mc::deg2rad(qb["max_roll_pitch_rate_deg_s"].num(mc::rad2deg(q.maxRollPitchRate)));
+    q.maxYawRate = mc::deg2rad(qb["max_yaw_rate_deg_s"].num(mc::rad2deg(q.maxYawRate)));
+    q.maxYawAcc = mc::deg2rad(qb["max_yaw_acc_deg_s2"].num(mc::rad2deg(q.maxYawAcc)));
+    q.thrustToWeight = qb["thrust_to_weight"].num(q.thrustToWeight);
+    q.minThrustFrac = qb["min_thrust_frac"].num(q.minThrustFrac);
+    q.dragSpecSpeed = qb["drag_spec_speed_mps"].num(q.dragSpecSpeed);
+    q.dragSpecTilt = mc::deg2rad(qb["drag_spec_tilt_deg"].num(mc::rad2deg(q.dragSpecTilt)));
+    if (qb["drag_quad"].isNumber()) q.dragQuad = qb["drag_quad"].number();
+    q.dragLin = qb["drag_lin"].num(q.dragLin);
+    const std::string mount = qb["camera_mount"].text("matched");
+    if (mount == "matched") q.cameraMount = mc::CameraMount::Matched;
+    else if (mount == "fixed") q.cameraMount = mc::CameraMount::Fixed;
+    else if (mount == "nadir") q.cameraMount = mc::CameraMount::Nadir;
+    else throw std::runtime_error("quad.camera_mount '" + mount + "' is not matched | fixed | nadir");
+    if (qb["cam_tilt_deg"].isNumber()) {
+        if (q.cameraMount != mc::CameraMount::Fixed)
+            throw std::runtime_error("quad.cam_tilt_deg needs quad.camera_mount: fixed");
+        q.camTiltFixed = mc::deg2rad(qb["cam_tilt_deg"].number());
+    }
+    q.maxLookAngle = mc::deg2rad(qb["max_look_angle_deg"].num(mc::rad2deg(q.maxLookAngle)));
+    q.lookRangeMargin = qb["look_range_margin"].num(q.lookRangeMargin);
+    q.useYaw = qb["use_yaw"].flag(q.useYaw);
+    q.knotSpacing = qb["knot_spacing_s"].num(q.knotSpacing);
+    q.dtOpt = qb["dt_opt_s"].num(q.dtOpt);
+    q.sigmaBore = qb["sigma_bore_m"].num(q.sigmaBore);
+    q.sigmaCross = qb["sigma_cross_m"].num(q.sigmaCross);
+    q.sigmaAlong = qb["sigma_along_m"].num(q.sigmaAlong);
+    q.maxIter = static_cast<int>(qb["max_iter"].num(q.maxIter));
+    q.verbose = qb["verbose"].flag(q.verbose);
+}
 
 mc::EndpointMode curveModeFrom(const std::string& s) {
     if (s == "open") return mc::EndpointMode::Open;
@@ -502,6 +554,17 @@ SearchProblem parseScenario(const std::string& jsonText) {
     // The curve planner's inputs, exactly as mtlc_plan builds them.
     out.curveParams = curveBaseParamsFromScenario(sc, static_cast<int>(out.agents.size()));
     curveFromScenario(sc, out.frame, out.curveParams);
+    // The quadrotor (body-fixed camera) conversion of the curve plan: off unless quad.enabled.
+    quadFromScenario(sc, out.curveParams);
+    out.quadMode = out.curveParams.quad.enabled;
+    if (out.quadMode && out.plannerType != PlannerType::Curve) {
+        throw std::runtime_error("quad.enabled needs planner.type: curve (the quadrotor conversion re-plans "
+                                 "the curve planner's gimbal plan for a body-fixed camera)");
+    }
+    if (out.quadMode) {
+        // Fail at load time, not mid-mission, on a quad that cannot even hold cruise.
+        (void)mc::quadrotor::resolveQuadParams(out.curveParams.quad, out.curveParams.sensorTiltAngle);
+    }
     out.curveCells = curveCellsFromScenario(sc, out.frame, out.curveParams.targetCellSize);
     for (const mtl::Vec2& xy : out.startsMtl) out.curveStarts.push_back(mc::Vec2(xy.x(), xy.y()));
     return out;
@@ -802,6 +865,74 @@ AgentTrack buildAgentTrack(const CurvePlan& cp, const SearchProblem& problem, in
     ci.fastObjective  = plan.lastOpt.J;
     ci.optimizerIters = plan.lastOpt.iters;
     ci.optimizerExit  = plan.lastOpt.exitMsg;
+
+    // --- quadrotor with a body-fixed camera: fly the 6-DOF conversion instead -----
+    if (p.quad.enabled) {
+        if (a >= r.quad.size()) throw std::runtime_error("quad.enabled but the planner returned no quad trajectory");
+        const mc::QuadTrajectory& Q = r.quad[a];
+        const mc::QuadParams qr = mc::quadrotor::resolveQuadParams(p.quad, p.sensorTiltAngle);
+        out.platform      = "quadrotor";
+        out.tilt          = qr.camTilt;          // the body-fixed camera's tilt (from body -z toward +x)
+        out.speedMps      = qr.speed;
+        out.gimbalMax     = 0.0;                 // no gimbal: the camera is bolted to the airframe
+        out.gimbalRate    = 0.0;
+        out.routeNote    += "; flown as a quadrotor with a body-fixed camera (6-DOF time-indexed reference)";
+        QuadTrackInfo& qi = out.quad;
+        qi.camTilt = qr.camTilt;
+        qi.trimPitch = qr.trimPitch;
+        qi.speed = qr.speed;
+        qi.boreRms = Q.stats.boreRms;
+        qi.boreP95 = Q.stats.boreP95;
+        qi.boreMax = Q.stats.boreMax;
+        qi.pathRms = Q.stats.pathRms;
+        qi.maxTiltDeg = Q.stats.maxTiltDeg;
+        qi.maxRollDeg = Q.stats.maxRollDeg;
+        qi.maxPitchDeg = Q.stats.maxPitchDeg;
+        qi.maxRateXYDegS = Q.stats.maxRateXYDegS;
+        qi.maxYawRateDegS = Q.stats.maxYawRateDegS;
+        qi.maxLookDeg = Q.stats.maxLookDeg;
+        qi.maxSpeed = Q.stats.maxSpeed;
+        qi.feasible = Q.stats.feasible;
+        qi.iterations = Q.stats.iterations;
+        qi.solveTime = Q.stats.solveTime;
+        const mtl::Index nq = std::min<mtl::Index>(Q.t.size(), Q.traj.drone.rows());
+        const mtl::Vec3 home = out.homeEnu;
+        double arc = 0.0;
+        out.samples.reserve(static_cast<std::size_t>(nq));
+        for (mtl::Index k = 0; k < nq; ++k) {
+            double nn = 0.0, ee = 0.0;
+            problem.frame.fromMtl(Q.traj.drone(k, 0), Q.traj.drone(k, 1), nn, ee);
+            const mtl::Vec3 wp = nedToEnu(nn, ee, -Q.traj.drone(k, 2));
+            double sn = 0.0, se = 0.0;
+            problem.frame.fromMtl(Q.traj.sensor(k, 0), Q.traj.sensor(k, 1), sn, se);
+            const mtl::Vec3 wb = nedToEnu(sn, se, 0.0);
+            TrackSample smp;
+            smp.t = Q.t(k);
+            smp.x = wp.x() - home.x();
+            smp.y = wp.y() - home.y();
+            smp.z = wp.z() - home.z();
+            if (k > 0) arc += std::hypot(smp.x - out.samples.back().x, smp.y - out.samples.back().y);
+            smp.arc = arc;
+            // mtl frame axes ARE the ENU axes (x = east, y = north): vectors and yaw carry over
+            smp.vx = Q.vel(k, 0);
+            smp.vy = Q.vel(k, 1);
+            smp.ax = Q.acc(k, 0);
+            smp.ay = Q.acc(k, 1);
+            smp.speed = std::hypot(smp.vx, smp.vy);
+            smp.roll = Q.traj.rpy(k, 0);         // + right side down
+            smp.pitch = Q.traj.rpy(k, 1);        // + nose up
+            smp.yaw = Q.traj.rpy(k, 2);          // ENU, CCW from East (the vehicle heading, NOT the track's)
+            smp.yawRate = k < Q.yawRate.size() ? Q.yawRate(k) : 0.0;
+            smp.bx = wb.x() - home.x();
+            smp.by = wb.y() - home.y();
+            smp.bz = wb.z() - home.z();
+            smp.gimbalPhi = 0.0;
+            out.samples.push_back(smp);
+        }
+        out.flownLength = arc;
+        out.flightTime  = nq > 0 ? Q.t(nq - 1) : 0.0;
+        return out;
+    }
 
     const mtl::Index n = std::min<mtl::Index>(traj.drone.rows(), r.timeVec.size());
     if (n == 0) return out;
@@ -1339,6 +1470,22 @@ std::string agentTrackJson(const AgentTrack& tr, const SearchProblem& problem) {
     for (const TrackSample& s : tr.samples) roll.push_back(s.roll);
     samples["roll"] = J::Value(numbersOf(roll, 5));
     const bool isCurve = tr.plannerType == PlannerType::Curve;
+    const bool isQuad = tr.platform == "quadrotor";
+    if (isQuad) {
+        std::vector<double> vx, vy, ax, ay, yr;
+        for (const TrackSample& s : tr.samples) {
+            vx.push_back(s.vx);
+            vy.push_back(s.vy);
+            ax.push_back(s.ax);
+            ay.push_back(s.ay);
+            yr.push_back(s.yawRate);
+        }
+        samples["vx_map"] = J::Value(numbersOf(vx, 4));
+        samples["vy_map"] = J::Value(numbersOf(vy, 4));
+        samples["ax_map"] = J::Value(numbersOf(ax, 4));
+        samples["ay_map"] = J::Value(numbersOf(ay, 4));
+        samples["yaw_rate"] = J::Value(numbersOf(yr, 5));
+    }
 
     J::Object out;
     out["schema"] = J::Value("mtl.agent_track/1");
@@ -1365,6 +1512,31 @@ std::string agentTrackJson(const AgentTrack& tr, const SearchProblem& problem) {
     out["route_note"] = J::Value(tr.routeNote);
     out["extension_note"] = J::Value(tr.extensionNote);
     out["planner_mode"] = J::Value(tr.plannerMode);
+    out["platform"] = J::Value(tr.platform);
+    if (isQuad) {
+        const QuadTrackInfo& qi = tr.quad;
+        const double r2d = 180.0 / mtl::kPi;
+        J::Object q;
+        q["camera"] = J::Value("body_fixed");
+        q["cam_tilt_deg"] = J::Value(qi.camTilt * r2d);
+        q["trim_pitch_deg"] = J::Value(qi.trimPitch * r2d);
+        q["speed_mps"] = J::Value(qi.speed);
+        q["bore_err_rms_m"] = J::Value(qi.boreRms);
+        q["bore_err_p95_m"] = J::Value(qi.boreP95);
+        q["bore_err_max_m"] = J::Value(qi.boreMax);
+        q["path_err_rms_m"] = J::Value(qi.pathRms);
+        q["max_tilt_deg"] = J::Value(qi.maxTiltDeg);
+        q["max_roll_deg"] = J::Value(qi.maxRollDeg);
+        q["max_pitch_deg"] = J::Value(qi.maxPitchDeg);
+        q["max_roll_pitch_rate_deg_s"] = J::Value(qi.maxRateXYDegS);
+        q["max_yaw_rate_deg_s"] = J::Value(qi.maxYawRateDegS);
+        q["max_look_deg"] = J::Value(qi.maxLookDeg);
+        q["max_speed_mps"] = J::Value(qi.maxSpeed);
+        q["feasible"] = J::Value(qi.feasible);
+        q["iterations"] = J::Value(qi.iterations);
+        q["solve_s"] = J::Value(qi.solveTime);
+        out["quad"] = J::Value(std::move(q));
+    }
     if (isCurve) {
         const CurveTrackInfo& ci = tr.curve;
         J::Object c;

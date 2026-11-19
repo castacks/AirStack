@@ -37,6 +37,10 @@ Gimbal convention (command and state): x = roll, y = pitch, z = yaw [rad],
 Z-Y-X Euler of the camera frame (x = boresight) in the EARTH frame (ENU); pitch
 > 0 looks down (nadir = +90 deg). The mount is earth-stabilised; its position
 rides the airframe (``sim_gimbal.mount_offset_m`` in mission.yaml).
+``airstack.sim_gimbal.mount: body_fixed`` (the curve planner's quadrotor mode) bolts the
+camera to the airframe instead, tilted ``body_fixed_tilt_deg`` forward of nadir: it
+follows the vehicle's roll / pitch / yaw, commands are ignored, and gimbal/state reports
+where it actually looks (same convention).
 
 Spawns: ``FLEET_CONFIG_FILE`` (``--fleet``) wins; otherwise one drone per
 scenario team agent at its home. GPS homes are always written
@@ -47,6 +51,7 @@ MTL_SCENARIO_DIR, MTL_GIMBAL_RENDER_HZ (assumed render rate for frame skipping,
 default 60).
 """
 
+import math
 import os
 import sys
 from pathlib import Path
@@ -168,6 +173,7 @@ class SearchMissionApp(PegasusApp):
         self.ground_truth = ground_truth
         self.belief_png = belief_png
         self.gp = mcfg.gimbal_params(scenario)
+        self._body_fixed = self.gp.get("mount") == "body_fixed"
         self.gimbals = []   # filled by spawn_drone, wired by post_spawn
         self._update_sub = None
         self._last_sim_t = None
@@ -278,7 +284,9 @@ class SearchMissionApp(PegasusApp):
         self._apply_gimbal_pose(g, root_pos, root_quat)
         self.gimbals.append(g)
         _log(f"{robot}: native gimbal at {gimbal_path} (FOV {self.gp['fov_deg']:g} deg, "
-             f"{self.gp['width']}x{self.gp['height']})")
+             f"{self.gp['width']}x{self.gp['height']}, "
+             + ("BODY-FIXED camera, tilt %.1f deg from nadir)" % math.degrees(self.gp["body_fixed_tilt_rad"])
+                if self._body_fixed else "earth-stabilised)"))
 
     # ---------------------------------------------------------------- ROS I/O
     def post_spawn(self, stage):
@@ -422,7 +430,11 @@ class SearchMissionApp(PegasusApp):
         return vals if g["have_cmd"] else None
 
     def _apply_gimbal_pose(self, g, body_pos, body_quat):
-        pos, quat = mg.gimbal_world_pose(body_pos, body_quat, self.gp["mount_offset_m"], g["axis"].state)
+        if self._body_fixed:
+            pos, quat, g["fixed_state"] = mg.body_fixed_world_pose(
+                body_pos, body_quat, self.gp["mount_offset_m"], self.gp["body_fixed_tilt_rad"])
+        else:
+            pos, quat = mg.gimbal_world_pose(body_pos, body_quat, self.gp["mount_offset_m"], g["axis"].state)
         lp, lq = mg.relative_pose(g["root_pos"], g["root_quat"], pos, quat)
         _set_pose(g["gimbal_prim"], lp, lq)
 
@@ -445,14 +457,16 @@ class SearchMissionApp(PegasusApp):
                     body_quat = (float(q[0]), float(q[1]), float(q[2]), float(q[3]))
                 else:
                     body_pos, body_quat = g["root_pos"], g["root_quat"]
-                cmd = self._read_command(g)
-                if cmd is None:  # park: initial pitch, along the airframe heading
-                    cmd = (0.0, self.gp["initial_pitch_rad"], mg.euler_zyx_from_quat(body_quat)[2])
-                g["axis"].step(cmd, dt)
+                if not self._body_fixed:
+                    cmd = self._read_command(g)
+                    if cmd is None:  # park: initial pitch, along the airframe heading
+                        cmd = (0.0, self.gp["initial_pitch_rad"], mg.euler_zyx_from_quat(body_quat)[2])
+                    g["axis"].step(cmd, dt)
                 self._apply_gimbal_pose(g, body_pos, body_quat)
                 if g["state_attrs"] is None:
                     g["state_attrs"] = self._resolve(g["state_paths"])
-                for attr, v in zip(g["state_attrs"] or (), g["axis"].state):
+                state = g["fixed_state"] if self._body_fixed else g["axis"].state
+                for attr, v in zip(g["state_attrs"] or (), state):
                     og.Controller.set(attr, float(v))
             except Exception as exc:
                 if not g.get("warned"):

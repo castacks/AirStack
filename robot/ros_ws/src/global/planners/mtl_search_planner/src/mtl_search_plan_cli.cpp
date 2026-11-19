@@ -92,6 +92,15 @@ int main(int argc, char** argv) {
                       << tr.totalArc() << " m of budget " << tr.budget << " m, "
                       << tr.servicedCells.size() << " cells, feasible=" << (tr.feasible ? "yes" : "NO")
                       << ", home ENU (" << tr.homeEnu.x() << ", " << tr.homeEnu.y() << ")\n";
+            if (tr.platform == "quadrotor") {
+                const mtl_search::QuadTrackInfo& q = tr.quad;
+                std::cout << "    quadrotor, body-fixed camera tilt " << q.camTilt * 180.0 / mtl::kPi
+                          << " deg: boresight err rms " << q.boreRms << " m (p95 " << q.boreP95 << ", max "
+                          << q.boreMax << "), path rms " << q.pathRms << " m, max tilt " << q.maxTiltDeg
+                          << " deg, max yaw rate " << q.maxYawRateDegS << " deg/s, "
+                          << (q.feasible ? "limits OK" : "LIMITS VIOLATED") << " (" << std::setprecision(2)
+                          << q.solveTime << " s)\n" << std::setprecision(1);
+            }
             if (!outDir.empty()) {
                 writeText(outDir + "/" + tr.name + "_track.json", mtl_search::agentTrackJson(tr, problem));
             }

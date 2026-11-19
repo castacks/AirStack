@@ -20,6 +20,9 @@
   <arg name="pid_controller_tracking_point_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
        description="Input trajectory-controller tracking point setpoint (airstack_msgs/Odometry)" />
+  <arg name="pid_controller_attitude_feedforward_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/attitude_feedforward"
+       description="Optional input reference attitude (geometry_msgs/QuaternionStamped, odometry frame) added to the attitude command while fresh; nothing publishes it in the stock stacks" />
   <arg name="pid_controller_command_topic"
        default="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust"
        description="Output attitude/thrust command to the robot interface (mav_msgs/RollPitchYawrateThrust)" />
@@ -29,6 +32,7 @@
     <set_remap from="odometry" to="$(var pid_controller_odometry_topic)" />
     <set_remap from="tracking_point" to="$(var pid_controller_tracking_point_topic)" />
     <set_remap from="command" to="$(var pid_controller_command_topic)" />
+    <set_remap from="attitude_feedforward" to="$(var pid_controller_attitude_feedforward_topic)" />
 
     <node pkg="pid_controller" exec="pid_controller" output="screen">
       <param from="$(var pid_controller_config)" allow_substs="true" />

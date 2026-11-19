@@ -343,21 +343,22 @@ class ResidualBelief:
             return float(np.sum(self._np_res))
         return math.fsum(self.residual)
 
-    def block_means(self, block: int, *, prior: bool = False) -> list[float]:
+    def block_means(self, block: int, *, prior: bool = False, as_array: bool = False):
         """Mean pixel value per ``block x block`` block, row-major from the south-west
-        (``ceil(ny/block)`` rows of ``ceil(nx/block)``); ``prior=True`` for the prior."""
+        (``ceil(ny/block)`` rows of ``ceil(nx/block)``); ``prior=True`` for the prior.
+        Ragged edge blocks average the pixels they have. ``as_array`` (numpy only):
+        return the flat float64 array instead of a list (a 5 km map at 1 m is 25 M pixels:
+        one vectorised pass, not one np.mean call per block)."""
         pr = self.prior
         block = max(int(block), 1)
         if self._np_res is not None:
             src = self._np_prior if prior else self._np_res
-            out = []
-            for bi in range(0, pr.ny, block):
-                i_end = min(bi + block, pr.ny)
-                sub_rows = src[bi:i_end, :]
-                for bj in range(0, pr.nx, block):
-                    j_end = min(bj + block, pr.nx)
-                    out.append(float(np.mean(sub_rows[:, bj:j_end])))
-            return out
+            r0 = np.arange(0, pr.ny, block)
+            c0 = np.arange(0, pr.nx, block)
+            sums = np.add.reduceat(np.add.reduceat(src, r0, axis=0), c0, axis=1)
+            cnt = np.outer(np.minimum(block, pr.ny - r0), np.minimum(block, pr.nx - c0))
+            out = (sums / cnt).ravel()
+            return out if as_array else out.tolist()
         src = pr.values if prior else self.residual
         nbx = -(-pr.nx // block)
         nby = -(-pr.ny // block)
@@ -595,7 +596,10 @@ class TeamScorer:
             if self.residual is not None and self.residual_snapshot_s:
                 last = self.residual_snapshots[-1][0] if self.residual_snapshots else -math.inf
                 if t - last >= self.residual_snapshot_s - 1e-9:
-                    self.residual_snapshots.append((t, self.residual.block_means(self.residual_snapshot_block)))
+                    rb = self.residual
+                    snap = (rb.block_means(self.residual_snapshot_block, as_array=True).astype(np.float32)
+                            if rb._np_res is not None else rb.block_means(self.residual_snapshot_block))
+                    self.residual_snapshots.append((t, snap))
 
     # ------------------------------------------------------------------ #
     def summary(self) -> dict:

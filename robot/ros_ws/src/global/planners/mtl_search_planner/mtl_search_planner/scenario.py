@@ -495,6 +495,80 @@ def curve_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
     return out
 
 
+#: The top-level ``quad`` block (search_problem.cpp kQuadKeys): the curve planner's quadrotor
+#: conversion (mtl::curve QuadParams) - fly the plan as a quadrotor with a BODY-FIXED camera.
+_QUAD_FLOAT = ("speed_mps", "max_speed_mps", "max_tilt_deg", "max_roll_pitch_rate_deg_s", "max_yaw_rate_deg_s",
+               "max_yaw_acc_deg_s2", "thrust_to_weight", "min_thrust_frac", "drag_spec_speed_mps",
+               "drag_spec_tilt_deg", "drag_quad", "drag_lin", "cam_tilt_deg", "max_look_angle_deg",
+               "look_range_margin", "knot_spacing_s", "dt_opt_s", "sigma_bore_m", "sigma_cross_m", "sigma_along_m")
+_QUAD_BOOL = ("enabled", "use_yaw", "verbose")
+QUAD_CAMERA_MOUNTS = ("matched", "fixed", "nadir")
+
+
+def quad_of(block: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``mission.quad`` -> the normalised top-level ``quad`` scenario block.
+
+    ``enabled`` (default false; needs ``planner.type: curve``) re-plans the curve plan for a
+    quadrotor whose camera is bolted to the airframe (it banks, pitches and yaws to point
+    it); the follower then tracks that 6-DOF reference and the sim camera is body-fixed.
+    Every other key is optional (upstream defaults; speed = aircraft.speed_mps).
+    """
+    b = dict(block or {})
+    _refuse_unknown(b, _QUAD_FLOAT + _QUAD_BOOL + ("camera_mount", "max_iter"), "quad")
+    out: dict[str, Any] = {}
+    for k in _QUAD_BOOL:
+        if k in b:
+            if not isinstance(b[k], bool):
+                raise ValueError(f"quad.{k} must be true or false, got {b[k]!r}")
+            out[k] = b[k]
+    for k in _QUAD_FLOAT:
+        if k in b and b[k] is not None:
+            out[k] = _num(b[k], f"quad.{k}")
+    if "max_iter" in b:
+        out["max_iter"] = _num(b["max_iter"], "quad.max_iter", int)
+    if "camera_mount" in b:
+        if b["camera_mount"] not in QUAD_CAMERA_MOUNTS:
+            raise ValueError(f"quad.camera_mount {b['camera_mount']!r} is not one of {', '.join(QUAD_CAMERA_MOUNTS)}")
+        out["camera_mount"] = b["camera_mount"]
+    if "cam_tilt_deg" in out and out.get("camera_mount") != "fixed":
+        raise ValueError("quad.cam_tilt_deg needs quad.camera_mount: fixed")
+    return out
+
+
+def quad_camera_tilt_deg(scenario: Mapping[str, Any]) -> float:
+    """The body-fixed camera tilt [deg from nadir toward the nose] the curve planner's
+    quadrotor conversion uses (mtl::curve quadrotor::resolveQuadParams): ``matched`` =
+    sensor.tilt_deg + the cruise trim pitch at quad.speed_mps (quadratic drag calibrated so
+    that drag_spec_speed_mps needs drag_spec_tilt_deg of tilt), ``fixed`` = quad.cam_tilt_deg
+    (default sensor.tilt_deg), ``nadir`` = 0. The Isaac scene's body-fixed camera is set to it."""
+    q = scenario.get("quad") or {}
+    tilt = float(scenario["sensor"]["tilt_deg"])
+    mount = q.get("camera_mount", "matched")
+    if mount == "nadir":
+        return 0.0
+    if mount == "fixed":
+        return float(q.get("cam_tilt_deg", tilt))
+    g = 9.81
+    v = float(q.get("speed_mps", scenario["aircraft"]["speed_mps"]))
+    vs = float(q.get("drag_spec_speed_mps", 23.0))
+    ts = math.radians(float(q.get("drag_spec_tilt_deg", 30.0)))
+    kl = float(q.get("drag_lin", 0.0))
+    cd = float(q["drag_quad"]) if q.get("drag_quad") is not None else (g * math.tan(ts) - kl * vs) / (vs * vs)
+    return tilt + math.degrees(math.atan((cd * v * v + kl * v) / g))
+
+
+def apply_quad_camera(scenario: dict[str, Any]) -> None:
+    """With quad.enabled, bolt the sim camera to the airframe at the planner's camera tilt
+    (airstack.sim_gimbal.mount: body_fixed, body_fixed_tilt_deg)."""
+    if not (scenario.get("quad") or {}).get("enabled"):
+        return
+    if (scenario.get("planner") or {}).get("type") != "curve":
+        raise ValueError("quad.enabled needs planner.type: curve")
+    sg = scenario.setdefault("airstack", {}).setdefault("sim_gimbal", {})
+    sg["mount"] = "body_fixed"
+    sg["body_fixed_tilt_deg"] = round(quad_camera_tilt_deg(scenario), 6)
+
+
 #: ``follower.gimbal_law``: how mtl_trajectory_follower drives a single-axis gimbal.
 GIMBAL_LAWS = ("open_loop", "aim_point")
 
@@ -612,7 +686,7 @@ def info_aware_of(block: Mapping[str, Any]) -> dict[str, Any]:
 #: Every top-level key of a ``mission:`` block (mtl_search and tigris_search).
 MISSION_KEYS = frozenset({
     "name", "seed", "area", "belief", "targets", "team", "aircraft", "mapping", "sensor", "gimbal", "solver",
-    "info_aware", "planner", "curve", "follower", "gimbal_actuation", "flight", "sim_gimbal", "render"})
+    "info_aware", "planner", "curve", "follower", "gimbal_actuation", "flight", "sim_gimbal", "render", "quad"})
 
 
 def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any]],
@@ -755,6 +829,10 @@ def build_scenario(mission: Mapping[str, Any], agents: Sequence[Mapping[str, Any
     if m.get("follower") is not None:
         # AirStack-only (ignored by the planners): the follower's single-axis gimbal law.
         scenario["airstack"]["follower"] = follower_of(m["follower"])
+    if m.get("quad") is not None:
+        # The curve planner's quadrotor (body-fixed camera) mode; also bolts the sim camera on.
+        scenario["quad"] = quad_of(m["quad"])
+        apply_quad_camera(scenario)
     if scenario.get("planner", {}).get("type") == "curve":
         check_curve_feasible(scenario)
     if m.get("gimbal_actuation") is not None:

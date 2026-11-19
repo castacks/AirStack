@@ -16,9 +16,11 @@ find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 
 add_executable(pid_controller src/pid_controller.cpp)
+target_include_directories(pid_controller PRIVATE include)
 ament_target_dependencies(pid_controller
   rclcpp
   std_msgs
@@ -28,7 +30,8 @@ ament_target_dependencies(pid_controller
   airstack_msgs
   airstack_common
   tf2
-  tf2_ros)
+  tf2_ros
+  geometry_msgs)
 
 install(TARGETS
   pid_controller

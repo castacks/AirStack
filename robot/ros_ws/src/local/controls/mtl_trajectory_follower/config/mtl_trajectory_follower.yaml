@@ -21,3 +21,12 @@
     base_frame: base_link
     publish_tf: true
     gimbal_mount_offset_m: [0.10, 0.0, -0.08]   # FLU; keep equal to mission.yaml sim_gimbal.mount_offset_m
+    # --- quadrotor plans (SearchPlan.platform "quadrotor": curve planner + quad.enabled) ---------
+    # 6-DOF reference in TIME for a body-fixed camera; the reference attitude goes to
+    # pid_controller on trajectory_controller/attitude_feedforward every tick.
+    quad_lag_soft_m: 5.0           # the reference clock runs at full rate while the vehicle lags < this ...
+    quad_lag_hard_m: 20.0          # ... slows linearly, and stops at this lag (never runs away from it)
+    quad_attitude_lead_s: 0.25     # roll / pitch reference this far ahead (attitude-loop lag, measured in Isaac)
+    quad_yaw_lead_s: 0.45          # yaw / heading reference this far ahead (PX4 yaw lags ~0.45 s)
+    quad_ingress_yaw_tolerance_deg: 20.0   # face the first sample's heading before the clock starts
+    quad_finish_timeout_s: 10.0    # COMPLETE this long after the reference ends even if not at the end

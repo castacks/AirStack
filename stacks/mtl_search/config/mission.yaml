@@ -215,6 +215,18 @@ mission:
     # reallocate: true (with order_budget_frac 0.95) - set those to plan exactly as before (checked: the same
     # plan, byte for byte, as the 7a45427 build).
 
+  # quad:                        # QUADROTOR WITH A BODY-FIXED CAMERA (curve planner only; off when absent).
+  #   enabled: true              # re-plan the curve's gimbal plan for a quad whose camera is bolted to the
+  #                              # airframe (mtl::curve quadrotor conversion): it banks / pitches / yaws to
+  #                              # point the camera. The follower flies the 6-DOF reference (x y z roll
+  #                              # pitch yaw in time, attitude feed-forward into pid_controller) and the
+  #                              # generator bolts the Isaac camera on (sim_gimbal.mount: body_fixed).
+  #   max_tilt_deg: 30           # upstream defaults shown; also max_roll_pitch_rate_deg_s 60,
+  #   max_yaw_rate_deg_s: 45     # max_yaw_acc_deg_s2 60, max_speed_mps 17, speed_mps (= aircraft),
+  #   camera_mount: matched      # matched (tilt_deg + cruise trim) | fixed (+ cam_tilt_deg) | nadir,
+  #   use_yaw: true              # max_look_angle_deg 75, look_range_margin 0.98, knot_spacing_s 0.5, ...
+  #                              # (search_problem.cpp kQuadKeys; scenario.py quad_of)
+
   follower:                      # mtl_trajectory_follower, via every SearchPlan (gimbal_law)
     gimbal_law: open_loop        # single-axis gimbal: open_loop = replay the PLANNED cross-track angle
                                  # (roll + phi) with the look angle held at tilt_deg - the gimbal just swings
@@ -235,6 +247,8 @@ mission:
     roll_limit_deg: [-80.0, 80.0]
     pitch_limit_deg: [-20.0, 110.0]
     initial_pitch_deg: 60.0      # boresight at rest before any command
+    # mount: stabilized          # stabilized (default) | body_fixed: no gimbal, the camera bolted to the
+    # body_fixed_tilt_deg: 32.25 # airframe at this tilt from nadir (set by quad.enabled automatically)
 
   render:                        # cosmetic; no planner reads this
     texture_px: 512

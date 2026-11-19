@@ -151,6 +151,9 @@ def gimbal_params(scenario: dict) -> dict[str, Any]:
     g = dict(scenario.get("airstack", {}).get("sim_gimbal", {}))
     roll = g.get("roll_limit_deg", [-80.0, 80.0])
     pitch = g.get("pitch_limit_deg", [-20.0, 110.0])
+    mount = str(g.get("mount", "stabilized"))
+    if mount not in ("stabilized", "body_fixed"):
+        raise ValueError(f"airstack.sim_gimbal.mount {mount!r} is not stabilized | body_fixed")
     return {
         "fov_deg": float(scenario["sensor"]["fov_deg"]),
         "width": int(g.get("width", 640)),
@@ -162,4 +165,9 @@ def gimbal_params(scenario: dict) -> dict[str, Any]:
         "pitch_limit_rad": (math.radians(float(pitch[0])), math.radians(float(pitch[1]))),
         "initial_pitch_rad": math.radians(float(g.get("initial_pitch_deg", 60.0))),
         "max_range_m": max(200.0, 4.0 * float(scenario["aircraft"]["altitude_m"])),
+        # "stabilized" (default: the earth-stabilised gimbal, driven by gimbal/cmd_pitch_yaw) or
+        # "body_fixed" (no gimbal: the camera is bolted to the airframe at body_fixed_tilt_deg from
+        # body -z toward +x; written by sim_scenario.py for the curve planner's quadrotor mode)
+        "mount": mount,
+        "body_fixed_tilt_rad": math.radians(float(g.get("body_fixed_tilt_deg", scenario["sensor"].get("tilt_deg", 30.0)))),
     }

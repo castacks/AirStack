@@ -5,9 +5,13 @@ Interfaces of the [`mtl_search`](../../../../stacks/mtl_search/README.md) stack.
 | Interface | Producer → consumer | Purpose |
 |---|---|---|
 | `action/SearchMission` | operator / `scripts/mtl_start_mission.sh` → `mtl_search_planner` (`/<robot>/search_mission`) | Plan and fly this robot's search. Goal: `start_mission`, `run_id`, optional `scenario_file`. Result: run folder, plan id, planned and flown length, duration, cells planned. Feedback: phase, progress, remaining, cross-track error, position |
-| `msg/SearchPlan` | `mtl_search_planner` (either planner type) → follower, logger (`search/plan`, transient local) | One agent's plan in its `map` frame: `airstack_msgs/TrajectoryXYZVYaw` track; per-sample boresight, arc length, time and planned gimbal angle, pitch and roll (`phi` + right, cross-track angle `roll + phi`); the single-axis `gimbal_law` the follower flies (`open_loop` replays the planned angle, `aim_point` aims at the boresight; empty = `aim_point`); sensor and aircraft limits; serviced cells; budget |
+| `msg/SearchPlan` | `mtl_search_planner` (either planner type) → follower, logger (`search/plan`, transient local) | One agent's plan in its `map` frame: `airstack_msgs/TrajectoryXYZVYaw` track; per-sample boresight, arc length, time and planned gimbal angle, pitch and roll (`phi` + right, cross-track angle `roll + phi`); the single-axis `gimbal_law` the follower flies (`open_loop` replays the planned angle, `aim_point` aims at the boresight; empty = `aim_point`); sensor and aircraft limits; serviced cells; budget. `platform`: `""`/`fixed_wing` (the gimbal plan) or `quadrotor` (curve planner + `quad.enabled`: a body-fixed camera; the track is a 6-DOF reference in time with `planned_velocity`, `waypoints[].acceleration`, `planned_roll_rad`, `planned_pitch_rad` (+ nose up), vehicle yaw and `planned_yaw_rate_rad_s`; `mount_tilt_rad` = the camera's fixed tilt) |
 | `msg/FollowerStatus` | `mtl_trajectory_follower` → planner, logger (`search/follower_status`) | `IDLE / INGRESS / SEARCH / COMPLETE / ABORTED`, progress, cross-track error, carrot, aim point, gimbal command |
 
 The gimbal command itself is a plain `geometry_msgs/Vector3` on `/<robot>/gimbal/cmd_pitch_yaw`,
 and the measured state is on `/<robot>/gimbal/state`: `x = roll`, `y = pitch`, `z = yaw`, in
 radians. The angles are Z-Y-X Euler in the earth (ENU) frame, and `pitch > 0` looks down.
+
+A quadrotor plan's reference attitude reaches `pid_controller` as a
+`geometry_msgs/QuaternionStamped` on `/<robot>/trajectory_controller/attitude_feedforward`
+(map frame, FLU body), published by the follower only while it flies such a plan.

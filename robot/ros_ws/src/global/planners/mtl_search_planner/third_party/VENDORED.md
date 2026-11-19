@@ -110,8 +110,7 @@ body-fixed camera*, the `team.*` table) and the upstream `README_curve_planner.m
 - **New upstream features that `mtlc_plan` does not read, so the adapter does not expose them**
   (strict mirror): the GCS seed (`InitStrategy::Gcs`, `TeamParams::gcs`; needs SCS, not built;
   `gcs` refused), the curve planner's own information-aware cluster search
-  (`PlannerParams::infoAware`), the quadrotor body-fixed-camera conversion (`PlannerParams::quad`;
-  the follower keeps flying the gimbal plan), kernel clusters (`team.clusterMode`) and the
+  (`PlannerParams::infoAware`), kernel clusters (`team.clusterMode`) and the
   corridor penalty. All stay at their defaults (off); their blocks are refused in the scenario.
 - **Host additions to `plan.json` → `meta.curve`:** `init_strategies` and `seeds` (per agent
   `j_seed` / `j_optimised` from `TeamInfo::seedJ0` / `seedJ1`, and the sector route
@@ -202,3 +201,13 @@ Upstream removed a file? Delete it here too (ask first), and update the source l
 `cmake/mtl_vendored.cmake` if sources were added or removed. Never patch this tree: report
 upstream bugs and re-vendor. Then diff `apps/mtl_curve_plan_json.cpp` against the previous
 commit and mirror every change in `src/search_problem.cpp`.
+
+## Host addition (2026-11-11): the quadrotor conversion is exposed
+
+`PlannerParams::quad` (upstream `quadrotor/`) is now read by the adapter from a top-level
+`quad` block (`search_problem.cpp` `quadFromScenario`, keys in `kQuadKeys`, validated by
+`scenario.py quad_of`; `mtlc_plan` still does not read it). With `quad.enabled` the FLOWN track
+of a curve plan is the agent's `QuadTrajectory` (6-DOF reference in time, `AgentTrack.platform =
+"quadrotor"`, `SearchPlan.platform`), not the gimbal plan. Absent / false: every plan is
+byte-identical to before (checked on s0136 with mtl_v3: `plan.json` identical, track samples
+identical). No vendored file changed.

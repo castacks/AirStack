@@ -78,8 +78,16 @@ NS = 1_000_000_000
 ROBOT_RGB = [(0.165, 0.471, 0.839), (0.922, 0.408, 0.204), (0.106, 0.686, 0.478),
              (0.62, 0.35, 0.85), (0.85, 0.25, 0.55), (0.35, 0.75, 0.85)]
 ACTIVE = ("INGRESS", "SEARCH")
-RESIDUAL_PERIOD_S = 1.0   # /world/residual snapshot period [s]
-RESIDUAL_BLOCK_PX = 2     # prior/residual grids: block means of 2 x 2 raster pixels (4 m at 2 m)
+RESIDUAL_PERIOD_S = 1.0   # /world/residual snapshot period [s] (--residual-period)
+RESIDUAL_BLOCK_PX = 2     # prior/residual grids: at least 2 x 2 raster pixels per cell ...
+RESIDUAL_MAX_SIDE = 400   # ... and at most this many cells per side (--residual-max-side): a 5 km map
+                          # at 1 m is 25 M pixels, so 2 x 2 blocks would be 6.25 M cells per snapshot
+                          # (hours of work, ~200 MB each); 400 per side = 13 m cells, 0.6 MB each
+
+
+def residual_block(nx: int, ny: int, max_side: int = RESIDUAL_MAX_SIDE) -> int:
+    """Raster pixels per grid cell side: >= RESIDUAL_BLOCK_PX, and few enough cells per side."""
+    return max(RESIDUAL_BLOCK_PX, -(-max(nx, ny) // max(int(max_side), 1)))
 OPTICAL_FROM_GIMBAL = (-0.5, 0.5, -0.5, 0.5)   # (x, y, z, w) == mtl_trajectory_follower
 
 
@@ -393,7 +401,8 @@ class Out:
 
 
 def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, image_hz: float, raw: bool,
-          static_period_s: float) -> dict:
+          static_period_s: float, residual_period_s: float = RESIDUAL_PERIOD_S,
+          residual_max_side: int = RESIDUAL_MAX_SIDE) -> dict:
     scenario_p = next((p for p in [run_dir / "scenario.json", *sorted(run_dir.glob("robot_*/scenario.json")),
                                    REPO / "stacks/mtl_search/config/scenario.json"] if p.is_file()), None)
     if scenario_p is None:
@@ -462,9 +471,15 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
     scorer = None
     t_score0 = 0
     prior = prior_from_scenario(scenario)  # normalised prior raster (sums to 1), world ENU
+    blk = residual_block(prior.nx, prior.ny, residual_max_side) if prior is not None else RESIDUAL_BLOCK_PX
+    if prior is not None:
+        print(f"[mtl_foxglove] prior {prior.nx}x{prior.ny} at {prior.res:g} m; belief/residual grids of "
+              f"{-(-prior.nx // blk)}x{-(-prior.ny // blk)} cells ({blk * prior.res:g} m), a residual snapshot every "
+              f"{residual_period_s:g} s", flush=True)
     if rows_by_agent:
         scorer, _per, _meas = score_agents(rows_by_agent, scenario, ground_truth, prior=prior,
-                                           residual_snapshot_s=RESIDUAL_PERIOD_S)
+                                           residual_snapshot_s=residual_period_s or None,
+                                           residual_snapshot_block=blk)
         t_score0 = int(min(rows[0]["t"] for rows in rows_by_agent.values()) * NS)
     tgt_xy = targets_world(ground_truth)
 
@@ -482,9 +497,8 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
     if prior is not None:
         # The prior is a PMF over the 2 m raster; show 2 x 2-pixel block means scaled so the
         # densest prior block is 1, and the residual on the SAME scale (swept belief goes dark).
-        blk = RESIDUAL_BLOCK_PX
-        pmeans = ResidualBelief(prior, DetectionModel()).block_means(blk, prior=True)
-        peak = max(pmeans) or 1.0
+        pmeans = np.asarray(ResidualBelief(prior, DetectionModel()).block_means(blk, prior=True), dtype=np.float64)
+        peak = float(pmeans.max()) or 1.0
         nbx = -(-prior.nx // blk)
         cell_m = blk * prior.res
 
@@ -496,9 +510,9 @@ def build(run_dir: Path, out_path: Path, *, images: bool, jpeg_quality: int, ima
                                                       type=fm.PackedElementFieldNumericType.Float32)],
                         data=np.asarray(vals, dtype="<f4").tobytes())
 
-        grid_msg = grid_args([v / peak for v in pmeans], 0.02)
+        grid_msg = grid_args(pmeans / peak, 0.02)
         if scorer and scorer.residual_snapshots:
-            residual_grid = [(t_rel, grid_args([v / peak for v in snap], 0.03))
+            residual_grid = [(t_rel, grid_args(np.asarray(snap, dtype=np.float64) / peak, 0.03))
                              for t_rel, snap in scorer.residual_snapshots]
 
     def static_frame(t):
@@ -884,6 +898,10 @@ def main() -> int:
     ap.add_argument("--image-hz", type=float, default=0.0, help="max camera frame rate per robot (0 = all frames)")
     ap.add_argument("--static-period", type=float, default=1.0,
                     help="re-publish period of static scene layers [s] (lets Foxglove seek anywhere)")
+    ap.add_argument("--residual-period", type=float, default=RESIDUAL_PERIOD_S,
+                    help="residual-belief map snapshot period [s] (0 = no /world/residual)")
+    ap.add_argument("--residual-max-side", type=int, default=RESIDUAL_MAX_SIDE,
+                    help="max belief/residual grid cells per side (coarser blocks on big maps)")
     a = ap.parse_args()
     run_dir = a.run_dir.resolve()
     if not run_dir.is_dir():
@@ -891,7 +909,8 @@ def main() -> int:
         return 2
     out = a.out or run_dir / "foxglove" / f"{run_dir.name}.mcap"
     res = build(run_dir, out, images=not a.no_images, jpeg_quality=a.jpeg_quality, image_hz=a.image_hz,
-                raw=not a.no_raw, static_period_s=a.static_period)
+                raw=not a.no_raw, static_period_s=a.static_period, residual_period_s=a.residual_period,
+                residual_max_side=a.residual_max_side)
     layout = out.parent / "mtl_layout.json"
     write_layout(layout, res["robots"])
     s = res["summary"]

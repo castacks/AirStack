@@ -69,7 +69,8 @@ def read_telemetry(path: Path) -> dict[str, np.ndarray]:
     with path.open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     keys = ["t", "x_world", "y_world", "z_world", "yaw", "cmd_roll", "cmd_pitch", "cmd_yaw",
-            "meas_roll", "meas_pitch", "meas_yaw", "gimbal_measured", "progress_m", "slant_m"]
+            "meas_roll", "meas_pitch", "meas_yaw", "gimbal_measured", "progress_m", "slant_m",
+            "pointing_error_m", "footprint_r_m"]
 
     def num(v):
         try:
@@ -253,11 +254,14 @@ def fig_gimbal_map(path, xs, ys, prior, agents, tel, bores):
     return _png(fig, path)
 
 
-def lateral_offset(x, y, gx, gy, yaw=None):
-    """Signed cross-track offset of the boresight ground point (left of the heading = +)."""
-    if yaw is None:
-        yaw = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
-    return -(gx - x) * np.sin(yaw) + (gy - y) * np.cos(yaw)
+def lateral_offset(x, y, gx, gy):
+    """Signed cross-track offset of the boresight ground point, left of the PATH direction
+    (the direction of travel) = +. Planned and flown use the same definition: the vehicle's
+    yaw is NOT used, because a quadrotor's yaw weaves away from its direction of travel
+    (comparing a planned offset taken from the planned yaw with a flown one taken from the
+    path made a ~170 m planned sweep look like ~400 m flown)."""
+    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
+    return -(gx - x) * np.sin(heading) + (gy - y) * np.cos(heading)
 
 
 def fig_gimbal_series(path, agents, tel, bores, planned, beta, roll_lim, zoom):
@@ -278,7 +282,7 @@ def fig_gimbal_series(path, agents, tel, bores, planned, beta, roll_lim, zoom):
             m = (t >= t0) & (t <= t1)
             if plat is not None:
                 ax.plot(t[m], plat[m], color=MUTED, lw=1.3, label="planned (same arc length)")
-            ax.plot(t[m], lat[m], color=SER[k % 3], lw=1.1, label="flown (measured gimbal)")
+            ax.plot(t[m], lat[m], color=SER[k % 3], lw=1.1, label="flown (measured camera)")
             ax.axhline(0, color=AXIS, lw=1)
             ax.set_xlim(t0, t1); ax.set_ylim(-1000, 1000)
             ax.set_ylabel(f"{name}\nlateral offset [m]" if col == 0 else "")
@@ -311,7 +315,7 @@ def fig_gimbal_series(path, agents, tel, bores, planned, beta, roll_lim, zoom):
             ax.set_xlabel("time [s]")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     fig.legend(handles=[Line2D([], [], color=MUTED, lw=1.5, label="planned (track.json, same arc length)"),
-                        Line2D([], [], color=INK2, lw=1.5, label="flown, measured gimbal (agent colour)"),
+                        Line2D([], [], color=INK2, lw=1.5, label="flown, measured camera (agent colour)"),
                         Line2D([], [], color="#d03b3b", marker=".", ls="", ms=8, label="look point beyond β")],
                loc="lower center", ncol=3)
     return _png(fig, path)
@@ -364,6 +368,7 @@ def main(argv=None) -> int:
     tel = {a: read_telemetry(run / a / "telemetry.csv") for a in agents}
     bores = {a: boresight(tel[a]) for a in agents}
     planned = {}
+    platform = {}
     for a in agents:
         tp = run / a / "track.json"
         if tp.is_file():
@@ -373,9 +378,9 @@ def main(argv=None) -> int:
             if all(k in s for k in ("bx_map", "by_map", "x_map", "y_map", "arc")):
                 px, py = np.array(s["x_map"]) + hx, np.array(s["y_map"]) + hy
                 bx, by = np.array(s["bx_map"]) + hx, np.array(s["by_map"]) + hy
-                yaw = np.array(s["yaw_enu"]) if "yaw_enu" in s else None
                 pz = np.array(s.get("z_map", [h] * len(px))) + hz - (np.array(s["bz_map"]) + hz if "bz_map" in s else 0.0)
-                planned[a] = {"arc": np.array(s["arc"]), "lat": lateral_offset(px, py, bx, by, yaw),
+                platform[a] = tr.get("platform", "fixed_wing")
+                planned[a] = {"arc": np.array(s["arc"]), "lat": lateral_offset(px, py, bx, by),
                               "slant": np.sqrt((bx - px) ** 2 + (by - py) ** 2 + pz ** 2)}
 
     # independent residual re-score + seen region
@@ -440,9 +445,10 @@ def main(argv=None) -> int:
          "The measured boresight ground point over time (viridis = time); the zig-zag is the cross-track sweep."),
         ("Gimbal trajectory — sweep and slant range",
          fig_gimbal_series(out / "gimbal_sweep.png", agents, tel, bores, planned, beta, roll_lim, zoom),
-         "Where the camera axis hit the ground, as a signed cross-track distance from the aircraft (left +): "
-         "planned (track.json boresight schedule, compared at the same arc length because the aircraft flew "
-         "slightly faster than planned) vs flown (measured gimbal). Right: slant range to the boresight point; "
+         "Where the camera axis hit the ground, as a signed distance from the aircraft, left of its direction of "
+         "travel = + (the same definition for planned and flown): planned (track.json boresight schedule, compared "
+         "at the same arc length) vs flown (measured camera: the gimbal, or for a quadrotor the camera bolted to "
+         "the airframe). Right: slant range to the boresight point; "
          "red = beyond β, where the scorer drops the whole look."),
     ]
     rep_resid = (dj.get("summary") or {}).get("residual_belief_mass")
@@ -453,6 +459,24 @@ def main(argv=None) -> int:
         f"Independent re-score of the residual belief on a {args.res:g} m raster: {resid:.5f} "
         f"(report: {rep_resid}). Ground seen with P_miss &lt; 0.1: {100 * seen.mean():.1f} % of the area.",
     ]
+    for a in agents:
+        if platform.get(a) != "quadrotor":
+            continue
+        T = tel[a]
+        pe, fr = T["pointing_error_m"], T["footprint_r_m"]
+        ok = np.isfinite(pe) & np.isfinite(fr) & (fr > 0)
+        tilt = (sc.get("airstack") or {}).get("sim_gimbal", {}).get("body_fixed_tilt_deg")
+        if ok.any():
+            notes.append(
+                f"{a} flew as a QUADROTOR with the camera bolted to the airframe"
+                + (f" at {float(tilt):.2f}° from nadir" if tilt is not None else "")
+                + ": there is no gimbal, the measured camera angles are the vehicle attitude × the mount, and every "
+                f"figure and the residual use them. Pointing error = distance from where that camera looked to the "
+                f"quad plan's boresight point at the same plan time: median {np.median(pe[ok]):.0f} m, "
+                f"p95 {np.percentile(pe[ok], 95):.0f} m, i.e. {np.median(pe[ok] / fr[ok]):.2f} footprint radii "
+                f"(median footprint radius {np.median(fr[ok]):.0f} m). With a bolted camera every degree of attitude "
+                f"error moves the look point by ~{np.median(T['slant_m'][ok]) * math.pi / 180:.0f} m or more at this slant, "
+                f"so this measures attitude tracking, not position tracking.")
     print("\n".join(re.sub("&lt;", "<", n) for n in notes))
     if not args.no_inject and (run / "report.html").is_file():
         inject(run / "report.html", figs, notes)

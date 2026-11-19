@@ -122,6 +122,12 @@ struct SearchProblem {
     /// airstack.follower.gimbal_law: "open_loop" (default) | "aim_point" - the
     /// single-axis gimbal law the follower flies (SearchPlan.gimbal_law).
     std::string            gimbalLaw = "open_loop";
+    /// The top-level "quad" block (curve planner only): quad.enabled re-plans every
+    /// agent for a QUADROTOR WITH A BODY-FIXED CAMERA (mtl::curve PlannerParams::quad,
+    /// upstream quadrotor/quad_trajectory) and the FLOWN track becomes that 6-DOF
+    /// trajectory (x, y, z, roll, pitch, yaw in time; no gimbal).  Absent / false =
+    /// the fixed-wing gimbal plan, unchanged.  curveParams.quad carries the options.
+    bool                   quadMode = false;
 
     int agentIndex(const std::string& agentName) const;  ///< -1 when absent
 };
@@ -214,9 +220,28 @@ struct TrackSample {
     double yaw = 0.0;      ///< [rad] ENU heading of the ground track
     double speed = 0.0;    ///< [m/s] planned ground speed at this sample
     double bx = 0.0, by = 0.0, bz = 0.0;  ///< scheduled boresight ground point [m, map]
-    double roll = 0.0;     ///< [rad] planned airframe roll (fixed-wing model; advisory)
-    double pitch = 0.0;    ///< [rad] planned airframe pitch (the scheduler's nudge; 0 for a curve)
+    double roll = 0.0;     ///< [rad] planned airframe roll (+ right side down; fixed-wing model: advisory)
+    double pitch = 0.0;    ///< [rad] planned airframe pitch (the scheduler's nudge; 0 for a curve; quadrotor: + nose up)
     double gimbalPhi = 0.0;///< [rad] planned 1-DOF cross-track gimbal angle (+ right, crossAngle = roll + phi)
+    // --- quadrotor tracks only (AgentTrack::platform == "quadrotor"; zero otherwise) ---
+    double vx = 0.0, vy = 0.0;   ///< [m/s] planned velocity, map (ENU) axes
+    double ax = 0.0, ay = 0.0;   ///< [m/s^2] planned acceleration, map (ENU) axes
+    double yawRate = 0.0;        ///< [rad/s]
+};
+
+/// Quadrotor conversion diagnostics carried by an AgentTrack (quad tracks only).
+struct QuadTrackInfo {
+    double camTilt = 0.0;          ///< [rad] body-fixed camera tilt from body -z toward +x (resolved)
+    double trimPitch = 0.0;        ///< [rad] nose-down cruise trim at quad.speed
+    double speed = 0.0;            ///< [m/s] quad cruise speed
+    double boreRms = 0.0, boreP95 = 0.0, boreMax = 0.0;   ///< [m] boresight vs the gimbal plan's ground points
+    double pathRms = 0.0;          ///< [m] vehicle vs the curve
+    double maxTiltDeg = 0.0, maxRollDeg = 0.0, maxPitchDeg = 0.0;
+    double maxRateXYDegS = 0.0, maxYawRateDegS = 0.0, maxLookDeg = 0.0;
+    double maxSpeed = 0.0;
+    bool   feasible = false;       ///< every quad limit holds
+    int    iterations = 0;
+    double solveTime = 0.0;        ///< [s]
 };
 
 /// Curve-planner diagnostics carried by an AgentTrack (curve plans only).
@@ -261,6 +286,10 @@ struct AgentTrack {
     PlannerType plannerType = PlannerType::Orienteering;
     CurveTrackInfo curve;               ///< filled for plannerType == Curve only
     std::string gimbalLaw = "open_loop";///< SearchProblem::gimbalLaw, for SearchPlan.gimbal_law
+    /// "fixed_wing" (the gimbal plan; every planner) | "quadrotor" (curve + quad.enabled:
+    /// body-fixed camera, 6-DOF time-indexed reference) -> SearchPlan.platform
+    std::string platform = "fixed_wing";
+    QuadTrackInfo quad;                 ///< filled for platform == "quadrotor" only
 
     double totalArc() const { return samples.empty() ? 0.0 : samples.back().arc; }
 };

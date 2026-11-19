@@ -158,6 +158,7 @@ start_bag() {
     "${R}/search_mission/_action/feedback" "${R}/search_mission/_action/status"
     "${R}/tasks/takeoff/_action/feedback" "${R}/tasks/takeoff/_action/status"
     "${R}/trajectory_controller/tracking_point" "${R}/trajectory_controller/tracking_point_nominal"
+    "${R}/trajectory_controller/attitude_feedforward"
     "${R}/trajectory_controller/look_ahead" "${R}/trajectory_controller/trajectory_vis"
     "${R}/behavior/drone_safety_monitor/state_estimate_timed_out"
   )

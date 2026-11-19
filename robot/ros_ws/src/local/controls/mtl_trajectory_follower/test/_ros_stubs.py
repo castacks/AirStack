@@ -216,6 +216,7 @@ def install(monkeypatch):
     mod("airstack_msgs.srv", TrajectoryMode=types.SimpleNamespace(Request=_TMReq))
     mod("geometry_msgs"), mod("geometry_msgs.msg", PointStamped=_msg("PointStamped"),
                                TransformStamped=_msg("TransformStamped"), Vector3=Vector3, Point=Point,
+                               QuaternionStamped=_msg("QuaternionStamped"),
                                Point32=Point32, Quaternion=Quaternion, PolygonStamped=PolygonStamped)
     mod("nav_msgs"), mod("nav_msgs.msg", Odometry=_msg("Odometry"))
     mod("std_msgs"), mod("std_msgs.msg", Bool=_msg("Bool"), Empty=_msg("Empty"), String=_msg("String"))

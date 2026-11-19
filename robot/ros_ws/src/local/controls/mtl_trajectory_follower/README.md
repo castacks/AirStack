@@ -34,6 +34,25 @@ In every mode a per-axis slew limit applies. Commands go out at 20 Hz on
 `gimbal/cmd_pitch_yaw` (`geometry_msgs/Vector3`: `x = roll`, `y = pitch`, `z = yaw`,
 radians). Angles are earth-frame (ENU) Z-Y-X, and `pitch > 0` looks down.
 
+**Quadrotor plans (6-DOF, body-fixed camera).** A plan with `SearchPlan.platform ==
+"quadrotor"` (the curve planner with `quad.enabled`) has no gimbal: the camera is bolted to the
+airframe, so the plan is a reference in TIME for x, y, z, roll, pitch and yaw (plus velocity,
+acceleration and yaw rate). `QuadTrackFollower` flies it instead of the carrot pursuit:
+
+| State | Tracking point out | Attitude feed-forward |
+|---|---|---|
+| `INGRESS` | straight to the first sample at its altitude, then turn to its heading (within `quad_ingress_yaw_tolerance_deg`) | none |
+| `SEARCH` | the reference position and velocity at `t_ref`, heading = the reference yaw at `t_ref + quad_yaw_lead_s` (0.45 s). `t_ref` runs with the clock while the vehicle lags the reference by < `quad_lag_soft_m`, slows, and stops at `quad_lag_hard_m` | the reference roll / pitch at `t_ref + quad_attitude_lead_s` (0.25 s) and yaw at `t_ref + quad_yaw_lead_s`, `geometry_msgs/QuaternionStamped` on `trajectory_controller/attitude_feedforward` every tick |
+| `COMPLETE` | holds the end | none (pid_controller drops it after 0.25 s) |
+
+`pid_controller` adds the reference velocity after its position-loop clamp and the reference
+tilt (re-expressed in the vehicle's yaw frame) to its attitude command, and scales the thrust
+by `1/(cos roll cos pitch)` while the feed-forward is fresh; gimbal plans never publish it, so
+they fly exactly as before. `gimbal/cmd_pitch_yaw` then reports where the bolted camera looks
+(the odometry attitude composed with the mount tilt `SearchPlan.mount_tilt_rad`); the Isaac
+scene ignores it in its `body_fixed` mount. `scripts/planner_benchmark/quad/quad_rehearsal.py`
+flies this loop offline against a multirotor model.
+
 **Aborts.** The follower aborts on any of:
 
 - stale odometry (`odometry_timeout_s`);
@@ -54,7 +73,8 @@ These are all launch args with canonical defaults; see
   `trajectory_controller/tracking_point_nominal`, `gimbal/state`, `search/abort`, the safety
   timeout.
 - Out: `trajectory_controller/tracking_point`, `gimbal/cmd_pitch_yaw`, `search/follower_status`,
-  `search/carrot`, `search/aim_point`.
+  `search/carrot`, `search/aim_point`, and for quadrotor plans only
+  `trajectory_controller/attitude_feedforward`.
 - Service client: `trajectory_controller/set_trajectory_mode`.
 
 ## Code
@@ -67,6 +87,6 @@ These are all launch args with canonical defaults; see
 
 ## Tests
 
-`test/test_gimbal_math.py`, `test/test_follower_core.py` and `test/test_follower_node.py`
-cover the node with hermetic `rclpy` stubs (`test/_ros_stubs.py`). They run on the host
+`test/test_gimbal_math.py`, `test/test_follower_core.py`, `test/test_follower_node.py` and
+`test/test_quad_follower.py` (the quadrotor mode) cover the node with hermetic `rclpy` stubs (`test/_ros_stubs.py`). They run on the host
 without ROS.

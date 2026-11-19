@@ -31,15 +31,27 @@ string gimbal_law               # single-axis gimbal law the follower flies:
                                 #   "aim_point"  aim at the planned ground point from the actual pose (+/-5 deg pitch nudge)
                                 #   ""           = "aim_point" (a planner that names none, e.g. TIGRIS)
 geometry_msgs/Vector3 map_origin_in_world   # world ENU of the map origin (the agent's home)
+string platform                 # what flies the plan:
+                                #   "" | "fixed_wing"  the gimbal plan (the follower's carrot pursuit by arc
+                                #                      length + gimbal_law; every planner)
+                                #   "quadrotor"        curve planner + quad.enabled: a QUADROTOR WITH A
+                                #                      BODY-FIXED CAMERA (no gimbal; mount_tilt_rad = the
+                                #                      camera's fixed tilt). The track is a 6-DOF reference
+                                #                      in TIME: position, planned_velocity,
+                                #                      trajectory.waypoints[].acceleration, roll / pitch / yaw
 
 # --- the track: N samples, all arrays share one index --------------------------
-airstack_msgs/TrajectoryXYZVYaw trajectory  # position [map], planned speed, ENU yaw
+airstack_msgs/TrajectoryXYZVYaw trajectory  # position [map], planned speed, ENU yaw (quadrotor: the VEHICLE
+                                            # heading, + acceleration [map, m/s^2])
 geometry_msgs/Point[] boresight             # scheduled ground point per sample [map]
 float64[] arc_length_m                      # flown ground-track arc length
 float64[] time_s                            # planner timeline
 float64[] planned_gimbal_phi_rad            # 1-DOF cross-track angle (+ right; crossAngle = roll + phi); 0 in 2-DOF mode
-float64[] planned_pitch_rad                 # planned airframe pitch (look angle nudge)
-float64[] planned_roll_rad                  # planned airframe roll (empty = 0; the open_loop law replays roll + phi)
+float64[] planned_pitch_rad                 # planned airframe pitch (look angle nudge; quadrotor: + nose UP)
+float64[] planned_roll_rad                  # planned airframe roll (+ right side down; empty = 0; the open_loop
+                                            # law replays roll + phi)
+geometry_msgs/Vector3[] planned_velocity    # quadrotor only: planned velocity [map, m/s] (empty otherwise)
+float64[] planned_yaw_rate_rad_s            # quadrotor only: planned yaw rate (empty otherwise)
 
 int32[] serviced_cells          # global cell indices the gimbal is scheduled to observe
 float64 planned_length_m
