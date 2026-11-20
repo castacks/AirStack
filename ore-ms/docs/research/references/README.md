@@ -1,8 +1,18 @@
+[IRS thermal update-rate comparison](../irs-thermal-input-budget-intake-2026-11-19.md) reviews prior thermal rotational-speed ablations and tests the effect of halving thermal update cadence on metric position error in Fast Dark.
+
+[SmokeRoom VINS-Fusion RGB control](../smokeroom-vins-rgb-control-2026-11-19.md) checks the pinned native MEI path and records the frozen clear-window replay contract.
+
+[SmokeRoom stateful recovery intake](../smokeroom-stateful-recovery-intake-2026-11-19.md) rechecks the SubT-MRS reference construction, smoke feature example and current release inventory.
+
+[Deployment characterization synthesis](../rgb-thermal-deployment-synthesis-2026-11-19.md) rechecks MAC-VO v2, the RRxIO author abstract, and hierarchical adaptation for claim boundaries.
+
 [Super Odometry v1 and v2](../super-odometry-handoff-relevance-2026-11-18.md) records the inertial-state and adaptation methods, pins the slim public implementation, and checks horizontal versus vertical handoff errors.
 
 [Fast-dark common-timestamp replay](../irs-rtvi-fast-dark-common-support-2026-11-18.md) reruns the pinned IRS loader on the CRC-verified public bag and scores metric position after a 10-second alignment.
 
 [OdomBeyondVision transition intake](../odombeyondvision-transition-intake-2026-11-18.md) checks the author paper, sequence inventory and released UAV bag names. All Vicon sequences are labeled bright.
+
+[DiTer++ PARK intake](../diter-plusplus-park-intake-2026-11-19.md) checks the paper’s sensor, sequence, and reference methods and the author release inventory available from this machine.
 
 Latest: [IRS RTVI continuous-frame photometric test](../irs-rtvi-photometric-transition-2026-11-18.md) checks recorded light states, verifies current TartanRGBT pose provenance, and measures a scheduled thermal handoff during artificial dimming.
 

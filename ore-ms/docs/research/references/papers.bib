@@ -74,7 +74,7 @@
 @misc{macvo,
   title = {MAC-VO: Metrics-aware Covariance for Learning-based Stereo Visual Odometry},
   url = {https://arxiv.org/html/2409.09479v2},
-  note = {Reading/reproduction status in papers.json; native disparity optimizer, sequential feedback, recording transfer and continuation assessed 2026-11-15, not full pipeline reproduction}
+  note = {Reading/reproduction status in papers.json; native disparity optimizer, sequential feedback, recording transfer and continuation assessed 2026-11-15; two-frame scope rechecked for the 2026-11-19 deployment synthesis}
 }
 
 @misc{imagebind,
@@ -498,7 +498,7 @@
   title = {SubT-MRS Dataset: Pushing SLAM Towards All-weather Environments},
   author = {Shibo Zhao and others},
   url = {https://arxiv.org/abs/2307.07607},
-  note = {Reading and data qualification status in papers.json}
+  note = {Reading and data qualification status in papers.json; SmokeRoom fused reference and release rechecked 2026-11-19}
 }
 
 @misc{ngclab-multispectral-2021,
@@ -604,7 +604,7 @@
   booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems},
   year = {2021},
   url = {https://ieeexplore.ieee.org/document/9636799},
-  note = {Author RRxIO implementation at commit ae29afe0d7876f3838056b457292e4aecf9656be, also the base of the local handoff prototypes and visual update instrumentation}
+  note = {Author RRxIO implementation at commit ae29afe0d7876f3838056b457292e4aecf9656be, also the base of the local camera--IMU handoff prototypes; radar was outside those replay arms}
 }
 
 @inproceedings{li2022odombeyondvision,
@@ -634,5 +634,36 @@
   number = {109},
   pages = {eadv1818},
   doi = {10.1126/scirobotics.adv1818},
-  url = {https://arxiv.org/abs/2608.25427v1}
+  url = {https://arxiv.org/abs/2608.25427v1},
+  note = {Feature, state-direction and engine adaptation reviewed for the 2026-11-19 deployment synthesis}
+}
+
+@inproceedings{kim2025diterplusplus,
+  title = {{DiTer++}: Diverse Terrain and Multi-Modal Dataset for Multi-Robot {SLAM} in Multi-Session Environments},
+  author = {Kim, Juwon and Kim, Hogyun and Jeong, Seokhwan and Shin, Youngsik and Cho, Younggun},
+  booktitle = {IEEE International Conference on Robotics and Automation},
+  year = {2025},
+  url = {https://arxiv.org/abs/2412.05839v1}
+}
+
+@misc{qin2019vinsfusion-local,
+  title = {A General Optimization-based Framework for Local Odometry Estimation with Multiple Sensors},
+  author = {Qin, Tong and Pan, Jie and Cao, Shaozu and Shen, Shaojie},
+  year = {2019},
+  url = {https://arxiv.org/abs/1901.03638v1},
+  note = {Pinned monocular camera--IMU and native MEI code inspected for the SmokeRoom control}
+}
+
+@misc{safa2024thermalrotational,
+  title = {Rotational Odometry using Ultra Low Resolution Thermal Cameras},
+  author = {Ali Safa},
+  year = {2024},
+  url = {https://arxiv.org/abs/2411.01227v1}
+}
+
+@misc{mohsen2025thermalgyro,
+  title = {Deep Fusion of Ultra-Low-Resolution Thermal Camera and Gyroscope Data for Lighting-Robust and Compute-Efficient Rotational Odometry},
+  author = {Farida Mohsen and Ali Safa},
+  year = {2025},
+  url = {https://arxiv.org/abs/2506.12536v1}
 }

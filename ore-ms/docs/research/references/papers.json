@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17",
+  "updated": "2026-11-19",
   "scope": "Living working references. Citation presence is not evidence of reading or reproduction. Unresolved historical links remain in citation-index.json; promote to reviewed entries only after checking metadata and relevance.",
   "papers": [
     {
@@ -910,6 +910,11 @@
           "date": "2026-11-16",
           "source_note": "docs/research/pre-essential-exclusion-findings-2026-11-16.md",
           "inspection": "Fixed engineering intervention on exposed caches: image-only zero/bottom masks before unchanged essential fitting, both whole records/frontends/cameras, exact original-runtime control. Targeted official OpenCV5 Feature2D/decomposition API and tagged4.11decomposition source checked for SVD audit correction; local MAC-VO validity/border-mask snippets inspected. No new full-paper review, native-system reproduction, learned gate, physical truth or causal rig-only attribution."
+        },
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/rgb-thermal-deployment-synthesis-2026-11-19.md",
+          "inspection": "Rechecked v2 Figure 1 and Section V for the two-frame scope and original future-work boundary. No new execution."
         }
       ],
       "local_status": "See historical notes; no new reproduction asserted Additional2026-11-16synthetic frontend control: smokyRGB97.92%/thermal98.53%primary,217shared SIFTfailures\u21922with learned frontends; cleanFicusregression retained. No new method or physical smoke VO.",
@@ -950,7 +955,7 @@
         "docs/research/smokeseer-learned-findings-2026-11-16.md",
         "docs/research/flashlight-transfer-findings-2026-11-16.md"
       ],
-      "updated": "2026-11-16",
+      "updated": "2026-11-19",
       "historical_citations": [
         "MS_RESEARCH_HANDOFF.md",
         "docs/research/literature-2026-10-20.md",
@@ -2704,6 +2709,11 @@
           "source_note": "docs/research/independent-recording-intake-findings-2026-11-17.md",
           "source_version": "https://arxiv.org/html/2307.07607v5; historical contrast https://arxiv.org/html/2307.07607v2",
           "inspection": "Fresh targeted v5 section3.2 and v2 section5.3 ground-truth-method reading; current official sequence table/public raw/extracted folder metadata and maintainer issues8/9/36 checked. Reference trajectory fuses map, visual odometry, LiDAR and IMU; map accuracy is not sensor-independent trajectory certification. Bounded actual three-candidate ZIP inventories/text timestamps, four BlockVisual endpoint PNGs and complete MultiFloor/LongCorridor reference sidecars examined. Independent paired-pose readiness unmet. No full-paper review, reference-generator source reproduction, model run, independent physical truth or global reference-absence claim."
+        },
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/smokeroom-stateful-recovery-intake-2026-11-19.md",
+          "inspection": "Rechecked dataset paper reference construction, supplement Figure 7, current public inventories and IMU-pose convention. Reacquired public reference ZIP, timestamp lists and fixed RGB context; no estimator replay."
         }
       ],
       "decision_notes": [
@@ -2984,9 +2994,14 @@
           "date": "2026-11-18",
           "source_note": "docs/research/irs-rtvi-fast-dark-common-support-2026-11-18.md",
           "inspection": "Read the release sensor and archive contract, verified the fast-dark bag CRC, and rebuilt and ran the pinned 15-feature camera/IMU loader for two fixed controls."
+        },
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/rgb-thermal-deployment-synthesis-2026-11-19.md",
+          "inspection": "Rechecked the author abstract for radar-assisted visible/thermal inertial estimation and distinguished the local camera\u2013IMU handoff arms."
         }
       ],
-      "updated": "2026-11-17"
+      "updated": "2026-11-19"
     },
     {
       "id": "li2022odombeyondvision",
@@ -3038,9 +3053,82 @@
           "date": "2026-11-18",
           "source_note": "docs/research/super-odometry-handoff-relevance-2026-11-18.md",
           "inspection": "Author manuscript methods on feature, direction and engine selection; SubT-MRS accuracy and completeness comparison; author release scope."
+        },
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/rgb-thermal-deployment-synthesis-2026-11-19.md",
+          "inspection": "Rechecked the author manuscript on mixed degradation and adaptation at feature, state-direction, and engine levels. No new execution."
         }
       ],
-      "updated": "2026-11-18"
+      "updated": "2026-11-19"
+    },
+    {
+      "id": "kim2025diterplusplus",
+      "title": "DiTer++: Diverse Terrain and Multi-Modal Dataset for Multi-Robot SLAM in Multi-Session Environments",
+      "author": "Juwon Kim, Hogyun Kim, Seokhwan Jeong, Youngsik Shin, and Younggun Cho",
+      "venue_or_version": "ICRA 2025 / arXiv:2412.05839v1",
+      "url": "https://arxiv.org/html/2412.05839v1",
+      "release_repository": "https://github.com/sparolab/DiTer-plusplus/tree/884384764e45e681252a305f862cc6de3a9f5195",
+      "availability_source": "https://www.dropbox.com/scl/fo/zoawkn9s3thsjv3mkqux8/AN9G8TzeE_Uw92QBpE8hIKk?dl=0&rlkey=h3d9eu8pf0g6w3h0ywbdbqiv6",
+      "inspection": "Sections III\u2013IV and pinned release tree inspected. Author share inventory, daytime and nighttime bag indexes, two pose files, and calibration preview inspected.",
+      "local_status": "Daytime recording has overlapping pose files. Camera/IMU timing and reference frame require qualification.",
+      "reading_history": [
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/diter-plusplus-park-intake-2026-11-19.md",
+          "inspection": "Sensor topics, PARK environment, survey-map reference generation, and release availability."
+        }
+      ],
+      "updated": "2026-11-19"
+    },
+    {
+      "id": "qin2019vinsfusion-local",
+      "title": "A General Optimization-based Framework for Local Odometry Estimation with Multiple Sensors",
+      "author": "Tong Qin, Jie Pan, Shaozu Cao, and Shaojie Shen",
+      "venue_or_version": "arXiv:1901.03638v1",
+      "url": "https://arxiv.org/abs/1901.03638v1",
+      "code": "https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/tree/be55a937a57436548ddfb1bd324bc1e9a9e828e0",
+      "inspection": "Targeted abstract, repository mono-IMU support, camera YAML parser, CamOdoCal MEI lift, and serial input/output path.",
+      "reading_history": [
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/smokeroom-vins-rgb-control-2026-11-19.md",
+          "inspection": "Pinned source and camera model checked for the SmokeRoom RGB-only control."
+        }
+      ],
+      "updated": "2026-11-19"
+    },
+    {
+      "id": "safa2024thermalrotational",
+      "title": "Rotational Odometry using Ultra Low Resolution Thermal Cameras",
+      "author": "Ali Safa",
+      "venue_or_version": "arXiv:2411.01227v1",
+      "url": "https://arxiv.org/html/2411.01227v1",
+      "inspection": "Sections 2\u20134 inspected for fixed 8 fps acquisition, stacked-frame count, spatial subsampling and azimuthal speed target. No implementation execution.",
+      "reading_history": [
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/irs-thermal-input-budget-intake-2026-11-19.md",
+          "inspection": "Sections 2\u20134 inspected for fixed 8 fps acquisition, stacked-frame count, spatial subsampling and azimuthal speed target."
+        }
+      ],
+      "updated": "2026-11-19"
+    },
+    {
+      "id": "mohsen2025thermalgyro",
+      "title": "Deep Fusion of Ultra-Low-Resolution Thermal Camera and Gyroscope Data for Lighting-Robust and Compute-Efficient Rotational Odometry",
+      "author": "Farida Mohsen and Ali Safa",
+      "venue_or_version": "arXiv:2506.12536v1",
+      "url": "https://arxiv.org/html/2506.12536v1",
+      "inspection": "Sections II\u2013IV inspected for thermal\u2013gyro fusion, fixed 8 fps acquisition, context length, local pixel averaging and computational complexity. No implementation execution.",
+      "reading_history": [
+        {
+          "date": "2026-11-19",
+          "source_note": "docs/research/irs-thermal-input-budget-intake-2026-11-19.md",
+          "inspection": "Sections II\u2013IV inspected for thermal\u2013gyro fusion, fixed 8 fps acquisition, context length, local pixel averaging and computational complexity."
+        }
+      ],
+      "updated": "2026-11-19"
     }
   ]
 }

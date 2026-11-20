@@ -1,10 +1,9 @@
 # Current research handoff
 
-18 November 2026. Checkpoint: thermal handoff improves sustained artificial
-dimming. Early recovery remains above 0.15 m on both causal single-filter runs.
-Branch `ore-ms-orb-development` at `1c8b7ee55`. Start with the
-[IRS RTVI checkpoint](docs/research/pose-accuracy-baseline-comparison-2026-11-18.md#irs-rtvi-continuation-checkpoint)
-and [research index](docs/research/INDEX.md).
+20 November 2026. [Deployment characterization synthesis](docs/research/rgb-thermal-deployment-synthesis-2026-11-19.md)
+records the controlled degradation benefit, field comparisons, and recovery limits.
+The [SmokeRoom handoff](docs/research/smokeroom-vins-scheduled-handoff-2026-11-19.md) preserved output cadence but worsened obscuration error. [FlashLight](docs/research/flashlight-vins-rgb-reset-transfer-2026-11-19.md) showed that RGB reset can worsen accuracy. [Signed velocity corrections](docs/research/vins-longitudinal-correction-warning-2026-11-20.md) missed the SmokeRoom warning window. Natural recovery remains open. Warm-start 10 Hz passed in [Fast Dark](docs/research/irs-thermal-input-budget-intake-2026-11-19.md) and [Medium](docs/research/irs-thermal-cadence-medium-transfer-2026-11-19.md), adding 50 ms to maximum corrected gaps. Fast Dark failed with [immediate 10 Hz](docs/research/irs-thermal-cadence-startup-2026-11-19.md), a [five-second prefix](docs/research/irs-thermal-cadence-five-second-startup-2026-11-20.md), and [2 × 2 image pooling](docs/research/irs-thermal-spatial-pooling-fast-dark-2026-11-20.md). See the [research index](docs/research/INDEX.md)
+and [IRS RTVI checkpoint](docs/research/pose-accuracy-baseline-comparison-2026-11-18.md#irs-rtvi-continuation-checkpoint).
 
 ## Current question and decision
 
@@ -101,7 +100,7 @@ matching overhead3.3%. SIFT instead favors thermal during motion:≤5°17.2%RGB,
 [ViViD++ input preflight](docs/research/vivid-handheld-payload-intake-2026-11-17.md) verifies published timing nominally; [three-record support](docs/research/vivid-three-condition-support-2026-11-17.md) shows learned thermal adds proposals in all three recordings.
 [ViViD++ RRxIO](docs/research/vivid-stateful-transfer-2026-11-17.md) and [OpenVINS](docs/research/vivid-openvins-bright-control-2026-11-18.md) miss the bright trajectory gate. The [metric audit](docs/research/vivid-imu-metric-audit-2026-11-18.md) finds 1.59 m/s² bright acceleration discrepancy. The [release audit](docs/research/vivid-calibration-materials-2026-11-18.md) locates Microstrain.yaml and confirms a 6.09 m/s² discrepancy on the translation-rich candidate. Raw same-rig calibration remains unavailable.
 [Identity control](docs/research/vivid-zero-rotation-control-2026-11-17.md): learned 197/392 versus zero rotation 254/392 within 5° of both. [Depth](docs/research/vivid-depth-reference-crosscheck-2026-11-17.md) did not qualify a stronger reference.
-The IRS checkpoint above records completed controls and the 0.15 m / 0.15 s criteria. A qualified real light transition remains open. [Redcourse](docs/research/redcourse-pose-reference-intake-2026-11-18.md) has unverified GNSS reference provenance. [OdomBeyondVision](docs/research/odombeyondvision-transition-intake-2026-11-18.md) lists all eight Vicon bags as bright.
+The IRS checkpoint above records completed controls and the 0.15 m / 0.15 s criteria. [DiTer++ PARK](docs/research/diter-plusplus-park-intake-2026-11-19.md) has a recorded passage-to-daylight transition with overlapping pose files. [Redcourse](docs/research/redcourse-pose-reference-intake-2026-11-18.md) has unverified GNSS reference provenance. [OdomBeyondVision](docs/research/odombeyondvision-transition-intake-2026-11-18.md) lists all eight Vicon bags as bright.
 
 ## Prior evidence and closed routes
 
@@ -143,7 +142,7 @@ retains broader representation, supervision and estimation questions.
 
 Evidence is ignored under `results/deployment-characterization/` and
 `results/deployment-smoke-frontend/`; raw inputs under
-`data/deployment-characterization/`. Local verified packets live under
-`/root/ore-ms-artifacts/`. No Box upload, author outreach or Git publication occurred.
+`data/deployment-characterization/`. PARK artifacts are under `/root/ore-ms-artifacts/diter-park/`.
+SmokeRoom artifacts are under `/root/ore-ms-artifacts/smokeroom-recovery-intake/`. The historical IRS replay packet is absent.
 Use exact runtime/source/checkpoint pins from each study, not historical runtime
 success. Learned runs require deterministic cuBLAS workspace `:4096:8`.
