@@ -1,2 +1,3 @@
 - /bags/drone_3_VolleyBall_20261112_153424: motor_dynamics_full. First goal reached early, second goal took a while
 - /bags/drone_3_VolleyBall_20261112_154209: calibration file for barrier location. Rolled ball along edges (as best I could) and raised ball into the air near some corners to make sure tracking gets reestablished if lost
+- /bags/drone_3_VolleyBall_20261112_164130: policy_dr (i.e. domain randomization). Got first few goals quickly, but had trouble with later ones.
