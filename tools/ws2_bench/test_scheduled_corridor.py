@@ -13,8 +13,8 @@ import pytest
 
 from campaign import clean_twin
 from conditions import validate_schedule, sensor_parameters
-from corridor_space import (VERSION, reference_action, validate_action, spec_for,
-                            action_to_episode, mission_for, action_key, sample)
+from corridor_space import (VERSION, GPS_SPOOF_LIMIT, reference_action, validate_action, spec_for,
+                            action_to_episode, mission_for, action_key, sample, _route_midpoint)
 from corridors import geometry, patch_corners, _segment_box_distance
 from episode import resolved
 from audit_corridor_campaign import audit_scheduled_sensors
@@ -122,6 +122,56 @@ def test_variable_delay_releases_newest_due_never_an_older_late_frame():
     assert b.latest(.9)=='new_undelayed'
     assert b.latest(1.1)=='next_delayed'
     with pytest.raises(ValueError):b.push('bad',2.,float('nan'))
+
+
+def test_gps_spoof_m_is_optional_additive_and_range_checked():
+    # Absent == off: pre-existing v2 actions replay unchanged (no field injected).
+    a=reference_action(VERSION)
+    assert 'gps_spoof_m' not in validate_action(a)
+    # Present and in range: kept as a float; absent and 0 share one action key.
+    assert validate_action(dict(a,gps_spoof_m=3))['gps_spoof_m']==3.
+    assert action_key(a)==action_key(dict(a,gps_spoof_m=0.))
+    assert action_key(a)!=action_key(dict(a,gps_spoof_m=3.))
+    # Out of range and wrong types rejected; legacy v1 never accepts the knob.
+    for bad in (GPS_SPOOF_LIMIT[1]+0.1,-1.,float('nan'),True):
+        with pytest.raises(ValueError):validate_action(dict(a,gps_spoof_m=bad))
+    legacy=reference_action();legacy['obstacles']=[dict(route_s=6.,side=-1)]
+    with pytest.raises(ValueError):validate_action(dict(legacy,gps_spoof_m=3.))
+
+
+def test_gps_spoof_m_derives_the_faithful_b1_attack_only_on_the_perturbed_flight():
+    a=validate_action(dict(reference_action(VERSION),gps_spoof_m=5.),'kim')
+    c=resolved(action_to_episode(a,'kim',42,'gps',mission_for('kim')))  # resolved() validates the attack
+    assert c['attack']['id']=='B1_gps_spoof' and c['attack']['path']=='faithful'
+    assert c['attack']['params']['max_offset_m']==5. and c['attack']['seed']==42
+    assert clean_twin(c)['attack'] is None  # clean twin flies the same scene with no spoof
+    # Off (0) attaches no attack at all.
+    off=resolved(action_to_episode(validate_action(reference_action(VERSION),'kim'),'kim',42,'clean',mission_for('kim')))
+    assert off.get('attack') is None
+
+
+def test_imu_and_mag_knobs_place_a_proximity_disruptor_on_the_route():
+    base=reference_action(VERSION)
+    for knob,aid,key in (('imu_spoof','B4_imu_spoof','resonance_amplitude'),('mag_spoof','B5_mag_spoof','max_bias_gauss')):
+        a=validate_action(dict(base,**{knob:0.8}),'kim')
+        g=geometry(spec_for(a),a['layout_seed'])
+        c=resolved(action_to_episode(a,'kim',42,'x',mission_for('kim')))
+        atk=c['attack']
+        assert atk['id']==aid and atk['params'][key]==0.8
+        assert atk['params']['location'][:2]==pytest.approx(_route_midpoint(g)[:2])  # disruptor is on the route
+        assert 'range_m' in atk['params']                                            # distance-gated
+        assert clean_twin(c)['attack'] is None                                       # clean twin drops it
+    # One sensor attack per flight; off collapses to the same key as absent.
+    with pytest.raises(ValueError):validate_action(dict(base,gps_spoof_m=1.,imu_spoof=1.),'kim')
+    with pytest.raises(ValueError):validate_action(dict(base,imu_spoof=1.,mag_spoof=1.),'kim')
+    assert action_key(base)==action_key(dict(base,imu_spoof=0.,mag_spoof=0.))
+
+
+def test_sample_offers_a_gps_only_attack_vector():
+    found=next(sample(random.Random(s),'kim') for s in range(200)
+               if sample(random.Random(s),'kim').get('gps_spoof_m',0)>0)
+    assert 1.<=found['gps_spoof_m']<=GPS_SPOOF_LIMIT[1]
+    assert found['rgb_noise_stddev']==0. and found['delay_s']==0.  # GPS alone, vision clean
 
 
 def fake_trace(condition,include_active=True):

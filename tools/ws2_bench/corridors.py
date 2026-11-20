@@ -301,10 +301,18 @@ def geometry(raw,seed=42):
         # Continuous segment checks preserve the full nominal route envelope;
         # exact rotated collision footprints prevent wall/block intersections.
         for i,b in enumerate(obstacles):
-            if min(_segment_box_distance(a,z,b) for a,z in zip(points,points[1:]))<.7:
-                raise ValueError('Obstacle blocks the protected 0.7m centreline envelope')
+            # Specific feedback lets an agent repair its proposal in one attempt.
+            placement=spec['obstacle_placements'][i]
+            name=(f"Obstacle {i+1} (route_s={placement['route_s']}, lateral_m={placement['lateral_m']}, "
+                  f"depth_m={placement['depth_m']}, yaw_deg={placement['yaw_deg']})")
+            clearance=min(_segment_box_distance(a,z,b) for a,z in zip(points,points[1:]))
+            if clearance<.7:
+                raise ValueError(f'{name} blocks the protected 0.7m centreline envelope: nearest edge {clearance:.2f}m '
+                                 f'from the route centreline. On straights keep |lateral_m|-depth_m/2>=0.7; '
+                                 f'yaw and bends reduce clearance')
             if any(_boxes_overlap(b,w,.03) for w in walls):
-                raise ValueError('Obstacle intersects a corridor wall or its 3cm margin')
+                raise ValueError(f"{name} intersects a corridor wall or its 3cm margin. On straights keep "
+                                 f"|lateral_m|+depth_m/2<={spec['width']/2-.03:.2f}; yaw and bends reduce room")
             if any(_boxes_overlap(b,o,.1) for o in obstacles[i+1:]):
                 raise ValueError('Obstacle boxes overlap or are less than 10cm apart')
     # Closely spaced scoring gates prevent shortcutting corners in evaluation.

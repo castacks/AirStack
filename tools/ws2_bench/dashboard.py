@@ -17,7 +17,7 @@ def feedback_command(payload,output):
     if isinstance(budget,bool) or not isinstance(budget,int) or not 2<=budget<=100 or budget%2:raise ValueError('Flight budget must be even, 2..100')
     if any(isinstance(x,bool) or not isinstance(x,(int,float)) or not math.isfinite(x) for x in [timeout,distance]):raise ValueError('Invalid numeric mission settings')
     if not 60<=timeout<=600 or not 2<=distance<=30:raise ValueError('Duration60..600 seconds, goal2..30 metres')
-    if profile not in ['combined','sensors','noise','delay','patch']:raise ValueError('Invalid attack profile')
+    if profile not in ['combined','sensors','noise','delay','patch','gps_spoof']:raise ValueError('Invalid attack profile')
     if 'fcrn_patch' not in get_adapter(payload['planner']).attacks and profile in ('combined','patch'):raise ValueError('Rui patch is FCRN/Kim only; no ZoeDepth or DroNet patch is available; use a sensor profile')
     difficulty=payload.get('difficulty','easy')
     if not isinstance(difficulty,str) or difficulty not in DIFFICULTY_COUNTS:raise ValueError('Difficulty must be easy, medium or hard')
@@ -27,14 +27,15 @@ def feedback_command(payload,output):
 
 def adaptive_command(payload,output):
     """Build the saved-layout, no-noise adaptive campaign command."""
-    if not isinstance(payload,dict) or set(payload)-{'planner','budget','timeout','goal_distance','policy','provider','qualified_layouts','clean_validation_runs','infrastructure_retries','clean_failure_policy','action_space'} or not isinstance(payload.get('planner'),str) or payload.get('planner') not in REGISTRY:
+    if not isinstance(payload,dict) or set(payload)-{'planner','budget','timeout','goal_distance','policy','provider','qualified_layouts','clean_validation_runs','infrastructure_retries','clean_failure_policy','action_space','manual_action'} or not isinstance(payload.get('planner'),str) or payload.get('planner') not in REGISTRY:
         raise ValueError('Select one registered target model: '+', '.join(REGISTRY))
     policy=payload.get('policy','search')
     action_space=payload.get('action_space','saved')
     if action_space not in ('saved','expanded','corridor'):raise ValueError('Unknown action space')
     budget=payload.get('budget',8);timeout=payload.get('timeout',defaults(payload['planner'])['timeout'])
     distance=payload.get('goal_distance',8)
-    if policy not in ('random','search','agent_search'):raise ValueError('Invalid adaptive policy')
+    if policy not in ('random','search','agent_search','manual'):raise ValueError('Invalid adaptive policy')
+    if policy=='manual' and action_space!='corridor':raise ValueError('Manual tests run on the corridor action space')
     provider=payload.get('provider',os.environ.get('WS2_AGENT_PROVIDER','openai'))
     if provider not in ('claude','codex','openai'):raise ValueError('Provider must be claude, codex or openai')
     if action_space in ('expanded','corridor') and policy=='agent_search' and provider not in ('claude','codex'):raise ValueError('Expanded agent mode requires Claude or Codex')
@@ -69,6 +70,14 @@ def adaptive_command(payload,output):
             i=command.index(flag);del command[i:i+2]
     for layout,seed in qualified:command+=['--qualified-layout',f'{layout}:{seed}']
     if policy=='agent_search':command+=['--provider',provider]
+    manual_action=payload.get('manual_action')
+    if policy=='manual':
+        if not isinstance(manual_action,dict):raise ValueError('Provide the manual corridor action')
+        from corridor_space import validate_action
+        try:manual_action=validate_action(manual_action,payload['planner'])
+        except ValueError as exc:raise ValueError('Manual action: '+str(exc)) from None
+        command+=['--manual-action',json.dumps(manual_action)]
+    elif manual_action is not None:raise ValueError('manual_action only applies to the manual method')
     return command
 
 def campaign_root():

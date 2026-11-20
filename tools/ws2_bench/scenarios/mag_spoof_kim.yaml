@@ -1,0 +1,38 @@
+# B5 magnetometer spoof (faithful). Models an external magnetic field from a nearby
+# magnet or energised coil adding a quasi-static bias to the body-frame field, which
+# corrupts the PX4 heading estimate. Earth's field is ~0.5 gauss, so a comparable
+# bias meaningfully shifts yaw. Pair with an identical run that omits `attack:` for
+# the clean baseline.
+# Standoff plausibility: medium — an in-flight magnet/coil at a fixed location (field
+# ~1/r^3). The effect is gated by distance (full at the device, zero beyond range_m),
+# so it only corrupts heading while the drone passes near the disruptor.
+name: kim_mag_spoof
+planner: kim
+kim_policy: simulation
+height: 1.2
+goal_distance: 8.0
+goal_radius: 0.5
+timeout: 120
+initial_speed: 0.2
+maximum_speed: 0.35
+input_fov_deg: 78
+camera_pitch_deg: 0
+input_rate_hz: 5
+condition:
+  layout: furnished_a
+  layout_seed: 0
+  seed: 42
+  light: 1800
+attack:
+  id: B5_mag_spoof
+  path: faithful
+  seed: 42
+  # Begin 10 s after the sensor arms, then ramp an added field along body +y (right).
+  schedule: {start_s: 10.0, duration_s: 0.0, period_s: 0.0}
+  params:
+    axis: [0.0, 1.0, 0.0]    # body FRD: added field direction
+    rate_gauss_per_s: 0.05   # field grows as the attacker energises the coil
+    max_bias_gauss: 0.6      # ~Earth-field magnitude cap
+    jitter_gauss: 0.0
+    location: [4.0, 0.0, 1.2]  # ENU world: place the magnet/coil on the flight path
+    range_m: 3.0             # effective radius; magnetic falls off fast, so keep it tight

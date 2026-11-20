@@ -1,0 +1,33 @@
+# B1 GPS spoof (faithful). The attacker drifts the *reported* GPS fix below the
+# PX4 estimator while the obstacle-avoidance planner flies a straight goal. Pair
+# with an identical run that omits `attack:` for the clean baseline.
+# Effect = divergence of /ws2/ground_truth/pose from /robot_1/odometry_conversion/odometry.
+name: kim_gps_spoof
+planner: kim
+kim_policy: simulation
+height: 1.2
+goal_distance: 8.0
+goal_radius: 0.5
+timeout: 120
+initial_speed: 0.2
+maximum_speed: 0.35
+input_fov_deg: 78
+camera_pitch_deg: 0
+input_rate_hz: 5
+condition:
+  layout: furnished_a
+  layout_seed: 0
+  seed: 42
+  light: 1800
+attack:
+  id: B1_gps_spoof
+  path: faithful
+  seed: 42
+  # Begin the spoof 10 s after the sensor arms, then drift east at 0.3 m/s,
+  # capped at 8 m — a slow bias a naive estimator will track.
+  schedule: {start_s: 10.0, duration_s: 0.0, period_s: 0.0}
+  params:
+    axis: [1.0, 0.0, 0.0]   # ENU: +east
+    rate_mps: 0.3
+    max_offset_m: 8.0
+    jitter_m: 0.0

@@ -16,10 +16,13 @@ CONTAINER_RUNTIME='/root/AirStack/robot/ros_ws/ws2_runtime'
 
 def resolved(raw):
     if not isinstance(raw,dict):raise ValueError('episode must be a mapping')
-    allowed={'name','planner','condition','height','goal_distance','goal_radius','timeout','fault','patch_start_s','patch_duration_s','diagnostic_depth_source','corridor_stall_timeout',*defaults(raw.get('planner','kim'))}
+    allowed={'name','planner','condition','height','goal_distance','goal_radius','timeout','fault','patch_start_s','patch_duration_s','diagnostic_depth_source','corridor_stall_timeout','attack',*defaults(raw.get('planner','kim'))}
     if raw.keys()-allowed:raise ValueError('unknown episode keys: '+str(raw.keys()-allowed))
-    c=dict(name='office',planner='kim',height=1.2,fault=None,**defaults(raw.get('planner','kim')))
+    c=dict(name='office',planner='kim',height=1.2,fault=None,attack=None,**defaults(raw.get('planner','kim')))
     c.update(raw);c['condition']=validate(c.get('condition',{'layout':'stock','light':2200}))
+    if c['attack'] is not None:
+        from sensor_attacks import validate_attack
+        c['attack']=validate_attack(c['attack'])
     if c['condition']['layout']=='corridor':c.setdefault('corridor_stall_timeout',60.)
     elif 'corridor_stall_timeout' in c:raise ValueError('corridor_stall_timeout requires a corridor scene')
     get_adapter(c['planner'])
@@ -151,6 +154,11 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
     atomic(out/'scenario.json',c);(out/'scenario.yaml').write_text(yaml.safe_dump(c,sort_keys=False))
     result={'schema_version':3,'scenario_id':c['name'],'configuration_hash':fingerprint(c),'outcome':'infrastructure_error',
             'termination':{'source':'runner','reason':'not_started'},'result_dir':str(out),'metrics':{}}
+    if c['attack'] is not None:
+        from sensor_attacks import attack_metadata
+        # Effect (true vs estimated pose divergence) is computed post-hoc from the
+        # recorded /ws2/ground_truth/pose and /robot_1/odometry_conversion/odometry.
+        result['attack']=attack_metadata(c['attack'])
     if 'diagnostic_depth_source' in c:
         result['evaluation_track']='depth_source_diagnostic'
         result['diagnostic_depth_source']=c['diagnostic_depth_source']
@@ -223,7 +231,7 @@ def run_episode(raw,output,wait_for_recording=False,camera='overview',record_bag
         atomic(out/'provenance.json',provenance)
         initial_condition=dict(c['condition'],patch_enabled=patch_active(c,0))
         atomic(RUNTIME/'episode.json',{'condition':initial_condition,'spawn':[-4,0,.07],'fault':c['fault'],'run_id':str(out),
-                                      'camera_pitch_deg':c.get('camera_pitch_deg',0.)})
+                                      'camera_pitch_deg':c.get('camera_pitch_deg',0.),'attack':c['attack']})
         env=os.environ.copy();env.update(WS2_CONTROL_MODE='bench',WS2_EPISODE_CONFIG='/isaac-sim/AirStack/robot/ros_ws/ws2_runtime/episode.json',
             WS2_FRAME_RATE=str(c.get('input_rate_hz',adapter.frame_rate)),WS2_MIN_TRACKING_SPEED=str(adapter.min_tracking_speed),
             WS2_PATCH_TEXTURE='/isaac-sim/AirStack/tools/ws2_bench/assets/learned_patch.png',WS2_PATCH_KIND='Rui learned FCRN patch')

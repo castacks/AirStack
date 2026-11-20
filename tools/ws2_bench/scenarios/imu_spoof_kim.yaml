@@ -1,0 +1,41 @@
+# B4 IMU spoof (faithful). Models acoustic resonance injected into the MEMS gyro
+# (Son et al. USENIX 2015; WALNUT/Trippel EuroS&P 2017): a resonant oscillation is
+# the primary effect, with an optional small rectified bias. It perturbs the gyro
+# output below the PX4 attitude estimator. Pair with an identical run that omits
+# `attack:` for the clean baseline.
+# Standoff plausibility: medium — an in-flight, close-range acoustic source at a
+# fixed location. The effect is gated by distance (full at the source, zero beyond
+# range_m), so it only bites while the drone passes through the disruptor's zone.
+name: kim_imu_spoof
+planner: kim
+kim_policy: simulation
+height: 1.2
+goal_distance: 8.0
+goal_radius: 0.5
+timeout: 120
+initial_speed: 0.2
+maximum_speed: 0.35
+input_fov_deg: 78
+camera_pitch_deg: 0
+input_rate_hz: 5
+condition:
+  layout: furnished_a
+  layout_seed: 0
+  seed: 42
+  light: 1800
+attack:
+  id: B4_imu_spoof
+  path: faithful
+  seed: 42
+  # Begin 10 s after the sensor arms, then oscillate the gyro at a resonant beat.
+  schedule: {start_s: 10.0, duration_s: 0.0, period_s: 0.0}
+  params:
+    target: gyroscope        # angular_velocity (rad/s); 'accelerometer' targets linear_acceleration
+    axis: [0.0, 0.0, 1.0]    # body FRD: +yaw axis
+    resonance_hz: 12.0       # output-visible beat frequency
+    resonance_amplitude: 0.8 # rad/s oscillation (primary effect)
+    rate: 0.1                # rad/s per s ramp of the secondary rectified bias
+    max_bias: 0.5            # rad/s cap on that bias
+    jitter: 0.0
+    location: [4.0, 0.0, 1.2]  # ENU world: place the acoustic source on the flight path
+    range_m: 4.0             # effective radius; larger = less realistic

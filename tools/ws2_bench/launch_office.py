@@ -210,6 +210,8 @@ operator_paused=False
 telemetry=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 telemetry_target=(socket.gethostbyname("robot-desktop"),9877)
 telemetry_registered=False
+attack_cfg=episode.get('attack')
+attack_state=None
 guard=None
 last_preview=0.
 def publish_state(dt):
@@ -234,6 +236,12 @@ while app.is_running():
     if drone_sim_dict and not telemetry_registered:
         world.add_physics_callback("ws2_ground_truth",publish_state)
         telemetry_registered=True
+    if attack_cfg and attack_state is None and drone_sim_dict:
+        # Faithful sensor spoof: wrap the sensor model output below the PX4 estimator.
+        from sensor_attacks import install_sensor_attack
+        vehicle=next(iter(drone_sim_dict.values()))["multirotor"]
+        attack_state=install_sensor_attack(vehicle,attack_cfg,lambda:float(world.current_time))
+        print("[WS2] Sensor attack installed: "+json.dumps(attack_state.summary()),flush=True)
     command_path=RUNTIME/"scene_command.json"
     if command_path.exists():
         try:
@@ -296,6 +304,7 @@ while app.is_running():
               "attitude_xyzw":None if state is None else state.attitude.tolist(),
               "velocity":None if state is None else state.linear_velocity.tolist(),"camera":camera_mode,
               "oracle":oracle.status,'paused':operator_paused,'view':view,'headless':HEADLESS,
+              'attack':attack_state.summary() if attack_state else None,
               'layout_description':describe(condition),
               'active_added_obstacles':([f'Obstacle_{i:02}' for i in range(len(corridor_scene.data['obstacles']))] if CORRIDOR else [n for n in sources if stage.GetPrimAtPath('/World/Office/WS2_'+n).IsActive()])}
         temp=RUNTIME/"scene_status.tmp";temp.write_text(json.dumps(data));temp.replace(RUNTIME/"scene_status.json")

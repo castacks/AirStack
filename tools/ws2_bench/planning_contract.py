@@ -5,6 +5,7 @@ relationship to prior configurations. They are not a fixed mapping. Plans are
 receding-horizon intentions, never an authorization to execute future steps.
 """
 import copy
+import json
 import math
 
 import experiment_protocol as experiments
@@ -113,7 +114,10 @@ def validate_plan(raw,operation,experiment,remaining_pairs):
     if operation=='test':
         intent=raw['next_budget_intent']
         if intent not in INTENTS or allocation[intent+'_pairs']<1:
-            raise ValueError('The next test budget intent must have one pair allocated')
+            # "next" means the test proposed now, which agents misread on the final pair.
+            raise ValueError(f'The next test budget intent (plan.next_budget_intent) is {json.dumps(intent)}; for a test it '
+                             f'names THIS test\'s budget, not a later round, even on the final pair. Set it to '
+                             f'{"/".join(INTENTS)}, funded in allocation and equal to steps[0].budget_intent')
         if (not steps or steps[0]['operation']!='test' or steps[0]['budget_intent']!=intent or
                 not isinstance(experiment,dict) or steps[0]['experiment_kind']!=experiment.get('kind')):
             raise ValueError('First plan step must match the next test and its budget intent')
@@ -133,7 +137,14 @@ def validate_response(raw,target,history,remaining_pairs,allow_inspect=True):
     from corridor_space import validate_action,action_key
     _mapping(raw,response_schema(target)['required'],'Response')
     for key in ('hypothesis','reason'):_text(raw[key],key)
-    plan=validate_plan(raw['plan'],raw['operation'],raw['experiment'],remaining_pairs)
+    try:plan=validate_plan(raw['plan'],raw['operation'],raw['experiment'],remaining_pairs)
+    except ValueError as plan_error:
+        # Report an invalid flight action too, so one repair can fix both.
+        if raw['operation']=='test' and isinstance(raw['action'],dict):
+            try:validate_action(raw['action'],target)
+            except ValueError as action_error:
+                raise ValueError(f'{plan_error}. Also: {action_error}') from None
+        raise
     rounds={r['decision']['round'] for r in history}
     if not isinstance(raw['reviews'],list) or len(raw['reviews'])>4:raise ValueError('At most four hypothesis reviews')
     for review in raw['reviews']:

@@ -18,8 +18,14 @@ from conditions import DIFFICULTY_COUNTS,PATCH_POLICY,validate
 LAYOUTS=[('furnished_a',2),('furnished_a',4),('furnished_a',5),
          ('furnished_b',2),('furnished_a',0),('furnished_b',4),('furnished_b',5),('furnished_a',1)]
 
+def _gps_spoof_attack(level,seed):
+    """B1 reported-fix drift, ramped with the search level: ~1 m (low) to ~10 m east."""
+    return {'id':'B1_gps_spoof','path':'faithful','seed':seed,
+            'schedule':{'start_s':8.,'duration_s':0.,'period_s':0.},
+            'params':{'axis':[1.,0.,0.],'rate_mps':.3,'max_offset_m':round(1.+9.*level,2),'jitter_m':0.}}
+
 def choose_next(history,seed=42,profile='combined',difficulty=None):
-    if profile not in ('sensors','noise','delay','patch','combined'):raise ValueError('unknown profile')
+    if profile not in ('sensors','noise','delay','patch','combined','gps_spoof'):raise ValueError('unknown profile')
     if difficulty is not None and difficulty not in DIFFICULTY_COUNTS:raise ValueError('unknown difficulty')
     index=0;level=.25
     reason='Start with a clear launch corridor and moderate disturbances.'
@@ -43,9 +49,11 @@ def choose_next(history,seed=42,profile='combined',difficulty=None):
         elif any(p['perturbed']['outcome'] not in SUCCESSES for p in pairs):
             if prev['decision']['rule']!='confirm_failure':
                 condition=copy.deepcopy(prev['decision']['condition']);condition['name']=f'Round {len(history)+1} | confirmation'
-                return {'round':len(history)+1,'layout_index':index,'level':level,'rule':'confirm_failure',
+                repeat={'round':len(history)+1,'layout_index':index,'level':level,'rule':'confirm_failure',
                         'reason':'Clean passed but attack failed: repeat the same paired condition to check reproducibility.',
                         'evidence':evidence,'condition':condition}
+                if 'attack' in prev['decision']:repeat['attack']=copy.deepcopy(prev['decision']['attack'])
+                return repeat
             if level>.05:
                 level=max(.05,round(level/2,3));rule='reduce_attack'
                 reason='Failure repeated: keep the scene and try lower sensor settings / a smaller patch, according to the selected profile.'
@@ -69,8 +77,11 @@ def choose_next(history,seed=42,profile='combined',difficulty=None):
                'rgb_noise':round(30*level,3) if profile in ['noise','sensors','combined'] else 0.,
                'delay':round(.3*level,4) if profile in ['delay','sensors','combined'] else 0.,
                'patch_enabled':profile in ['patch','combined'],'patch_size':round(.3+.6*level,3)}
-    return {'round':len(history)+1,'layout_index':index,'level':level,'rule':rule,
-            'reason':reason,'evidence':evidence,'condition':condition}
+    decision={'round':len(history)+1,'layout_index':index,'level':level,'rule':rule,
+              'reason':reason,'evidence':evidence,'condition':condition}
+    # gps_spoof flies a clean scene; the attack is a reported-fix drift ramped by level.
+    if profile=='gps_spoof':decision['attack']=_gps_spoof_attack(level,seed)
+    return decision
 
 def summary(history,extra_rows=()):
     rows=[]
@@ -159,7 +170,8 @@ def run_feedback(output,budget=8,seed=42,planners=None,profile=None,retries=1,
         pairs=[]
         for planner in planners:
             candidate=resolved({'name':f'Feedback round {index+1} {planner}','planner':planner,
-                                'condition':decision['condition'],**config['mission']})
+                                'condition':decision['condition'],**config['mission'],
+                                **({'attack':decision['attack']} if decision.get('attack') else {})})
             pair={'planner':planner}
             for role,c in [('clean',clean_twin(candidate)),('perturbed',candidate)]:
                 try:wait_between_trials(control_path,lambda phase:publish(phase,decision))

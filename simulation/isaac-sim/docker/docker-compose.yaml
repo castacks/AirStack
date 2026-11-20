@@ -72,6 +72,8 @@ services:
       - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw \
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw \
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
+      # ws2 bench Office scene assets (Isaac 4.5 tree; see tools/ws2_bench/BACKUP.md)
+      - ${WS2_ASSETS_DIR:-$HOME/Documents/ws2_assets}:/tmp/ws2_assets:ro
       # pegasus integration
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
       # omniverse

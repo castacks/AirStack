@@ -26,6 +26,7 @@ BACKEND_LABELS = {
     "random": "Seeded random sampling (no noise)",
     "search": "Deterministic result-guided search (no noise)",
     "agent_search": "Agent-guided testing (no noise)",
+    "manual": "Operator-specified configuration",
 }
 
 
@@ -107,14 +108,14 @@ def _load_json(path):
 def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="mononav", retries=1,
                           record_bags=False, pause_seconds=5, timeout=None, goal_distance=None,
                           provider=None, qualified_layouts=(("easy", 2),), clean_validation_runs=2,
-                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved", study_objective="", matched_protocol=None):
+                          clean_failure_policy="halt", provider_name=None, llm_report=True, action_space="saved", study_objective="", matched_protocol=None, manual_action=None):
     """Run one paired campaign after repeated pristine-clean validation.
 
     The scheduled budget counts matched clean/attack flights. Validation and
     infrastructure retries are tracked separately as actual attempts.
     """
     if policy_name not in BACKEND_LABELS:
-        raise ValueError("policy must be random, search, or agent_search")
+        raise ValueError("policy must be random, search, agent_search, or manual")
     adapter=get_adapter(planner)
     if matched_protocol is not None:
         if (action_space != "corridor" or planner != "pulp_dronet" or budget != 16
@@ -133,6 +134,8 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         raise ValueError("pause_seconds must be 0..60")
 
     if action_space not in ('saved','expanded','corridor'):raise ValueError('action_space must be saved, expanded or corridor')
+    if policy_name=='manual' and action_space!='corridor':raise ValueError('The manual policy runs on the corridor action space')
+    if policy_name!='manual' and manual_action is not None:raise ValueError('manual_action only applies to the manual policy')
     if action_space=='saved':
         qualified_layouts = parse_qualified_layouts([f"{layout}:{layout_seed}" for layout, layout_seed in qualified_layouts])
         allowed_actions = [action for action in all_actions() if (action["layout"], action["layout_seed"]) in qualified_layouts]
@@ -161,11 +164,15 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
         if planner=='mononav' and config['mission']['goal_distance']!=8:
             raise ValueError('Generated placement currently protects the qualified 8m mission; use goal_distance=8')
     if action_space=='corridor':
-        from corridor_space import bounds, VERSION, mission_for
+        from corridor_space import bounds, VERSION, mission_for, validate_action as validate_corridor_action
         if timeout is not None or goal_distance is not None:raise ValueError('Corridor missions use frozen target presets')
         config.update(action_space='corridor',action_schema=VERSION,profile='corridor_agent',noise='configurable',
                       expanded_bounds=bounds(planner),study_objective=study_objective,mission=mission_for(planner),
-                      label={'random':'Random + diagnostic follow-ups','search':'Heuristic search + diagnostic follow-ups','agent_search':'LLM corridor testing'}[policy_name])
+                      label={'random':'Random + diagnostic follow-ups','search':'Heuristic search + diagnostic follow-ups',
+                             'agent_search':'LLM corridor testing','manual':'Operator corridor test'}[policy_name])
+        if policy_name=='manual':
+            if manual_action is None:raise ValueError('The manual policy requires a manual_action')
+            config['manual_action']=validate_corridor_action(manual_action,planner)  # record the exact operator action
     if matched_protocol is not None:
         from matched_policy import MatchedPolicy
         MatchedPolicy(policy_name, seed, provider, matched_protocol)  # Validate before saving or flying.
@@ -211,8 +218,9 @@ def run_adaptive_campaign(output, policy_name, budget=8, seed=42, planner="monon
             from expanded_space import ExpandedPolicy
         if policy_name=='agent_search' and not getattr(provider,'chooses_action',False):
             raise ValueError('Expanded agent mode requires a structured-action LLM provider')
-        policy=(MatchedPolicy(policy_name, seed, provider, matched_protocol)
-                if matched_protocol is not None else ExpandedPolicy(policy_name,seed,provider))
+        if matched_protocol is not None:policy=MatchedPolicy(policy_name, seed, provider, matched_protocol)
+        elif policy_name=='manual':policy=ExpandedPolicy(policy_name,seed,provider,manual_action=config['manual_action'])
+        else:policy=ExpandedPolicy(policy_name,seed,provider)
     else:policy = policy_from_name(policy_name, seed, provider, allowed_actions)
     if hasattr(policy, 'campaign_context'):
         policy.campaign_context = {'target_planner': planner, 'mission': config['mission'],
@@ -488,6 +496,7 @@ def main():
     parser.add_argument("--clean-validation-runs", choices=(0, 1, 2, 3), type=int, default=2,
                         help="pristine clean successes required before the paired flight budget (default: 2)")
     parser.add_argument('--action-space',choices=('saved','expanded','corridor'),default='saved')
+    parser.add_argument("--manual-action",help="JSON corridor action flown verbatim by the manual policy (clean twin strips the attack)")
     parser.add_argument("--study-objective",default="",help="Recorded scope/priorities for agent experiment selection; does not change budget or metrics")
     parser.add_argument("--matched-protocol", type=Path, help="Frozen matched pilot protocol; optional, free agent remains default")
     parser.add_argument("--qualified-layout", action="append", metavar="LAYOUT:SEED",
@@ -500,7 +509,8 @@ def main():
                           clean_validation_runs=args.clean_validation_runs,
                            clean_failure_policy=args.clean_failure_policy,
                            provider_name=args.provider, llm_report=not args.no_llm_report,action_space=args.action_space,study_objective=args.study_objective,
-                           matched_protocol=_load_json(args.matched_protocol) if args.matched_protocol else None)
+                           matched_protocol=_load_json(args.matched_protocol) if args.matched_protocol else None,
+                           manual_action=json.loads(args.manual_action) if args.manual_action else None)
 
 
 if __name__ == "__main__":

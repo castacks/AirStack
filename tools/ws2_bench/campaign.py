@@ -10,6 +10,7 @@ from conditions import DIFFICULTY_COUNTS,PATCH_POLICY
 def clean_twin(c):
     clean=copy.deepcopy(c)
     clean['condition'].update(rgb_noise=0.,depth_noise=0.,delay=0.,patch_enabled=False)
+    clean['attack']=None  # the baseline twin flies the same scene with no sensor spoof
     return resolved(clean)
 
 def candidates(backend,budget,seed,planners,matrix=False,profile='sensors',difficulty=None):
@@ -131,7 +132,7 @@ if __name__=='__main__':
     target.add_argument('--planner',choices=sorted(REGISTRY),help='Target model; required for feedback')
     target.add_argument('--planners',nargs='+',choices=sorted(REGISTRY),help='Random/grid comparison models; feedback accepts only one')
     p.add_argument('--matrix',action='store_true',help='Run every sampled condition with every planner')
-    p.add_argument('--profile',choices=['sensors','noise','delay','patch','combined'],default='sensors')
+    p.add_argument('--profile',choices=['sensors','noise','delay','patch','combined','gps_spoof'],default='sensors')
     p.add_argument('--difficulty',choices=list(DIFFICULTY_COUNTS),default='easy',help='Additional plants/columns per type: easy1, medium3, hard5')
     p.add_argument('--infrastructure-retries',type=int,choices=[0,1,2],default=1);p.add_argument('--resolve-only',action='store_true')
     p.add_argument('--record-bags',action='store_true',help='Feedback presentation also records full bags; default saves metrics and inference only')
