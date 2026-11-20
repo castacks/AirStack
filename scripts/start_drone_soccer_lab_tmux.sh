@@ -19,18 +19,28 @@ BALL_NAME="VolleyBall"
 MOTIVE_SERVER_IP="${MOTIVE_SERVER_IP:-192.168.50.5}"
 MOTIVE_CLIENT_IP="${MOTIVE_CLIENT_IP:-192.168.50.6}"
 POLICY_REQUIREMENTS="/root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt"
+LEARNER_SESSION="${LEARNER_SESSION:-drone_soccer_learner}"
+GOAL_RETARGET_BARRIER="${GOAL_RETARGET_BARRIER:-data_20261119}"
 ATTACH=1
 STOP=0
+GOAL_RETARGET=0
 
 usage() {
     cat <<'EOF'
-Usage: start_drone_soccer_lab_tmux.sh [--no-attach] [--session NAME]
+Usage: start_drone_soccer_lab_tmux.sh [--no-attach] [--session NAME] [--goal-retarget]
        start_drone_soccer_lab_tmux.sh --stop [--session NAME]
 
 Creates a tmux session inside the AirStack robot container:
   runtime   NatNet, real_interfaces, and mocap_bridge panes
   policy    policy launch/start/stop/goal commands, typed but NOT run
   shell     sourced ROS shell for additional commands
+
+With --goal-retarget, the policy launch command uses
+policy_commander_drone3_goal_retarget.yaml (online goal-retargeting updates),
+and a HOST tmux session drone_soccer_learner gets the learner command typed
+(scripts/run_goal_retarget_learner.sh), also not run. Check the barrier
+argument (GOAL_RETARGET_BARRIER, default data_20261119) before pressing Enter.
+Attach to it from the host with: tmux attach -t drone_soccer_learner
 
 The Micro XRCE-DDS agent still runs as a sibling host-networked container;
 everything you interact with runs inside the robot container.
@@ -39,7 +49,8 @@ the tmux session is created or attached.
 
 Environment overrides:
   SESSION_NAME, CONTAINER, DDS_CONTAINER, DDS_IMAGE, ROS_DOMAIN_ID,
-  DDS_AGENT_PORT, MOTIVE_SERVER_IP, MOTIVE_CLIENT_IP
+  DDS_AGENT_PORT, MOTIVE_SERVER_IP, MOTIVE_CLIENT_IP, LEARNER_SESSION,
+  GOAL_RETARGET_BARRIER
 
 Defaults are the verified BV setup: drone_3, system ID 3, ROS domain 1,
 DDS UDP port 8892, VolleyBall, Motive 192.168.50.5, AirStation 192.168.50.6.
@@ -71,6 +82,10 @@ while [ "$#" -gt 0 ]; do
             ATTACH=0
             shift
             ;;
+        --goal-retarget)
+            GOAL_RETARGET=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -97,6 +112,11 @@ container_tmux() {
 }
 
 if [ "$STOP" -eq 1 ]; then
+    if command -v tmux >/dev/null 2>&1 && \
+       tmux has-session -t "$LEARNER_SESSION" 2>/dev/null; then
+        tmux kill-session -t "$LEARNER_SESSION"
+        echo "Stopped host learner tmux session: $LEARNER_SESSION"
+    fi
     if container_running "$CONTAINER" && \
        container_tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
         container_tmux kill-session -t "$SESSION_NAME"
@@ -202,7 +222,11 @@ ros_command() {
 NATNET_INNER="ros2 launch natnet_ros2 natnet_ros2.launch.py serverIP:=$MOTIVE_SERVER_IP clientIP:=$MOTIVE_CLIENT_IP activate:=true pub_rigid_body:=true"
 INTERFACES_INNER="ros2 launch svg_ground_control real_interfaces.launch.py drones:=$DRONE_NAME target_systems:=$TARGET_SYSTEMS"
 MOCAP_INNER="ros2 run svg_ground_control mocap_bridge --ros-args --params-file \$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_hover.yaml -p extra_body_names:=[$BALL_NAME]"
-POLICY_LAUNCH_COMMAND="ros2 launch svg_ground_control policy_commander.launch.py config:=\$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone3.yaml"
+POLICY_CONFIG="policy_commander_drone3.yaml"
+if [ "$GOAL_RETARGET" -eq 1 ]; then
+    POLICY_CONFIG="policy_commander_drone3_goal_retarget.yaml"
+fi
+POLICY_LAUNCH_COMMAND="ros2 launch svg_ground_control policy_commander.launch.py config:=\$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/$POLICY_CONFIG"
 POLICY_START_COMMAND="ros2 service call /policy_commander/start std_srvs/srv/Trigger"
 POLICY_STOP_COMMAND="ros2 service call /policy_commander/stop std_srvs/srv/Trigger"
 POLICY_GOAL_COMMAND="ros2 topic echo /policy_commander/goal"
@@ -272,10 +296,26 @@ done
 container_tmux select-window -t "$SESSION_NAME:runtime"
 container_tmux select-pane -t "$NATNET_PANE"
 
+LEARNER_DESCRIPTION="not requested (--goal-retarget)"
+if [ "$GOAL_RETARGET" -eq 1 ]; then
+    LEARNER_COMMAND="$REPO_ROOT/scripts/run_goal_retarget_learner.sh --barrier-dataset $GOAL_RETARGET_BARRIER"
+    if ! command -v tmux >/dev/null 2>&1; then
+        LEARNER_DESCRIPTION="host tmux missing; run on the host: $LEARNER_COMMAND"
+    elif tmux has-session -t "$LEARNER_SESSION" 2>/dev/null; then
+        LEARNER_DESCRIPTION="host tmux session '$LEARNER_SESSION' already exists; left as is"
+    else
+        tmux new-session -d -s "$LEARNER_SESSION" -c "$REPO_ROOT"
+        # Typed, not run: start it after launching the policy commander.
+        tmux send-keys -t "$LEARNER_SESSION" -l "$LEARNER_COMMAND"
+        LEARNER_DESCRIPTION="typed in host tmux '$LEARNER_SESSION' (tmux attach -t $LEARNER_SESSION)"
+    fi
+fi
+
 echo "Created tmux session '$SESSION_NAME' inside $CONTAINER"
 echo "  DDS     : $DDS_DESCRIPTION"
 echo "  runtime : NatNet + real_interfaces + mocap_bridge started"
-echo "  policy  : commands populated only; none executed"
+echo "  policy  : commands populated only; none executed ($POLICY_CONFIG)"
+echo "  learner : $LEARNER_DESCRIPTION"
 echo "  shell   : sourced and ready for additional ROS commands"
 echo
 echo "Review all flight-readiness gates before executing policy or flight commands."

@@ -1,0 +1,80 @@
+# Drone-soccer PPO on Starling hardware with ONLINE goal-retargeting updates.
+#
+# Same as policy_commander_drone3.yaml, plus:
+#   - every flown tick is recorded under goal_retarget_root for the host learner
+#     (scripts/run_goal_retarget_learner.sh), and each policy it publishes is
+#     hot-swapped in between ticks and logged as "POLICY UPDATE";
+#   - random goals switch only when the BALL reaches them (no time limit; the
+#     drone keeps trying for a goal until the ball gets there).
+# model_path is where pi_F starts. The learner keeps pi_E = pi_T =
+# saved_policies/motor_dynamics_full.zip and resumes pi_F from model_path when
+# it is a later iterate (it checks the file's hash against this commander's).
+#
+# Prerequisites: as for policy_commander_drone3.yaml.
+#
+# Launch:
+#   ros2 launch svg_ground_control policy_commander.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone3_goal_retarget.yaml
+# then on the host:
+#   scripts/run_goal_retarget_learner.sh --barrier-dataset data_20261119
+
+/**/policy_commander:
+  ros__parameters:
+    drone: "drone_3"
+    ball_name: "VolleyBall"
+    # Last iterate (update 14) of the 2026-11-19 goal-retargeting run; see
+    # saved_tuned_policies/goal_retarget_20261119/PROVENANCE.md. To start over
+    # from the expert: /root/drone_soccer/drone_soccer/saved_policies/motor_dynamics_full.zip
+    model_path: "/root/drone_soccer/drone_soccer/saved_tuned_policies/goal_retarget_20261119/policy_014.zip"
+    # "standard" PPO checkpoint, or "residual" for a drone_soccer
+    # ResidualActorCriticPolicy checkpoint (see policy_commander_drone3_residual.yaml).
+    policy_type: "standard"
+    # Random ball goals used by the planar policy observation. One goal is
+    # sampled uniformly inside this ENU rectangle; a new one is sampled only
+    # when the ball comes within goal_arrival_radius.
+    # /policy_commander/start also starts with a fresh goal.
+    target_x: 0.0
+    target_y: 0.0
+    goal_trajectory: "random"
+    goal_radius: 1.5
+    goal_period_s: 32.0
+    goal_phase_rad: 0.0
+    goal_rotation_rad: 1.5707963267948966
+    goal_spawn_min_xy: [-2.0, -2.0]
+    goal_spawn_max_xy: [2.0, 2.0]
+    goal_arrival_radius: 0.3
+    # Switch goals when the ball (not the drone) is within 0.3 m, the training
+    # reach radius. No time limit: goal_timeout_s 0 keeps trying until reached.
+    goal_arrival_reference: "ball"
+    goal_timeout_s: 0.0
+    # Set >= 0 for repeatable tests; -1 draws nondeterministically.
+    goal_random_seed: 0
+    policy_dt: 0.1
+    deterministic: true
+    action_low: [-3.0, -3.0, 0.5]
+    action_high: [3.0, 3.0, 1.5]
+    # XY waypoints clamp only after the drone enters this distance from a
+    # horizontal fence face. Altitude always remains clamped.
+    bounds_min: [-4.7, -5.5, 0.5]
+    bounds_max: [5.0, 5.0, 1.5]
+    geofence_buffer_m: 0.5
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+    ball_odom_topic_template: "/{name}/mocap_odometry"
+    ball_pose_topic_template: "/{name}/pose"
+    trajectory_setpoint_topic_template: "/{name}/fmu/in/trajectory_setpoint"
+    offboard_control_mode_topic_template: "/{name}/fmu/in/offboard_control_mode"
+    state_timeout_s: 0.5
+    velocity_filter_alpha: 0.4
+    publish_debug: true
+    debug_topic_prefix: "/policy_commander"
+    # Online goal-retargeting updates. Needs policy_type standard, policy_dt 0.1,
+    # deterministic true and max_goal_distance_m 4.0 (checked at startup).
+    goal_retarget_enabled: true
+    # /bags is robot/bags on the host; each launch makes <root>/<stamp>_<drone>/.
+    goal_retarget_root: "/bags/goal_retarget"
+    # false: record ticks for the learner but keep flying the starting policy.
+    goal_retarget_hot_swap: true
+
+# Mocap bridge params for PPO: use the mocap_bridge section in
+# swarm_real_single_goal_drone3.yaml or
+# trajectory_commander_drone3_fmu_hover.yaml (SoccerBall mocap odometry).

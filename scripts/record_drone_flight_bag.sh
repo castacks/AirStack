@@ -19,7 +19,7 @@ OUTPUT_DIR="/bags"
 CHECK_ONLY=0
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-1}"
 EXCLUDED_TOPICS=()
-OPTIONAL_TOPICS=("/policy_commander/goal")
+OPTIONAL_TOPICS=("/policy_commander/goal" "/policy_commander/active_policy" "/policy_commander/policy_update")
 
 usage() {
     cat <<'EOF'
@@ -154,6 +154,9 @@ done
 # The policy may be launched after recording starts. ros2 bag subscribes when
 # this named topic appears, so do not require its publisher during preflight.
 TOPICS+=("/policy_commander/goal")
+# Latched path of the flying checkpoint (hot swap), and the JSON event of each
+# goal-retargeting swap (learning runs only).
+TOPICS+=("/policy_commander/active_policy" "/policy_commander/policy_update")
 
 if [ "$INCLUDE_BALL" -eq 1 ]; then
     TOPICS+=("/${BALL}/pose" "/${BALL}/mocap_odometry")

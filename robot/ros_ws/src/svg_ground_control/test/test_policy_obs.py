@@ -8,6 +8,7 @@ import pytest
 from drone_soccer.deploy.observation import (
     OBS_DIM,
     arrays_to_observation,
+    cap_observation_goal,
     quaternion_to_rotation_matrix,
 )
 from svg_ground_control.policy_commander import (
@@ -34,6 +35,27 @@ def test_observation_dim() -> None:
         np.array([3.0, 0.0], dtype=np.float32),
     )
     assert obs.shape == (OBS_DIM,)
+
+
+def test_far_goal_offset_is_capped_along_its_direction() -> None:
+    """The policy must see goals beyond 4 m from the ball pulled in to 4 m."""
+    ball = np.array([1.0, -1.0, 0.2], dtype=np.float32)
+    obs = arrays_to_observation(
+        np.zeros(3, dtype=np.float32),
+        np.zeros(3, dtype=np.float32),
+        np.eye(3, dtype=np.float32),
+        np.zeros(3, dtype=np.float32),
+        ball,
+        np.zeros(3, dtype=np.float32),
+        np.array([7.0, 7.0], dtype=np.float32),  # offset (6, 8), 10 m
+    )
+    capped = cap_observation_goal(obs, 4.0)
+    np.testing.assert_allclose(capped[13:15], [2.4, 3.2], rtol=1e-6)
+    np.testing.assert_array_equal(np.delete(capped, [13, 14]), np.delete(obs, [13, 14]))
+
+    near = obs.copy()
+    near[13:15] = [1.0, -2.0]
+    np.testing.assert_array_equal(cap_observation_goal(near, 4.0), near)
 
 
 def test_enu_waypoint_to_ned() -> None:
@@ -143,11 +165,43 @@ def test_random_goal_spawner_resamples_only_after_arrival() -> None:
     assert not np.array_equal(second, first)
 
 
+def test_random_goal_spawner_times_out_unreached_goals() -> None:
+    """With a timeout, a goal held that long is replaced; reaching restarts the clock."""
+    spawner = RandomGoalSpawner([-2.0, -2.0], [2.0, 2.0], 0.3, seed=1, timeout_s=10.0)
+    first = spawner.goal_xy.copy()
+    far = first + [1.0, 0.0]
+
+    assert not spawner.update(far, now_s=100.0)[1]  # the goal's clock starts here
+    assert not spawner.update(far, now_s=109.9)[1]
+    second, changed = spawner.update(far, now_s=110.0)
+    assert changed and spawner.last_change == 'timeout'
+    assert not np.array_equal(second, first)
+
+    _, changed = spawner.update(second, now_s=112.0)
+    assert changed and spawner.last_change == 'reached'
+    third = spawner.goal_xy.copy()
+    assert not spawner.update(third + [1.0, 0.0], now_s=121.9)[1]
+    assert spawner.update(third + [1.0, 0.0], now_s=122.0)[1]
+
+    # reset() (policy start) restarts the clock at the next update.
+    spawner.reset()
+    assert not spawner.update(spawner.goal_xy + [1.0, 0.0], now_s=500.0)[1]
+
+
+def test_random_goal_spawner_without_timeout_ignores_time() -> None:
+    spawner = RandomGoalSpawner([-2.0, -2.0], [2.0, 2.0], 0.3, seed=1)
+    far = spawner.goal_xy + [1.0, 0.0]
+    assert not spawner.update(far, now_s=0.0)[1]
+    assert not spawner.update(far, now_s=1e6)[1]
+
+
 def test_random_goal_spawner_rejects_invalid_region_and_radius() -> None:
     with pytest.raises(ValueError, match='strictly less'):
         RandomGoalSpawner([0.0, 0.0], [0.0, 1.0], 0.25)
     with pytest.raises(ValueError, match='positive'):
         RandomGoalSpawner([-1.0, -1.0], [1.0, 1.0], 0.0)
+    with pytest.raises(ValueError, match='non-negative'):
+        RandomGoalSpawner([-1.0, -1.0], [1.0, 1.0], 0.3, timeout_s=-1.0)
 
 
 def test_policy_waypoint_clamps_xyz_when_drone_is_near_xy_fence() -> None:

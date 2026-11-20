@@ -164,11 +164,19 @@ resets the reference phase. Before rotation, phase zero starts at
 
 In `random` mode, one goal is sampled uniformly from the axis-aligned ENU
 rectangle defined by `goal_spawn_min_xy` and `goal_spawn_max_xy`. A new goal
-is sampled when the drone's XY position comes within `goal_arrival_radius` of
-the current goal. `goal_random_seed: -1` uses nondeterministic sampling; a
+is sampled when the drone's XY position (or the ball's, with
+`goal_arrival_reference: ball`) comes within `goal_arrival_radius` of the
+current goal, or after `goal_timeout_s` if that is positive. `goal_random_seed: -1` uses nondeterministic sampling; a
 non-negative seed makes test runs repeatable. Starting the policy samples a
 fresh first goal. The current goal topic remains active even when
 `publish_debug` is false and is included by `record_drone_flight_bag.sh`.
+
+Policies train on goals at most 4 m from the ball, so the goal-minus-ball
+offset in the observation is capped at `max_goal_distance_m` (default `4.0`)
+with `cap_observation_goal` from `drone_soccer.deploy.observation`: a farther
+goal is shown pulled in along its true direction. The `<debug_topic_prefix>/goal`
+topic still carries the uncapped goal; `<debug_topic_prefix>/obs` shows the
+capped observation the policy acted on.
 
 The circle moves counter-clockwise in ENU. The figure eight is a Gerono
 lemniscate with `goal_radius` as its half-width and half that value as its
@@ -258,6 +266,122 @@ policy memory should drive the updates, and `barrier_dataset` to the day's barri
 polygon in drone_soccer's `BallResidualConfig`. The commander must keep
 `publish_debug: true` (the learner counts policy ticks on `<prefix>/action`).
 Updated policies have not been evaluated in sim; watch the first swaps closely.
+
+### Online goal-retargeting updates
+
+drone_soccer's goal-conditioned policy update (`drone_soccer/goal_retarget/`,
+method and settings in its skill reference `goal-retargeting.md`) can update the
+flown policy during a flight. Flown twice on 2026-11-19 (about 10 min each; results
+in drone_soccer `experiments/goal_retarget_hw_20261119/`). Two processes
+share one run directory:
+
+```mermaid
+flowchart LR
+    C[policy_commander<br/>robot container] -- "ticks.jsonl<br/>(one row per flown tick)" --> D[(robot/bags/goal_retarget/&lt;run&gt;)]
+    D -- ticks --> L[goal_retarget_learner.py<br/>host, gpu conda env]
+    L -- "policies/policy_n.zip<br/>updates.jsonl, manifest.json" --> D
+    D -- "manifest.json changed" --> C
+```
+
+- The **commander** (`goal_retarget_enabled: true`) creates
+  `/bags/goal_retarget/<stamp>_<drone>/` at launch, writes `session.json`, and appends
+  every flown tick (true goal, drone and ball state, action, waypoint, flying
+  iterate) to `ticks.jsonl`. Ticks are grouped in segments: a stop or a tick skipped
+  for stale inputs ends one, since the learner matches each tick with the ball
+  `t_g` later. Each tick it checks `manifest.json`; a new iterate is loaded in a
+  background thread and swapped in between ticks.
+- The **learner** (`scripts/run_goal_retarget_learner.sh`) runs on the host, because
+  the forward simulation needs a CUDA GPU and the drone_soccer `gpu` conda env (no
+  rclpy). Every 5 s it reads new ticks, simulates `t_g` in Warp, judges ticks, and
+  after every 200 accepted ticks updates pi_F, saves `policies/policy_<n>.zip`,
+  appends the diagnostics to `updates.jsonl`, and rewrites `manifest.json`.
+  It refuses a commander whose `policy_dt`, goal cap, policy type or action box differ
+  from training, or whose starting policy file on the host does not match the
+  commander's (SHA-256).
+- **Resuming:** pi_E is always `saved_policies/motor_dynamics_full.zip` (`--expert`
+  overrides it); pi_F starts from the commander's `model_path`. Pointing `model_path`
+  at an earlier run's last iterate continues from it (fresh LoRA adapters on top of
+  it). The goal-retarget YAML currently starts from the 11/19 run's `policy_014.zip`.
+- **pi_T is locked to the expert pi_E** by default (the learner sets
+  `target_refresh_period_s = inf` and `stagnation_action_change_m = 0`): every label
+  is the expert's action at the miss-shifted goal, and pi_F's LoRA adapters keep
+  accumulating on pi_E. `--refresh-target` restores the refresh pi_T <- pi_F on
+  stagnation or every 120 s of flight. `--replay-all-accepted` fits each update on
+  every tick accepted so far instead of the newest 200 (the best variant in
+  drone_soccer's sim test; not flown yet).
+
+`policy_commander_drone3_goal_retarget.yaml` is `policy_commander_drone3.yaml` plus
+learning, and goals that switch only when the **ball** is within 0.3 m
+(`goal_arrival_reference: ball`; the default `drone` keeps the old behavior). There
+is no time limit (`goal_timeout_s: 0.0`): the drone keeps trying for a goal until
+the ball reaches it. drone_soccer's sim test also replaced goals after 10 s;
+set `goal_timeout_s: 10.0` to match it. Learning requires
+`policy_type: standard`, `policy_dt: 0.1`, `deterministic: true`, and
+`max_goal_distance_m: 4.0`; the commander refuses to start otherwise.
+
+```bash
+# robot container (after bws --packages-select svg_ground_control)
+ros2 launch svg_ground_control policy_commander.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone3_goal_retarget.yaml
+# host, AirStack checkout: attaches to the newest run; pass the current barrier polygon
+scripts/run_goal_retarget_learner.sh --barrier-dataset data_20261119
+#   or --barrier-corners x1 y1 x2 y2 ... (counter-clockwise ball-centre polygon)
+```
+
+`start_drone_soccer_lab_tmux.sh --goal-retarget` types both commands (policy launch
+with this YAML in the container, the learner in a host tmux session
+`drone_soccer_learner`) without running them.
+
+**Watching policy updates.** The consoles show one line per event; the details go
+to log files in the run directory.
+
+Commander console: one `WARN` line at the tick the new weights start flying (the
+action change is between the old and new policy on that exact state; then how long
+the old iterate flew and how many goals it reached):
+
+```text
+POLICY UPDATE 2 -> 3 | action change 0.19 m | iterate 2: 48 s, 6 goals
+```
+
+Learner console: one line per update (ending in `| pi_T refreshed` when a refresh
+happened, only with `--refresh-target`) and a progress line every 30 s
+(`--status-period-s`):
+
+```text
+18:26:59 UPDATE 3 published | loss 0.615 -> 0.136 | action change 0.64 m | median miss 2.94 m
+18:27:20   161 s flown | 17/200 toward update 4 | 27% of judged ticks accepted
+```
+
+Healthy updates: some ticks accepted, loss falling, and the action change shrinking
+within a pi_T period. Load failures and configuration warnings still appear on the
+console.
+
+Detailed logs, `<run>/commander.log` and `<run>/learner.log`: every segment start
+and end, load request, and learner pass (ticks read, accepted/pending counts,
+verdicts), the full update record, and for each swap:
+
+```text
+POLICY UPDATE: now flying learner iterate 3 (policy_003.zip), replacing iterate 2; first tick: segment 1 tick 812
+  learner update 3: loss 0.5120 -> 0.2330 | batch action change 0.310 m RMS | label shift 0.640 m RMS | median miss 0.62 m | pi_T refreshed False (1 total) | at 182 s of flight
+  action on this state: iterate 2 [0.410, -1.200, 0.930] -> iterate 3 [0.520, -1.050, 0.950] (|change| 0.188 m)
+  iterate 2 flew 48.0 s: 6 goals reached, 0 timed out
+```
+
+Follow them live with `tail -f robot/bags/goal_retarget/<run>/commander.log` on the host.
+The swap is also published (latched, JSON with the iterate, its first tick and the
+learner's update record) on `<debug_topic_prefix>/policy_update`, next to the flying
+checkpoint's path on `<debug_topic_prefix>/active_policy`; `record_drone_flight_bag.sh`
+records both, and each `ticks.jsonl` row carries the iterate that flew it, so a bag
+or the run directory can be cut by iterate. Policy-memory and goal-retargeting swaps
+share one loader: with both `enable_policy_hot_swap` and `goal_retarget_hot_swap`
+on, a policy from either source replaces the flying one; a policy-memory checkpoint flies as iterate
+`-1` (`external` in the console line) in `ticks.jsonl` and the logs. With
+`goal_retarget_hot_swap: false` the commander records published iterates but keeps
+flying the starting policy.
+
+The run directory keeps every iterate (`policy_000.zip` is the expert), the
+per-tick rows, `updates.jsonl` and `learner_summary.json` (written on Ctrl-C), so a
+flight can be replayed through a fresh learner offline.
 
 ## Safety notes
 

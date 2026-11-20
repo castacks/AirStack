@@ -6,6 +6,9 @@ Supports standard PPO checkpoints and drone_soccer residual-policy checkpoints
 
 from __future__ import annotations
 
+import hashlib
+import json
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -29,11 +32,19 @@ from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint
 from drone_soccer.deploy.observation import (
     OBS_DIM,
     arrays_to_observation,
+    cap_observation_goal,
     quaternion_to_rotation_matrix,
 )
 from drone_soccer.deploy.waypoint import compute_abs_waypoint
 
 from svg_ground_control.ball_state import BallStateTracker
+from svg_ground_control.goal_retarget_bridge import (
+    COMMANDER_LOG_FILE,
+    DetailLog,
+    PolicyManifestWatcher,
+    TickRecorder,
+    format_update_summary,
+)
 from svg_ground_control.policy_hot_swap import PolicyHotSwap
 from svg_ground_control.trajectory_commander_core import clamp_position, vector3
 
@@ -101,7 +112,12 @@ def compute_goal_reference(
 
 
 class RandomGoalSpawner:
-    """Maintain one random XY goal inside an axis-aligned ENU rectangle."""
+    """Maintain one random XY goal inside an axis-aligned ENU rectangle.
+
+    A new goal is sampled when the tracked position (drone or ball, the caller's
+    choice) enters the arrival disk, or, with ``timeout_s > 0``, when the goal
+    has been held that long. ``last_change`` says why the goal last changed.
+    """
 
     def __init__(
         self,
@@ -109,6 +125,7 @@ class RandomGoalSpawner:
         maximum_xy: np.ndarray,
         arrival_radius_m: float,
         seed: int | None = None,
+        timeout_s: float = 0.0,
     ) -> None:
         self.minimum_xy = np.asarray(minimum_xy, dtype=np.float32).reshape(2)
         self.maximum_xy = np.asarray(maximum_xy, dtype=np.float32).reshape(2)
@@ -118,8 +135,13 @@ class RandomGoalSpawner:
                 'goal_spawn_max_xy on both axes')
         if arrival_radius_m <= 0.0:
             raise ValueError('goal_arrival_radius must be positive')
+        if timeout_s < 0.0:
+            raise ValueError('goal_timeout_s must be non-negative')
         self.arrival_radius_m = float(arrival_radius_m)
+        self.timeout_s = float(timeout_s)
         self._rng = np.random.default_rng(seed)
+        self.last_change: str | None = None
+        self._goal_start_s: float | None = None
         self.goal_xy = self._sample()
 
     def _sample(self) -> np.ndarray:
@@ -131,15 +153,57 @@ class RandomGoalSpawner:
     def reset(self) -> np.ndarray:
         """Start a run with a newly sampled goal."""
         self.goal_xy = self._sample()
+        self._goal_start_s = None
         return self.goal_xy.copy()
 
-    def update(self, drone_xy: np.ndarray) -> tuple[np.ndarray, bool]:
-        """Resample after the drone enters the current goal's arrival disk."""
-        position = np.asarray(drone_xy, dtype=np.float32).reshape(2)
+    def update(
+        self, position_xy: np.ndarray, now_s: float | None = None,
+    ) -> tuple[np.ndarray, bool]:
+        """Resample on arrival of ``position_xy`` or when the goal timed out.
+
+        Args:
+            position_xy: tracked XY (drone or ball) compared with the goal.
+            now_s: current time (s); needed for the timeout. The timeout
+                clock of a goal starts at its first update.
+
+        Returns:
+            The current goal and whether it changed in this call.
+        """
+        position = np.asarray(position_xy, dtype=np.float32).reshape(2)
+        if now_s is not None and self._goal_start_s is None:
+            self._goal_start_s = float(now_s)
         reached = np.linalg.norm(position - self.goal_xy) <= self.arrival_radius_m
-        if reached:
+        timed_out = (
+            self.timeout_s > 0.0 and now_s is not None
+            and float(now_s) - self._goal_start_s >= self.timeout_s)
+        if reached or timed_out:
+            self.last_change = 'reached' if reached else 'timeout'
             self.goal_xy = self._sample()
-        return self.goal_xy.copy(), bool(reached)
+            self._goal_start_s = None if now_s is None else float(now_s)
+        return self.goal_xy.copy(), bool(reached or timed_out)
+
+
+# policy_iterate of a checkpoint that did not come from the goal-retargeting learner.
+EXTERNAL_ITERATE = -1
+
+
+def _iterate_name(iterate: int) -> str:
+    """Console name of a flying policy: its learner iterate, or 'external'."""
+    return 'external' if iterate == EXTERNAL_ITERATE else str(iterate)
+
+
+def _latched_qos() -> QoSProfile:
+    """Reliable, transient-local depth-1 QoS: late subscribers get the last message."""
+    return QoSProfile(
+        depth=1,
+        reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        history=HistoryPolicy.KEEP_LAST,
+    )
+
+
+def _format_vector(values: np.ndarray) -> str:
+    return '[' + ', '.join(f'{float(value):.3f}' for value in values) + ']'
 
 
 def enu_waypoint_to_ned(waypoint: np.ndarray) -> np.ndarray:
@@ -331,6 +395,14 @@ class PolicyCommander(Node):
         self.declare_parameter('goal_spawn_max_xy', [1.5, 1.5])
         self.declare_parameter('goal_arrival_radius', 0.35)
         self.declare_parameter('goal_random_seed', -1)
+        # Random goals switch when this reaches the arrival disk: "drone"
+        # (the original behavior) or "ball" (as in drone_soccer's sim tests).
+        self.declare_parameter('goal_arrival_reference', 'drone')
+        # Random goals not reached within this time are replaced; 0 disables.
+        self.declare_parameter('goal_timeout_s', 0.0)
+        # Policies train on goals at most 4 m from the ball; farther goals are
+        # shown to the policy pulled in to this distance along their direction.
+        self.declare_parameter('max_goal_distance_m', 4.0)
         self.declare_parameter('policy_dt', 0.02)
         self.declare_parameter('deterministic', True)
         self.declare_parameter('action_low', [-3.0, -3.0, 0.3])
@@ -359,6 +431,13 @@ class PolicyCommander(Node):
         # Accept new checkpoints on <debug_topic_prefix>/load_policy and swap them in
         # between ticks (online policy-memory updates); off keeps the policy fixed.
         self.declare_parameter('enable_policy_hot_swap', False)
+        # Online goal-retargeting updates (drone_soccer.goal_retarget): record
+        # every flown tick for the host learner and hot-swap the policies it
+        # publishes. See README "Online goal-retargeting updates".
+        self.declare_parameter('goal_retarget_enabled', False)
+        self.declare_parameter('goal_retarget_root', '/bags/goal_retarget')
+        # false: record ticks only and keep flying the starting policy.
+        self.declare_parameter('goal_retarget_hot_swap', True)
 
         self.drone = str(self.get_parameter('drone').value)
         ball_name = str(self.get_parameter('ball_name').value)
@@ -387,6 +466,12 @@ class PolicyCommander(Node):
             self.get_parameter('goal_phase_rad').value)
         self.goal_rotation_rad = float(
             self.get_parameter('goal_rotation_rad').value)
+        self.goal_arrival_reference = str(
+            self.get_parameter('goal_arrival_reference').value).strip().lower()
+        if self.goal_arrival_reference not in ('drone', 'ball'):
+            raise ValueError(
+                'goal_arrival_reference must be drone or ball, got '
+                f'{self.goal_arrival_reference!r}')
         self._random_goal_spawner: RandomGoalSpawner | None = None
         if self.goal_trajectory == 'random':
             random_seed = int(self.get_parameter('goal_random_seed').value)
@@ -395,6 +480,7 @@ class PolicyCommander(Node):
                 self.get_parameter('goal_spawn_max_xy').value,
                 float(self.get_parameter('goal_arrival_radius').value),
                 None if random_seed < 0 else random_seed,
+                float(self.get_parameter('goal_timeout_s').value),
             )
             self.target_xy = self._random_goal_spawner.goal_xy.copy()
         else:
@@ -408,6 +494,10 @@ class PolicyCommander(Node):
                 self.goal_rotation_rad,
             )
         self._goal_reference_start = self.get_clock().now()
+        self.max_goal_distance_m = float(
+            self.get_parameter('max_goal_distance_m').value)
+        if self.max_goal_distance_m <= 0.0:
+            raise ValueError('max_goal_distance_m must be positive')
         self.action_low = np.asarray(
             self.get_parameter('action_low').value, dtype=np.float32)
         self.action_high = np.asarray(
@@ -503,11 +593,14 @@ class PolicyCommander(Node):
 
         self.create_service(Trigger, '~/start', self._handle_start)
         self.create_service(Trigger, '~/stop', self._handle_stop)
-        self._setup_policy_hot_swap(prefix, model_path)
 
         policy_dt = float(self.get_parameter('policy_dt').value)
         if policy_dt <= 0.0:
             raise ValueError('policy_dt must be positive')
+        self.policy_dt = policy_dt
+        self._init_policy_updates(model_path)
+        self._setup_policy_hot_swap(prefix)
+        self._setup_goal_retarget(prefix, model_path, ball_name)
         self.create_timer(policy_dt, self._policy_tick)
 
         self.get_logger().info(
@@ -520,7 +613,10 @@ class PolicyCommander(Node):
             f'center={self.goal_center_xy.tolist()} '
             f'radius={self.goal_radius:.3f}m period={self.goal_period_s:.3f}s '
             f'rotation={self.goal_rotation_rad:.3f}rad '
-            f'geofence_buffer={self.geofence_buffer_m:.3f}m')
+            f'max_goal_distance={self.max_goal_distance_m:.3f}m '
+            f'geofence_buffer={self.geofence_buffer_m:.3f}m '
+            f'goal_arrival={self.goal_arrival_reference} '
+            f'goal_retarget={self._recorder is not None}')
 
     def _handle_start(self, _request, response):
         self._goal_reference_start = self.get_clock().now()
@@ -542,11 +638,15 @@ class PolicyCommander(Node):
         self.running = True
         response.success = True
         response.message = 'policy loop publishing enabled'
+        if self._recorder is not None:
+            response.message += (
+                f' (goal-retarget: flying iterate {self.policy_iterate})')
         self.get_logger().info(response.message)
         return response
 
     def _handle_stop(self, _request, response):
         self.running = False
+        self._end_recorded_segment('policy stopped')
         response.success = True
         response.message = 'policy loop paused (last waypoint held if published)'
         self.get_logger().info(response.message)
@@ -585,16 +685,25 @@ class PolicyCommander(Node):
     def _update_goal_reference(self) -> None:
         """Update the observation goal from the configured reference clock."""
         if self._random_goal_spawner is not None:
-            odom = self._latest_drone_odom
-            if odom is None:
-                return
-            position = odom.pose.pose.position
+            if self.goal_arrival_reference == 'ball':
+                ball = self._ball_tracker.state
+                if ball is None:
+                    return
+                position_xy = np.asarray(ball.position, dtype=np.float32)[:2]
+            else:
+                odom = self._latest_drone_odom
+                if odom is None:
+                    return
+                position = odom.pose.pose.position
+                position_xy = np.array([position.x, position.y], dtype=np.float32)
             self.target_xy, changed = self._random_goal_spawner.update(
-                np.array([position.x, position.y], dtype=np.float32))
+                position_xy, self.get_clock().now().nanoseconds * 1e-9)
             if changed:
+                reason = self._random_goal_spawner.last_change
+                self._iterate_stats[reason] += 1
                 self.get_logger().info(
-                    'Goal reached; spawned new random goal: '
-                    f'{self.target_xy.tolist()}')
+                    f'Goal {reason} ({self.goal_arrival_reference}); spawned '
+                    f'new random goal: {self.target_xy.tolist()}')
             return
         elapsed_s = (
             self.get_clock().now() - self._goal_reference_start
@@ -609,7 +718,8 @@ class PolicyCommander(Node):
             self.goal_rotation_rad,
         )
 
-    def _build_observation(self) -> np.ndarray | None:
+    def _read_state(self) -> dict[str, np.ndarray] | None:
+        """The drone and ball state the policy acts on this tick."""
         odom = self._latest_drone_odom
         ball = self._ball_tracker.state
         if odom is None or ball is None:
@@ -617,23 +727,32 @@ class PolicyCommander(Node):
 
         p = odom.pose.pose.position
         q = odom.pose.pose.orientation
-        drone_pos = np.array([p.x, p.y, p.z], dtype=np.float32)
-        rot = quaternion_to_rotation_matrix(q.w, q.x, q.y, q.z).astype(np.float32)
-
         t = odom.twist.twist
-        drone_vel = np.array([t.linear.x, t.linear.y, t.linear.z], dtype=np.float32)
-        drone_omega = np.array(
-            [t.angular.x, t.angular.y, t.angular.z], dtype=np.float32)
+        return {
+            'drone_position': np.array([p.x, p.y, p.z], dtype=np.float32),
+            'drone_quat_wxyz': np.array([q.w, q.x, q.y, q.z], dtype=np.float64),
+            'drone_velocity': np.array(
+                [t.linear.x, t.linear.y, t.linear.z], dtype=np.float32),
+            'drone_angular_velocity_body': np.array(
+                [t.angular.x, t.angular.y, t.angular.z], dtype=np.float32),
+            'ball_position': np.asarray(ball.position),
+            'ball_velocity': np.asarray(ball.velocity),
+        }
 
-        return arrays_to_observation(
-            drone_pos,
-            drone_vel,
+    def _observation_from_state(self, state: dict[str, np.ndarray]) -> np.ndarray:
+        rot = quaternion_to_rotation_matrix(
+            *state['drone_quat_wxyz']).astype(np.float32)
+        # The published goal stays the true goal; only the policy's view of
+        # the goal-minus-ball offset is capped, matching drone_soccer.
+        return cap_observation_goal(arrays_to_observation(
+            state['drone_position'],
+            state['drone_velocity'],
             rot,
-            drone_omega,
-            ball.position,
-            ball.velocity,
+            state['drone_angular_velocity_body'],
+            state['ball_position'],
+            state['ball_velocity'],
             self.target_xy,
-        )
+        ), self.max_goal_distance_m)
 
     def _publish_goal(self) -> None:
         goal_msg = Float32MultiArray()
@@ -681,24 +800,47 @@ class PolicyCommander(Node):
         setpoint.yawspeed = float('nan')
         self.trajectory_pub.publish(setpoint)
 
-    def _setup_policy_hot_swap(self, prefix: str, model_path: str) -> None:
-        """Subscribe to load requests and latch the active checkpoint path, if enabled."""
-        self._hot_swap = None
-        if not bool(self.get_parameter('enable_policy_hot_swap').value):
+    # --- Policy hot swap (online policy memory and goal retargeting) -------
+
+    def _init_policy_updates(self, model_path: str) -> None:
+        """State shared by both policy-update sources; both start disabled."""
+        self._hot_swap: PolicyHotSwap | None = None
+        self.active_policy_pub = None
+        self.policy_update_pub = None
+        self._recorder: TickRecorder | None = None
+        self._detail_log: DetailLog | None = None
+        self._manifest_watcher: PolicyManifestWatcher | None = None
+        # Whether iterates the goal-retargeting learner publishes are loaded.
+        self._goal_retarget_swaps = False
+        self._pending_manifests: dict[str, dict] = {}
+        self.policy_iterate = 0
+        self.policy_path = model_path
+        self._iterate_stats = {'ticks': 0, 'reached': 0, 'timeout': 0}
+
+    def _ensure_hot_swap(self, prefix: str) -> None:
+        """Create the background loader and the latched <prefix>/active_policy path topic once."""
+        if self._hot_swap is not None:
             return
         self._hot_swap = PolicyHotSwap(lambda path: load_policy_checkpoint(
             path, self.action_low, self.action_high, self.policy_type)[0])
-        latched = QoSProfile(
-            depth=1,
-            reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.TRANSIENT_LOCAL,
-            history=HistoryPolicy.KEEP_LAST,
-        )
         self.active_policy_pub = self.create_publisher(
-            String, f'{prefix}/active_policy', latched)
+            String, f'{prefix}/active_policy', _latched_qos())
+        self._publish_active_policy_path()
+
+    def _publish_active_policy_path(self) -> None:
+        if self.active_policy_pub is None:
+            return
+        msg = String()
+        msg.data = self.policy_path
+        self.active_policy_pub.publish(msg)
+
+    def _setup_policy_hot_swap(self, prefix: str) -> None:
+        """Accept checkpoint paths on <prefix>/load_policy (online policy memory), if enabled."""
+        if not bool(self.get_parameter('enable_policy_hot_swap').value):
+            return
+        self._ensure_hot_swap(prefix)
         self.create_subscription(
             String, f'{prefix}/load_policy', self._load_policy_cb, 10)
-        self._publish_active_policy(model_path)
         self.get_logger().info(
             f'Policy hot swap enabled on {prefix}/load_policy')
 
@@ -706,33 +848,26 @@ class PolicyCommander(Node):
         self.get_logger().info(f'Loading requested policy {msg.data}')
         self._hot_swap.request(msg.data)
 
-    def _publish_active_policy(self, path: str) -> None:
-        msg = String()
-        msg.data = path
-        self.active_policy_pub.publish(msg)
-
-    def _adopt_loaded_policy(self) -> None:
-        """Swap in a policy loaded since the last tick and announce it."""
-        if self._hot_swap is None:
-            return
-        for error in self._hot_swap.take_errors():
-            self.get_logger().error(f'Policy load failed, keeping current: {error}')
-        loaded = self._hot_swap.take_ready()
-        if loaded is None:
-            return
-        self.policy = loaded.policy
-        self._publish_active_policy(loaded.path)
-        self.get_logger().info(f'Swapped in policy {loaded.path}')
+    def _policy_action(self, policy: Any, obs: np.ndarray) -> np.ndarray:
+        action, _ = policy.predict(obs, deterministic=self.deterministic)
+        return np.clip(
+            np.asarray(action, dtype=np.float32),
+            self.action_low,
+            self.action_high,
+        )
 
     def _policy_tick(self) -> None:
-        self._adopt_loaded_policy()
+        self._poll_learner_updates()
         if not self.running:
+            self._adopt_loaded_policy(None)
             self._publish_goal()
             if self._last_waypoint is not None:
                 self._publish_fmu_setpoint(self._last_waypoint)
             return
 
         if not self._inputs_fresh():
+            self._end_recorded_segment('stale drone odom or ball state')
+            self._adopt_loaded_policy(None)
             self._publish_goal()
             self.get_logger().warn(
                 'Waiting for fresh drone odom and ball state',
@@ -741,22 +876,17 @@ class PolicyCommander(Node):
 
         self._update_goal_reference()
         self._publish_goal()
-        obs = self._build_observation()
-        if obs is None:
+        state = self._read_state()
+        if state is None:
+            self._end_recorded_segment('missing drone odom or ball state')
             return
+        obs = self._observation_from_state(state)
+        # Swap between computing the observation and acting on it, so the
+        # log can compare both policies' actions on this exact state.
+        self._adopt_loaded_policy(obs)
 
-        drone_pos_pre = np.array([
-            self._latest_drone_odom.pose.pose.position.x,
-            self._latest_drone_odom.pose.pose.position.y,
-            self._latest_drone_odom.pose.pose.position.z,
-        ], dtype=np.float32)
-
-        action, _ = self.policy.predict(obs, deterministic=self.deterministic)
-        action = np.clip(
-            np.asarray(action, dtype=np.float32),
-            self.action_low,
-            self.action_high,
-        )
+        drone_pos_pre = state['drone_position']
+        action = self._policy_action(self.policy, obs)
         waypoint = compute_bounded_waypoint(
             drone_pos_pre,
             action,
@@ -768,6 +898,230 @@ class PolicyCommander(Node):
 
         self._publish_fmu_setpoint(waypoint)
         self._publish_debug(obs, action, waypoint)
+        self._iterate_stats['ticks'] += 1
+        self._record_tick(state, action, waypoint)
+
+    # --- Online goal-retargeting updates ----------------------------------
+
+    def _setup_goal_retarget(
+            self, prefix: str, model_path: str, ball_name: str) -> None:
+        """Open the learner run directory and hot-swap machinery, if enabled."""
+        if not bool(self.get_parameter('goal_retarget_enabled').value):
+            return
+
+        # Imported here so plain inference does not depend on it.
+        from drone_soccer.goal_retarget_config import GOAL_RETARGET
+
+        if self.policy_type != 'standard':
+            raise ValueError(
+                'goal_retarget_enabled needs policy_type standard (the learner '
+                f'adapts a plain PPO actor), got {self.policy_type!r}')
+        if abs(self.policy_dt - GOAL_RETARGET.policy_dt) > 1e-9:
+            raise ValueError(
+                f'goal_retarget_enabled needs policy_dt {GOAL_RETARGET.policy_dt}'
+                f' (one learner frame per tick), got {self.policy_dt}')
+        if not self.deterministic:
+            raise ValueError('goal_retarget_enabled needs deterministic: true')
+        if abs(self.max_goal_distance_m - GOAL_RETARGET.max_goal_distance_m) > 1e-9:
+            raise ValueError(
+                'goal_retarget_enabled needs max_goal_distance_m '
+                f'{GOAL_RETARGET.max_goal_distance_m}, got '
+                f'{self.max_goal_distance_m}')
+        if self._random_goal_spawner is not None and (
+                self.goal_arrival_reference != 'ball'
+                or abs(self._random_goal_spawner.arrival_radius_m
+                       - GOAL_RETARGET.reach_radius_m) > 1e-9):
+            self.get_logger().warn(
+                'Goal-retarget learning was tested with goals that switch when '
+                f'the ball is within {GOAL_RETARGET.reach_radius_m} m; this run '
+                f'switches on the {self.goal_arrival_reference} within '
+                f'{self._random_goal_spawner.arrival_radius_m} m')
+
+        model_sha256 = hashlib.sha256(Path(model_path).read_bytes()).hexdigest()
+        session = {
+            'created': datetime.now().isoformat(timespec='seconds'),
+            'drone': self.drone,
+            'ball_name': ball_name,
+            'model_path': model_path,
+            'model_sha256': model_sha256,
+            'policy_type': self.policy_type,
+            'policy_dt': self.policy_dt,
+            'max_goal_distance_m': self.max_goal_distance_m,
+            'action_low': self.action_low.tolist(),
+            'action_high': self.action_high.tolist(),
+            'goal_trajectory': self.goal_trajectory,
+            'goal_arrival_reference': self.goal_arrival_reference,
+            'goal_timeout_s': float(self.get_parameter('goal_timeout_s').value),
+            'frame': 'world ENU',
+        }
+        root = str(self.get_parameter('goal_retarget_root').value)
+        run_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{self.drone}"
+        self._recorder = TickRecorder(root, run_name, session)
+        self._detail_log = DetailLog(self._recorder.run_dir / COMMANDER_LOG_FILE)
+        self._manifest_watcher = PolicyManifestWatcher(self._recorder.run_dir)
+        self._goal_retarget_swaps = bool(
+            self.get_parameter('goal_retarget_hot_swap').value)
+        if self._goal_retarget_swaps:
+            self._ensure_hot_swap(prefix)
+        self.policy_update_topic = f'{prefix}/policy_update'
+        self.policy_update_pub = self.create_publisher(
+            String, self.policy_update_topic, _latched_qos())
+        self._publish_policy_update(None)
+
+        run_dir = str(self._recorder.run_dir)
+        host_hint = ''
+        if run_dir.startswith('/bags/'):
+            host_hint = f' (host: AirStack/robot/bags/{run_dir[len("/bags/"):]})'
+        self._detail(
+            f'goal-retarget learning: recording ticks to {run_dir}{host_hint}; '
+            f'hot swap {"on" if self._goal_retarget_swaps else "OFF"}; policy '
+            f'changes are announced on {self.policy_update_topic}; session {session}')
+        self.get_logger().info(
+            f'Goal-retarget learning ON (hot swap '
+            f'{"on" if self._goal_retarget_swaps else "OFF"}): run {run_name}, details in '
+            f'{run_dir}/{COMMANDER_LOG_FILE}')
+
+    def _detail(self, message: str) -> None:
+        """Write to the run's detailed log only (not the console)."""
+        if self._detail_log is not None:
+            self._detail_log.write(message)
+
+    def _record_tick(self, state: dict[str, np.ndarray], action: np.ndarray,
+                     waypoint: np.ndarray) -> None:
+        if self._recorder is None:
+            return
+        opening = not self._recorder.segment_open
+        segment, _ = self._recorder.record(
+            self.get_clock().now().nanoseconds * 1e-9,
+            self.policy_iterate,
+            goal_xy=self.target_xy,
+            action=action,
+            waypoint=waypoint,
+            **state,
+        )
+        if opening:
+            self._detail(
+                f'recording segment {segment} (policy iterate {self.policy_iterate})')
+
+    def _end_recorded_segment(self, reason: str) -> None:
+        if self._recorder is None:
+            return
+        segment = self._recorder.segment
+        if self._recorder.end_segment():
+            self._detail(f'segment {segment} ended ({reason})')
+
+    def _poll_learner_updates(self) -> None:
+        """Start loading an iterate the learner just published."""
+        if self._manifest_watcher is None:
+            return
+        manifest = self._manifest_watcher.poll()
+        if manifest is None:
+            return
+        iterate = int(manifest['iterate'])
+        summary = format_update_summary(manifest.get('update') or {})
+        if not self._goal_retarget_swaps:
+            self._detail(
+                f'learner published iterate {iterate} ({summary}); hot swap '
+                f'is off, still flying iterate {self.policy_iterate}')
+            self.get_logger().info(
+                f'Learner iterate {iterate} ready; hot swap off, still flying '
+                f'iterate {self.policy_iterate}')
+            return
+        path = manifest['policy_path']
+        self._pending_manifests[path] = manifest
+        self._detail(f'learner published iterate {iterate}; loading {path}')
+        self._hot_swap.request(path)
+
+    def _adopt_loaded_policy(self, obs: np.ndarray | None) -> None:
+        """Swap in a policy loaded since the last tick and log the change."""
+        if self._hot_swap is None:
+            return
+        for error in self._hot_swap.take_errors():
+            self._detail(f'policy load failed; still flying iterate '
+                         f'{self.policy_iterate}: {error}')
+            self.get_logger().error(
+                f'Policy load failed, still flying iterate '
+                f'{self.policy_iterate}: {error}')
+        loaded = self._hot_swap.take_ready()
+        if loaded is None:
+            return
+        manifest = self._pending_manifests.pop(loaded.path, {})
+        # A checkpoint requested on load_policy (online policy memory) is no
+        # goal-retargeting iterate: it flies as EXTERNAL_ITERATE.
+        new_iterate = int(manifest.get('iterate', EXTERNAL_ITERATE))
+        for path in [path for path, pending in self._pending_manifests.items()
+                     if int(pending['iterate']) < new_iterate]:
+            del self._pending_manifests[path]
+
+        old_iterate = self.policy_iterate
+        old_policy = self.policy
+        stats = self._iterate_stats
+        if obs is not None:
+            old_action = self._policy_action(old_policy, obs)
+            new_action = self._policy_action(loaded.policy, obs)
+        self.policy = loaded.policy
+        self.policy_iterate = new_iterate
+        self.policy_path = loaded.path
+        self._iterate_stats = {'ticks': 0, 'reached': 0, 'timeout': 0}
+
+        flown_s = stats['ticks'] * self.policy_dt
+        first_tick = ''
+        if self._recorder is not None:
+            segment, tick = self._recorder.next_position
+            first_tick = f'; first tick: segment {segment} tick {tick}'
+        details = [
+            f'POLICY UPDATE: now flying iterate {new_iterate} '
+            f'({loaded.path}), replacing iterate {old_iterate}{first_tick}'
+            + ('' if self.running else ' (policy paused)'),
+            f'  learner update {new_iterate}: '
+            f"{format_update_summary(manifest.get('update') or {})}",
+        ]
+        if obs is not None:
+            delta = float(np.linalg.norm(new_action - old_action))
+            details.append(
+                f'  action on this state: iterate {old_iterate} '
+                f'{_format_vector(old_action)} -> iterate {new_iterate} '
+                f'{_format_vector(new_action)} (|change| {delta:.3f} m)')
+        details.append(
+            f'  iterate {old_iterate} flew {flown_s:.1f} s:'
+            f' {stats["reached"]} goals reached, {stats["timeout"]} timed out')
+        self._detail('\n'.join(details))
+
+        change = (f'action change {delta:.2f} m' if obs is not None
+                  else 'policy paused')
+        self.get_logger().warn(
+            f'POLICY UPDATE {_iterate_name(old_iterate)} -> '
+            f'{_iterate_name(new_iterate)} | {change} | '
+            f'iterate {_iterate_name(old_iterate)}: {flown_s:.0f} s, '
+            f'{stats["reached"]} goals')
+        if self._recorder is None:
+            # Online policy-memory swaps have no detail log; keep the path on screen.
+            self.get_logger().info(f'Swapped in policy {loaded.path}')
+        self._publish_active_policy_path()
+        self._publish_policy_update(manifest.get('update'))
+
+    def _publish_policy_update(self, update: dict | None) -> None:
+        """Latched JSON event of the flying goal-retargeting iterate (learning runs only)."""
+        if self.policy_update_pub is None:
+            return
+        segment, tick = self._recorder.next_position
+        msg = String()
+        msg.data = json.dumps({
+            'iterate': self.policy_iterate,
+            'path': self.policy_path,
+            'ros_time_s': self.get_clock().now().nanoseconds * 1e-9,
+            'first_segment': segment,
+            'first_tick': tick,
+            'update': update,
+        })
+        self.policy_update_pub.publish(msg)
+
+    def destroy_node(self):
+        if getattr(self, '_recorder', None) is not None:
+            self._recorder.close()
+        if getattr(self, '_detail_log', None) is not None:
+            self._detail_log.close()
+        return super().destroy_node()
 
 
 def main(args=None):
