@@ -3129,6 +3129,78 @@
         }
       ],
       "updated": "2026-11-19"
+    },
+    {
+      "id": "trybala2023min3d",
+      "title": "MIN3D Dataset: MultI-seNsor 3D Mapping with an Unmanned Ground Vehicle",
+      "venue_or_version": "PFG 2023",
+      "url": "https://doi.org/10.1007/s41064-023-00260-0",
+      "release_repository": "https://github.com/3DOM-FBK/MIN3D/tree/e9103ae4b407018bfa9c4454bc47be5c14e71948",
+      "reading_history": [
+        {
+          "date": "2026-11-20",
+          "source_note": "docs/research/min3d-university-2-intake-2026-11-20.md",
+          "inspection": "Targeted sections 3.2\u20133.4 and release inventory for University 2, sensor timing and survey-map reference. No payload validation or reproduction."
+        }
+      ],
+      "updated": "2026-11-20"
+    },
+    {
+      "id": "qin2018vinsmono",
+      "title": "VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator",
+      "venue_or_version": "IEEE Transactions on Robotics 2018",
+      "url": "https://arxiv.org/abs/1708.03852",
+      "code": "https://github.com/HKUST-Aerial-Robotics/VINS-Mono/tree/90dabb5ec79946ae42fd2e1e91d4e69aabe1e25d",
+      "reading_history": [
+        {
+          "date": "2026-11-20",
+          "source_note": "docs/research/track-survival-warning-scout-2026-11-20.md",
+          "inspection": "Targeted failure detection and feature tracking sections. Inspected the pinned frontend for feature age and optical flow. No reproduction."
+        }
+      ],
+      "updated": "2026-11-20"
+    },
+    {
+      "id": "liu2017trackage",
+      "title": "Robust Stereo Visual Odometry Using Improved RANSAC-Based Methods for Mobile Robot Localization",
+      "venue_or_version": "Sensors 2017",
+      "url": "https://doi.org/10.3390/s17102339",
+      "reading_history": [
+        {
+          "date": "2026-11-20",
+          "source_note": "docs/research/track-survival-warning-scout-2026-11-20.md",
+          "inspection": "Targeted sections 3.3\u20133.4 on feature age and hypothesis sampling. No released implementation checked or reproduction."
+        }
+      ],
+      "updated": "2026-11-20"
+    },
+    {
+      "id": "brunner2013selectivethermal",
+      "title": "Selective Combination of Visual and Thermal Imaging for Resilient Localization in Adverse Conditions: Day and Night, Smoke and Fire",
+      "venue_or_version": "Journal of Field Robotics 2013",
+      "url": "https://doi.org/10.1002/rob.21464",
+      "reading_history": [
+        {
+          "date": "2026-11-20",
+          "source_note": "docs/research/selective-fusion-feasibility-2026-11-20.md",
+          "inspection": "Publisher abstract and institutional metadata only. Compared reported modality-selection arms and field conditions. No source or reproduction."
+        }
+      ],
+      "updated": "2026-11-20"
+    },
+    {
+      "id": "khattak2019visualthermal",
+      "title": "Visual\u2013Thermal Landmarks and Inertial Fusion for Navigation in Degraded Visual Environments",
+      "venue_or_version": "arXiv:1903.01656v1",
+      "url": "https://arxiv.org/pdf/1903.01656",
+      "reading_history": [
+        {
+          "date": "2026-11-20",
+          "source_note": "docs/research/selective-fusion-feasibility-2026-11-20.md",
+          "inspection": "Targeted estimator method, entropy selection and mine experiment endpoints. No source or reproduction."
+        }
+      ],
+      "updated": "2026-11-20"
     }
   ]
 }

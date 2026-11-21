@@ -38,3 +38,13 @@ workspace. No bag bytes were obtained. Reference files and the audit are
 saved under `/root/ore-ms-artifacts/m2dgr-intake/`. This intake establishes
 a candidate with external mocap and a concrete release issue. Camera input
 and a qualified 6-DoF scoring reference remain unavailable.
+
+## Dark-room access follow-up
+
+On 20 November 2026, bounded 32-byte requests to all six current
+dark-room OneDrive bag links returned HTTP 403 from this workspace.
+The release labels these runs dark and the three bright runs
+separately. No camera payloads were available to establish an
+in-sequence lighting change, paired camera timing, or motion-capture
+support across a transition.
+[Official sequence list](https://sjtu-visys.github.io/M2DGR/#dataset-sequences).

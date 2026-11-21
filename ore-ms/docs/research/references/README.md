@@ -13,6 +13,9 @@
 [OdomBeyondVision transition intake](../odombeyondvision-transition-intake-2026-11-18.md) checks the author paper, sequence inventory and released UAV bag names. All Vicon sequences are labeled bright.
 
 [DiTer++ PARK intake](../diter-plusplus-park-intake-2026-11-19.md) checks the paper’s sensor, sequence, and reference methods and the author release inventory available from this machine.
+[MIN3D University 2 intake](../min3d-university-2-intake-2026-11-20.md) checks the sequence, synchronization, and survey reference in sections 3.2–3.4 and the public release.
+[Track survival warning scout](../track-survival-warning-scout-2026-11-20.md) checks VINS-Mono failure detection and feature age, and stereo VO track-age sampling as prior art for the diagnostic.
+[Selective fusion feasibility](../selective-fusion-feasibility-2026-11-20.md) checks the Brunner publisher abstract, Khattak methods and mine experiment, and pinned VINS-Fusion and RRxIO camera routing.
 
 Latest: [IRS RTVI continuous-frame photometric test](../irs-rtvi-photometric-transition-2026-11-18.md) checks recorded light states, verifies current TartanRGBT pose provenance, and measures a scheduled thermal handoff during artificial dimming.
 

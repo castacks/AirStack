@@ -146,3 +146,22 @@ characterization. Metric recovery scoring remains unqualified.
 Raw ranges, parsed headers, timing summaries, and interval-level
 rotation checks are under
 `/root/ore-ms-artifacts/diter-park/timing-preflight/`.
+
+## Release provenance follow-up
+
+The public calibration folder download contains a Dropbox Paper shortcut.
+No recording-specific calibration file was present in that archive. The
+[DiTer++ release repository](https://github.com/sparolab/DiTer-plusplus)
+points to the shared calibration and does not specify the tracked frame
+of either PARK pose export.
+
+SPARO's later KISS-IMU code names `Park_in_day` under `diter_os`. Its
+evaluation loader takes a preprocessed `gt_pose.csv` and uses identity
+rotations and zero translations for its IMU-to-LiDAR and IMU-to-reference
+parameters. The layout documentation does not map that CSV or its IMU
+input to specific public files and ROS topics. Those settings therefore
+cannot establish the frame of the raw PARK exports or the camera-to-IMU
+chain. The public provenance checked here leaves both the thermal
+calibration and pose-frame gates open.
+[Pinned dataset layout](https://github.com/sparolab/KISS-IMU/blob/572bfbe29e90bcff55dc1ddf90205f071851f818/examples/dataset_layout.md),
+[pinned evaluation loader](https://github.com/sparolab/KISS-IMU/blob/572bfbe29e90bcff55dc1ddf90205f071851f818/src/data/eval_dataset.py).

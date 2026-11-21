@@ -8,13 +8,17 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
+| Thesis results | [Accuracy, availability, and input cost by condition](rgb-thermal-thesis-results-2026-11-20.md) · [Chapter draft](rgb-thermal-thesis-chapter-draft-2026-11-20.md) |
 | VINS visual correction health | [Causal correction magnitudes and warning timing](vins-visual-correction-health-2026-11-19.md) |
+| Track survival warning | [SmokeRoom and FlashLight image-only scout](track-survival-warning-scout-2026-11-20.md) |
+| Selective fusion | [Prior art, source preflight, and IRS controls](selective-fusion-feasibility-2026-11-20.md) |
 | VINS longitudinal correction | [Signed velocity correction warning on SmokeRoom and FlashLight](vins-longitudinal-correction-warning-2026-11-20.md) |
 | FlashLight RGB reset transfer | [Fixed-time track reset versus continuous RGB](flashlight-vins-rgb-reset-transfer-2026-11-19.md) |
 | SmokeRoom scheduled handoff | [Initialized RGB–IMU state, thermal switch, and matched track reset](smokeroom-vins-scheduled-handoff-2026-11-19.md) |
 | SmokeRoom fixed-camera replay | [Output continuity, RGB position drift, and thermal startup](smokeroom-vins-fixed-replay-2026-11-19.md) |
 | SmokeRoom RGB-only control | [Native MEI replay and clear-trajectory gate](smokeroom-vins-rgb-control-2026-11-19.md) |
 | SmokeRoom stateful candidate | [Field obscuration, stream coverage and reference limits](smokeroom-stateful-recovery-intake-2026-11-19.md) |
+| SmokeRoom track persistence | [Paired clear, obscured and later image windows](smokeroom-track-persistence-2026-11-20.md) |
 | Deployment characterization | [RGB–thermal findings, limits, and research decision](rgb-thermal-deployment-synthesis-2026-11-19.md) |
 | IRS thermal input budget | [Fast Dark native and half-rate replay](irs-thermal-input-budget-intake-2026-11-19.md) |
 | IRS thermal spatial budget | [Fast Dark 2 × 2 pooling at fixed cadence](irs-thermal-spatial-pooling-fast-dark-2026-11-20.md) |
@@ -40,6 +44,10 @@ protocols can contain proposed follow-ups that later findings have already close
 | DiTer++ PARK geometry | [Held-out epipolar support at equal match count](diter-plusplus-park-geometry-2026-11-19.md) |
 | DiTer++ PARK frontend | [SIFT support and thermal preprocessing control](diter-plusplus-park-sift-2026-11-19.md) |
 | DiTer++ PARK | [Recorded light-transition candidate and release intake](diter-plusplus-park-intake-2026-11-19.md) |
+| MIN3D University 2 | [Indoor–outdoor loop and reference availability](min3d-university-2-intake-2026-11-20.md) |
+| NGCLAB VTI | [Varying-light OptiTrack sequences and access check](ngclab-vti-transition-intake-2026-11-20.md) |
+| ETH3D visible-light control | [Recorded lighting changes and frontend support](eth3d-visible-light-scout-2026-11-20.md) |
+| CRL25DEG | [Field lighting samples and released reference coverage](crl25deg-transition-intake-2026-11-20.md) |
 | Redcourse Box archive | [Pose-reference coverage and qualification](redcourse-pose-reference-intake-2026-11-18.md) |
 | OdomBeyondVision | [Natural-transition metadata intake](odombeyondvision-transition-intake-2026-11-18.md) |
 | IRS RTVI continuous-frame light-loss control | [Natural transition screen and paced dimming pilot](irs-rtvi-photometric-transition-2026-11-18.md) |
