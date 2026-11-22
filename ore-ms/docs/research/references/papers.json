@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-19",
+  "updated": "2026-11-22",
   "scope": "Living working references. Citation presence is not evidence of reading or reproduction. Unresolved historical links remain in citation-index.json; promote to reviewed entries only after checking metadata and relevance.",
   "papers": [
     {
@@ -2911,9 +2911,14 @@
           "date": "2026-11-17",
           "source_note": "docs/research/m2dgr-room-reference-intake-2026-11-17.md",
           "inspection": "Targeted primary sections and published reference payload integrity checks. No bag decode or pose scoring."
+        },
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
+          "inspection": "Targeted sections III\u2013IV and current release on Leica prism, Door trajectories and modality-specific baselines. Verified both TUM payloads against LFS pointers. Bounded bag requests return HTTP 403."
         }
       ],
-      "updated": "2026-11-17"
+      "updated": "2026-11-22"
     },
     {
       "id": "cart-2024",
@@ -2957,7 +2962,7 @@
       "venue_or_version": "IROS 2021",
       "url": "https://christopherdoer.github.io/publications/2021_09_IROS2021",
       "code": "https://github.com/christopherdoer/rrxio",
-      "inspection": "Author paper abstract, dataset protocol, calibration and pinned evaluator/loader source. Verified ZIP member CRCs, camera payloads and published Vicon–IMU reference schema.",
+      "inspection": "Author paper abstract, dataset protocol, calibration and pinned evaluator/loader source. Verified ZIP member CRCs, camera payloads and published Vicon\u2013IMU reference schema.",
       "local_status": "Six camera+IMU stateful runs across three public mocap bags, plus one easy visual outage. Radar and live cross-camera transfer were unevaluated.",
       "reading_history": [
         {
@@ -3077,9 +3082,14 @@
           "date": "2026-11-19",
           "source_note": "docs/research/diter-plusplus-park-intake-2026-11-19.md",
           "inspection": "Sensor topics, PARK environment, survey-map reference generation, and release availability."
+        },
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
+          "inspection": "Rechecked pinned release and later KISS-IMU data layout and public assets for PARK frame/calibration provenance. The required binding remains unresolved."
         }
       ],
-      "updated": "2026-11-19"
+      "updated": "2026-11-22"
     },
     {
       "id": "qin2019vinsfusion-local",
@@ -3184,9 +3194,14 @@
           "date": "2026-11-20",
           "source_note": "docs/research/selective-fusion-feasibility-2026-11-20.md",
           "inspection": "Publisher abstract and institutional metadata only. Compared reported modality-selection arms and field conditions. No source or reproduction."
+        },
+        {
+          "date": "2026-11-21",
+          "source_note": "docs/research/thermal-policy-prior-art-and-lulea-intake-2026-11-21.md",
+          "inspection": "Publisher abstract revisited for single-modality and unfiltered controls. Full text unavailable during this check."
         }
       ],
-      "updated": "2026-11-20"
+      "updated": "2026-11-21"
     },
     {
       "id": "khattak2019visualthermal",
@@ -3198,9 +3213,70 @@
           "date": "2026-11-20",
           "source_note": "docs/research/selective-fusion-feasibility-2026-11-20.md",
           "inspection": "Targeted estimator method, entropy selection and mine experiment endpoints. No source or reproduction."
+        },
+        {
+          "date": "2026-11-21",
+          "source_note": "docs/research/thermal-policy-prior-art-and-lulea-intake-2026-11-21.md",
+          "inspection": "Revisited the author record and used previously reviewed method and mine-trial endpoints to frame admission versus trajectory recovery."
         }
       ],
-      "updated": "2026-11-20"
+      "updated": "2026-11-21"
+    },
+    {
+      "id": "zhao2025superloc",
+      "title": "SuperLoc: The Key to Robust LiDAR-Inertial Localization Lies in Predicting Alignment Risks",
+      "venue_or_version": "ICRA 2025",
+      "url": "https://arxiv.org/abs/2412.02901",
+      "reading_history": [
+        {
+          "date": "2026-11-21",
+          "source_note": "docs/research/thermal-policy-prior-art-and-lulea-intake-2026-11-21.md",
+          "inspection": "Targeted alignment risk and active-fusion experiments on directional observability and external odometry. No code execution or camera adaptation."
+        }
+      ],
+      "updated": "2026-11-21"
+    },
+    {
+      "id": "koval2022subtdataset",
+      "title": "Dataset collection from a SubT environment",
+      "venue_or_version": "Robotics and Autonomous Systems 155, 2022",
+      "url": "https://doi.org/10.1016/j.robot.2022.104168",
+      "reading_history": [
+        {
+          "date": "2026-11-21",
+          "source_note": "docs/research/thermal-policy-prior-art-and-lulea-intake-2026-11-21.md",
+          "inspection": "Targeted section 3, Table 3, and section 4 sensor topics. Verified archive inventories and the public URDF. Bag payload, exposure and calibration topics remain unchecked."
+        }
+      ],
+      "updated": "2026-11-21"
+    },
+    {
+      "id": "bloesch2017photometric",
+      "title": "Iterated extended Kalman filter based visual-inertial odometry using direct photometric feedback",
+      "venue_or_version": "International Journal of Robotics Research 2017",
+      "url": "https://doi.org/10.1177/0278364917728574",
+      "reading_history": [
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/irs-thermal-admission-innovation-2026-11-22.md",
+          "inspection": "Publisher abstract and ETH author record checked for direct patch-intensity innovation. Inspected the pinned local ROVIO implementation's reduced equations and camera-update ordering. No reproduction of the article's experiments."
+        }
+      ],
+      "updated": "2026-11-22"
+    },
+    {
+      "id": "ligocki2022brnowinter",
+      "title": "Brno urban dataset: Winter extension",
+      "venue_or_version": "Data in Brief 40, 2022",
+      "url": "https://doi.org/10.1016/j.dib.2021.107667",
+      "reading_history": [
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
+          "inspection": "Targeted sensor and data-format inspection. Checked author sequence inventory and calibration revision; CRC-verified reference and timestamp sidecars. No full video or estimator replay."
+        }
+      ],
+      "updated": "2026-11-22"
     }
   ]
 }

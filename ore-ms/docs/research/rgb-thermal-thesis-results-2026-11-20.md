@@ -18,6 +18,8 @@ output gaps, and loader timing as distinct outcomes.
 | [IRS Fast Dark cadence](irs-thermal-input-budget-intake-2026-11-19.md), native vs. warm-start 10 Hz thermal | 0.282 → 0.171 m on the common retained-time cohort. | 611/612 matches per arm. Maximum corrected gap 66.68 → 116.68 ms. | 1,231 → 616 post-prefix frames. Loader wall time 4.292 → 3.745 s. | Vicon–IMU reference; full-rate common alignment. One serial timing per arm including I/O and setup. |
 | [IRS Medium cadence](irs-thermal-cadence-medium-transfer-2026-11-19.md), native vs. warm-start 10 Hz thermal | 0.248 → 0.168 m on the common retained-time cohort. | 620/621 matches per arm. Maximum corrected gap 50.24 → 100.23 ms. | 1,241 → 621 post-prefix frames. Loader wall time 4.061 → 3.216 s. | Same rig and rate protocol on a second recording. One serial timing per arm including I/O and setup. |
 | [IRS Fast Dark startup](irs-thermal-cadence-startup-2026-11-19.md), [five-second prefix](irs-thermal-cadence-five-second-startup-2026-11-20.md), and [spatial pooling](irs-thermal-spatial-pooling-fast-dark-2026-11-20.md) | Immediate 10 Hz, five-second warm-up and 2 × 2 pooling each failed their frozen qualification. | Retain failure and missing-output accounting in the individual reports. | Lower startup cadence, shorter full-rate prefix or fewer pixels per image, respectively. | Same-rig controls bound the scope of the successful warm-start result. |
+| [IRS thermal residual withholding](irs-thermal-innovation-withholding-2026-11-22.md), full rate vs. fixed thinning vs. residual withholding | Dimming RMSE on Medium 0.102 / 0.105 / 0.106 m and Difficult 0.186 / 0.184 / 0.114 m. Difficult early recovery 0.261 / 0.342 / 0.240 m. | 180 and 168 common dimming epochs out of 200 per recording. Full coverage in early recovery. The two sparse arms approximately double output gaps to 100 ms. | Each sparse arm omits 20 of 200 thermal images. Wall-clock cost was outside the comparison. | Fixed-thermal and IMU replay with a frozen open-loop omit list. Vicon–IMU position on common supported timestamps. |
+| [IRS single thermal update](irs-thermal-innovation-withholding-2026-11-22.md#single-update-effects-over-the-next-two-seconds), keep vs. omit | High-residual omission lowered 2 s position RMSE in five of six cases and beat its nearby low-residual omission in three of six pairs. | Exactly one missing output per replay. 478 of 480 common reference epochs across the twelve comparisons. | One frame omitted per arm. | Both replays receive identical subsequent inputs. Each starts with full-rate estimator history. The standalone residual missed the frozen two-recording criterion. |
 | [DiTer++ PARK](diter-plusplus-park-geometry-2026-11-19.md), shaded passage to daylight | Median held-out epipolar support at equal match count was 98.1% RGB vs. 92.5% stretched thermal. | Median supported half-second feature chains were 64 RGB vs. 5 stretched thermal. | Feature comparison; compute outside scope. | Image-space field evidence. Pose-frame and thermal calibration provenance remain open. |
 
 ## Claim supported by these results
@@ -35,8 +37,10 @@ configuration on two IRS recordings, with larger corrected gaps.
 Use the IRS runs as the metric comparison and the SubT-MRS runs as
 supplied-reference field evidence. Keep PARK as a field frontend
 comparison and an optional extension. Its calibration and reference
-frame are outside the thesis completion criteria. Independent metric
-recovery through a natural field transition remains open.
+frame remain unresolved for metric replay. The
+[natural-transition audit](natural-transition-reference-intake-2026-11-22.md)
+records the remaining PARK, M2DGR Door and Brno reference gaps.
+Independent metric recovery through a natural field transition remains open.
 
 For chapter figures, use separate panels for the IRS controlled
 degradation and its early recovery, the SmokeRoom field comparison,

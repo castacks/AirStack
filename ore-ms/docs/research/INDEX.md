@@ -11,6 +11,9 @@ protocols can contain proposed follow-ups that later findings have already close
 | Thesis results | [Accuracy, availability, and input cost by condition](rgb-thermal-thesis-results-2026-11-20.md) · [Chapter draft](rgb-thermal-thesis-chapter-draft-2026-11-20.md) |
 | VINS visual correction health | [Causal correction magnitudes and warning timing](vins-visual-correction-health-2026-11-19.md) |
 | Track survival warning | [SmokeRoom and FlashLight image-only scout](track-survival-warning-scout-2026-11-20.md) |
+| Natural transition qualification | [PARK, M2DGR Door and Brno intake](natural-transition-reference-intake-2026-11-22.md) |
+| Visible return policy | [Track-confirmed return versus fixed delay and thermal hold](irs-visible-recovery-state-machine-2026-11-22.md) |
+| Thermal update admission | [Prior art and Luleå transition intake](thermal-policy-prior-art-and-lulea-intake-2026-11-21.md) · [IRS Medium track-count comparison](irs-thermal-admission-history-2026-11-21.md) · [IRS Medium innovation comparison](irs-thermal-admission-innovation-2026-11-22.md) · [Thermal withholding replay](irs-thermal-innovation-withholding-2026-11-22.md) · [Same-frame history comparison](irs-thermal-innovation-withholding-2026-11-22.md#the-same-thermal-update-under-two-estimator-histories) |
 | Selective fusion | [Prior art, source preflight, and IRS controls](selective-fusion-feasibility-2026-11-20.md) |
 | VINS longitudinal correction | [Signed velocity correction warning on SmokeRoom and FlashLight](vins-longitudinal-correction-warning-2026-11-20.md) |
 | FlashLight RGB reset transfer | [Fixed-time track reset versus continuous RGB](flashlight-vins-rgb-reset-transfer-2026-11-19.md) |

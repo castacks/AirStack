@@ -1,0 +1,62 @@
+# Brain-picking notes on RGB–thermal odometry
+
+21 November 2026. Discussion and experiment notes from the `ore-ms` onboarding session.
+
+## Where we started
+
+The AirStack checkout moved from `ore_ms` to its research continuation, `ore-ms-orb-development`, tracking the remote at `3d836f5c3`. The recent commits document the thesis results and fusion preflight, thermal input budgets and field recovery limits, IRS RTVI handoff and recovery, and RGB–thermal recovery and calibration. The [current research handoff](MS_RESEARCH_HANDOFF.md) is the entry point.
+
+The existing rclone config was malformed and was backed up before replacement. The `ore_ms:` Box remote listed the `ore-ms/` project folder and returned metadata for `ore-ms/1_salon_mac_cov_day.zip`. The older `ore-ms/tartandrive3/` path was unavailable in this account. Access was checked by listing and reading metadata.
+
+## Are RGB and thermal comparable?
+
+Yes, on common motion intervals with a qualified reference, a consistent body-frame convention, and the same scoring rules. Compare rotation and translation separately, and keep track of coverage and cost. The relative advantage depends on the scene and motion, the frontend, and how tight the accuracy threshold is.
+
+- **SmokeRoom.** On 236 moving image pairs, thermal met the 5° rotation threshold more often than RGB (80.5% vs. 76.7%). RGB met 1° more often (64.0% vs. 49.2%) and did better on the joint rotation and translation-direction criterion (72.3% vs. 51.8% on 483 translation-qualified pairs). The RGB-first fallback filled 15 RGB gaps in one obscured interval. Eleven estimates met 5°, four met 1°, and four exceeded 5°. It raised projected matching cost by 42.7% over the full recording. These are pairwise motion estimates with translation direction, so they establish neither metric translation nor a stateful trajectory through smoke. [Handoff and results](MS_RESEARCH_HANDOFF.md)
+- **Salon SO Day.** Thermal had lower translation RMSE against the SLAM proxy in two of three windows. RGB had lower rotation error in all three. The estimates depend on those windows and the proxy reference. [EXP-025](experiments/EXP-025-salon-so-day-validation.md)
+- **IRS RTVI.** With both pipelines using IMU, visible beat thermal on the bright Medium recording (0.089 m vs. 0.248 m position RMSE). Thermal beat visible on Fast Dark (0.282 m vs. 4.302 m). Different trajectories and camera-specific presets limit what this comparison can attribute to lighting alone. IRS uses one visible and one thermal camera, while the MAC-VO studies use RGB stereo and thermal stereo. [Bright Medium](docs/research/irs-rtvi-bright-medium-metric-2026-11-18.md) · [Fast Dark](docs/research/irs-rtvi-fast-dark-common-support-2026-11-18.md)
+
+The smoke observation suggests a mechanism worth testing. Thermal can help when smoke obscures usable RGB structure and the thermal camera still sees trackable structure. Motion, texture, visibility and estimator behavior determine whether that happens in a new recording. The project has evidence from one real SmokeRoom interval, recorded darkness, and repeated artificial dimming. An independent stateful real-smoke degradation and recovery with qualified paired inputs and pose reference remains open. The dataset audit explains the gaps in the public candidates inspected so far. [Smoke dataset audit](docs/research/smoke-darkness-readiness-2026-11-15.md)
+
+## What we already tried
+
+### Switch the whole motion source
+
+IRS Medium and Difficult both showed a dimming benefit from an image-triggered visible-to-thermal handoff. During dimming, position RMSE dropped from 0.657 m to 0.105 m on Medium and from 1.015 m to 0.113 m on Difficult. Early recovery errors of 0.183 m and 0.254 m exceeded the 0.15 m target after the light returned. The trigger was designed for the artificial dimming range. The observed improvement already transfers to a second controlled-dimming recording. A naturally occurring transition would answer the open question about deployment transfer. [Causal handoff](docs/research/irs-rtvi-causal-dimming-2026-11-18.md)
+
+### Give rotation and translation different treatment
+
+We asked whether one camera could drive orientation while the other contributes to position, even when neither camera dominates the entire pose.
+
+- An earlier blend of finished RGB and thermal translations held RGB rotation fixed. The learned blend raised equal-record mean translation error by 0.46% across day, night and rain. A reference-informed oracle found 19.47% mean reduction in hindsight on paired support, leaving measurable headroom on those recordings. [Translation blending](docs/research/translation-fusion-findings-2026-11-09.md)
+- The later measurement-level study held RGB rotation fixed and re-solved translation from calibrated RGB and thermal observations. Thermal reduced day position RMSE by 0.34% against a matched RGB-only re-solve. Rain regressed against that control and the original night trajectory was incomplete. The unchanged method beat matched RGB-only refinement on two short transfer prefixes, by 6.40% on day and 2.86% on night. The longer qualified night continuation lost the thermal-specific gain. [Constrained solve](docs/research/component-constrained-native-findings-2026-11-15.md) · [Short transfer](docs/research/fixed-rotation-recording-transfer-findings-2026-11-15.md) · [Longer continuation](docs/research/fixed-rotation-continuation-findings-2026-11-15.md)
+- The proposed IRS comparison would exercise both role assignments in one stateful estimator, alongside visible-only, thermal-only, the scheduled hard switch and unrestricted dual-camera updates. Pose rotation and translation are coupled. The restricted update has to preserve the chosen rotation through the translation solve and respect covariance coupling. The IRS work stopped at the control gate, before either split-role accuracy run. [IRS preflight and follow-up](docs/research/selective-fusion-feasibility-2026-11-20.md)
+
+### Put an arbiter and an output layer above VO
+
+The overarching agent we discussed was an arbiter that could recommend **RGB, thermal, or abstain**. Its opt-in output adapter checked source motion support, requested interval endpoints, delivery deadlines and a verified frame contract before emitting relative motion. The later publisher could reconstruct same-source runs and preserve holes and segment boundaries. It refused all 57 thermal motions requested on RGB intervals in one replay because the interval contract was unmet. These experiments established routing and admission behavior. A trajectory accuracy gain attributable to the arbiter remains unmeasured. Separately, earlier frozen camera selectors also showed weak transfer, including a geometry-plus-uncertainty selector that failed against always RGB on a previously unexamined set of stereo frames. [Arbiter](docs/research/arbiter-motion-output-2026-10-30.md) · [Output layer](docs/research/selected-motion-publisher-findings-2026-11-04.md) · [Frozen selector transfer](experiments/EXP-063-ms2-unexamined-recording.md)
+
+## What happened in this session's IRS experiment
+
+1. Restored the pinned RRxIO source, native calibrations, Medium bag and Vicon–IMU reference. The bag matched the historical hash. Native bright control replays reproduced the reported 0.089 m visible and 0.248 m thermal position RMSE on 1,237 common scored epochs.
+2. Audited corrected camera and IMU timestamps. There were zero exact visible–thermal timestamp matches and 2,814 backward steps in corrected sensor time when traversing bag record order. All scored-window camera events had IMU brackets no wider than 2.46 ms. Staged a corrected-order replay preserving original headers and independently checked all 39,289 messages, including that only the 200 intended visible frames were dimmed.
+3. Built a two-camera prototype with independent image arrivals. With thermal disabled and timestamps still matching, visible-only RMSE rose to 0.207 m. Compiling the same patched code for one camera reproduced both native trajectories byte for byte. This isolated the problem to the two-camera configuration.
+4. Fixed the feature-transform rotation signs and the landmark transform's camera indexing. Startup Jacobian checks passed after the fixes, and the failing trajectories stayed byte-identical. Then fixed feature retirement so an inactive camera's initialized quality and visibility could no longer keep weak features alive when cross-camera matching is disabled.
+5. With the retirement fix, the visible-only two-camera replay improved to 0.106167 m against 0.088822 m native. Thermal matched its native baseline to six decimals. Visible still exceeded the 10 mm parity bound by coming in roughly 17 mm above native. At 53.249 s, the native replay rejected feature 498 for pixel-intensity error and the repaired replay kept it, after which the runs retired different tracks. The origin of the smaller numerical differences before that decision remains unresolved.
+
+The records and scripts are in [the IRS artifact directory](/root/ore-ms-artifacts/irs-dual-preflight), with the results summarized in the [research note](docs/research/selective-fusion-feasibility-2026-11-20.md). This qualification failure leaves the split-role hypothesis unanswered.
+
+## The policy bottleneck
+
+**The core question is whether runtime signals can predict that an available thermal update will be accurate enough to use.** Brightness and tracking health can flag when visible is struggling. They say less about whether the thermal result is trustworthy for rotation, translation, or both. The SmokeRoom gap-filling results and the difference between oracle and learned blending illustrate that distinction.
+
+- **Timing and frames.** Two separately estimated relative motions must represent the same body-frame interval before one can substitute for the other. Clock offsets, camera extrinsics, different exposure times, and delivery deadlines all matter. A shared estimator can accept different observation times if it propagates to each time and handles missing inputs explicitly.
+- **Estimator memory and recovery.** A decision changes which feature histories the estimator carries forward. A cue that works at degradation onset can still be poor at deciding when returning visible tracks are stable. Tracking availability and trajectory accuracy are separate outcomes.
+- **Lookahead and history.** Recent causal evidence could help identify persistent tracks at re-entry. The work has not isolated insufficient lookahead as the cause of current failures. Future frames or the evaluation reference are unavailable for live decisions.
+- **Transfer and cost.** Evidence of gains should survive held-out recordings, common scoring support, and matched controls. Compare against fixed visible, fixed thermal and a simple handoff. Track availability, gap length, recovery error and measured compute. A fallback with abstention makes it possible to see both the gains from accepted updates and the coverage cost of rejecting them.
+
+## Scope decision
+
+Keep the thesis centered on **visible and thermal with the IMU**, and characterize their accuracy, availability, recovery and cost under the studied conditions. We already have a controlled-dimming transfer and some naturally degraded evidence. Repeating generic dimming would say less than a qualified natural-transition replay that measures stateful recovery. Keep the split-role idea as follow-up work while the shared estimator has a confounded baseline.
+
+Radar came up as a possible velocity source **if both visible and thermal tracking lose usable features**. That referred to simultaneous degradation of the two modalities, separate from the left and right cameras of an RGB stereo rig. The IRS recordings include radar, and the original RRxIO work used Doppler velocity under degraded visual conditions. Our current studies motivate thermal fallback from visible degradation. They have not established a need to address simultaneous loss of both modalities, so radar remains out of scope for this thesis question. [IRS sensor setup](https://christopherdoer.github.io/datasets/irs_rtvi_datasets_iros2021) · [RRxIO paper](https://christopherdoer.github.io/publications/2021_09_IROS2021)

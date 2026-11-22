@@ -1,6 +1,6 @@
 # Current research handoff
 
-21 November 2026. [Thesis results draft](docs/research/rgb-thermal-thesis-chapter-draft-2026-11-20.md). Resume at the [IRS Medium dual-camera preflight](docs/research/selective-fusion-feasibility-2026-11-20.md). PARK is optional field evidence.
+21 November 2026. [Thesis results draft](docs/research/rgb-thermal-thesis-chapter-draft-2026-11-20.md). See the [IRS Medium dual-camera control result](docs/research/selective-fusion-feasibility-2026-11-20.md). PARK is optional field evidence.
 The [SmokeRoom handoff](docs/research/smokeroom-vins-scheduled-handoff-2026-11-19.md) preserved cadence but worsened obscuration error. [FlashLight](docs/research/flashlight-vins-rgb-reset-transfer-2026-11-19.md) showed reset can worsen accuracy. [Signed velocity corrections](docs/research/vins-longitudinal-correction-warning-2026-11-20.md) missed the SmokeRoom warning window. Independent natural recovery remains open. Warm-start 10 Hz passed on Fast Dark and Medium with a 50 ms increase in maximum corrected gaps. Immediate 10 Hz, a five-second prefix and 2 × 2 pooling failed on Fast Dark. See the [research index](docs/research/INDEX.md) and [IRS RTVI checkpoint](docs/research/pose-accuracy-baseline-comparison-2026-11-18.md#irs-rtvi-continuation-checkpoint).
 
 ## Current question and decision

@@ -1,3 +1,9 @@
+[Natural transition reference check](../natural-transition-reference-intake-2026-11-22.md) verifies M2DGR doorway and Brno winter position products, and rechecks PARK pose binding.
+
+[Thermal pre-update innovation test](../irs-thermal-admission-innovation-2026-11-22.md) uses the ROVIO paper's direct photometric innovation as prior art and checks the pinned implementation's update order.
+
+[Thermal update admission and Luleå intake](../thermal-policy-prior-art-and-lulea-intake-2026-11-21.md) revisits selective fusion, directional confidence, and the underground dataset's split sensor and reference coverage.
+
 [IRS thermal update-rate comparison](../irs-thermal-input-budget-intake-2026-11-19.md) reviews prior thermal rotational-speed ablations and tests the effect of halving thermal update cadence on metric position error in Fast Dark.
 
 [SmokeRoom VINS-Fusion RGB control](../smokeroom-vins-rgb-control-2026-11-19.md) checks the pinned native MEI path and records the frozen clear-window replay contract.

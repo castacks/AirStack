@@ -111,3 +111,78 @@ single-camera arrivals. No estimator was run.
 
 Verified inputs, extraction source, header rows, pairing rows and
 summary are under `/root/ore-ms-artifacts/irs-dual-preflight/`.
+
+
+## IRS Medium component-fusion qualification, 21 November
+
+Restored the pinned RRxIO source, the release bag, the three release
+calibration files and the Vicon–IMU CSV. The bag passed ZIP CRC and matches
+the historical SHA-256. Native ROS Melodic replays reproduced 0.089 m
+visible and 0.248 m thermal position RMSE on 1,237 common scored reference
+epochs. In-process odometry capture retained 1,746 visible and 1,747
+thermal poses. The historical thermal subscriber trace contained 1,741.
+
+The bag's record order contains 2,814 backward steps in corrected
+camera/IMU time. Every camera event in the alignment, dimming and recovery
+windows has an IMU bracket at most 2.46 ms wide. One thermal image before
+the first IMU is outside these windows. A derived replay bag places events
+in corrected sensor order with original header stamps. Independent readback
+checks all 39,289 messages and verifies that exactly 200 visible images
+were divided by 16, with all other serialized payloads preserved.
+
+A separate two-camera build submits a single valid pyramid per camera
+event, protects inactive feature histories and caps both-active feature
+allocation at eight visible and seven thermal slots. It disables
+cross-camera matching and stereo initialization. Neither cap is applied
+during one-camera qualification. Replays used the original bright bag
+with only camera slot zero active, retaining each native preset and
+time shift. Position scores use the existing 100 ms interpolation cap,
+unit scale and a yaw/translation fit over the first 10 s of shared support.
+
+| Camera | Matched output stamps | Common reference support | Native RMSE | Two-camera build RMSE | Maximum output attitude difference |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Visible | 1,746 | 1,439 | 0.089 m | 0.207 m | 3.00° |
+| Thermal | 1,747 | 1,438 | 0.248 m | 0.253 m | 2.68° |
+
+The visible-only control fails the existing 0.01 m RMSE parity bound
+despite retaining all native reference support. A divergence exceeding
+the 1e-8 diagnostic tolerance in the pose-vector comparison appears by
+the eighth visible output, roughly 0.35 s after the first pose. Startup
+also reports camera-1 feature-transform and landmark Jacobian discrepancies.
+The Jacobian failures do not establish the cause of visible-only drift.
+Both two-camera replays are byte-identical on repeat. Compiling the same
+patched source with one camera yields byte-identical traces to the native
+controls for both modalities, isolating the observed divergence to the
+two-camera configuration under this replay.
+The gate stops this shared-state configuration before dual-arm or
+component-constrained accuracy scoring.
+
+Source overlays, restored inputs, logs, qualification scores and hashes
+are under `/root/ore-ms-artifacts/irs-dual-preflight/`.
+
+### Follow-up on the visible parity failure
+
+Corrected the cross-camera feature-transform rotation signs and the
+landmark transform's camera-indexed extrinsic columns. Both startup
+checks now pass. The two bright trajectories are byte-identical to the
+initial two-camera replays, which rules out these repairs as a remedy for
+the observed drift.
+
+With cross-camera matching disabled, feature retirement now evaluates
+quality in the feature's own camera. The previously unused camera could
+keep a feature alive through its initial visibility and quality priors.
+The repaired two-camera visible control reaches **0.106167 m** against
+**0.088822 m** native, reducing the gap from 118 to 17 mm. The thermal
+control reaches **0.248150 m** against **0.248150 m** native to six decimal
+places. All output timestamps and reference support still match. Maximum
+visible attitude difference is 1.62°.
+
+A 1,101-output trace reproduced each full run's pose prefix byte for byte.
+At 53.249 s after the first pose, feature 498 is rejected for pixel-intensity
+error by the native replay while the repaired replay does not emit that
+rejection. The two paths retire different features over the next frames.
+This identifies where the small preexisting numerical differences turn
+into different tracking decisions. The source of those initial differences
+remains unresolved. The visible gap still exceeds the frozen 10 mm bound,
+so component-fusion accuracy remains unmeasured. The repair scripts,
+paired logs and scores are retained in the same artifact directory.

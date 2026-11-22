@@ -73,6 +73,43 @@ initialization and temporal sampling policy.
 [short prefix](irs-thermal-cadence-five-second-startup-2026-11-20.md),
 [spatial pooling](irs-thermal-spatial-pooling-fast-dark-2026-11-20.md).
 
+## Thermal update quality depends on estimator history
+
+The pre-update thermal photometric residual ranked incremental motion
+accuracy better than accepted track count during dimming on both IRS
+recordings. At 90% coverage, after matching broad reference-motion
+categories, displacement RMSE fell from 5.95 to 5.77 mm on Medium and
+from 6.56 to 5.57 mm on Difficult. The matched comparison used offline
+rankings of already computed thermal poses. Early recovery on Difficult
+showed a tradeoff between rotation and displacement. A fixed-window
+ranking establishes association with output quality. An admission
+decision also changes the filter's later input history.
+[Thermal update ranking](irs-thermal-admission-innovation-2026-11-22.md).
+
+To measure that effect, a replay omitted 20 images chosen from a prior
+full-rate thermal trace. A fixed-thinning control omitted the same
+number. On Difficult, position RMSE over the common dimming reference
+epochs was 0.114 m with residual-based withholding, 0.184 m with fixed
+thinning and 0.186 m with full-rate thermal. On Medium the same
+comparison was 0.106, 0.105 and 0.102 m. The omissions roughly doubled
+the maximum corrected output gap from 50 to 100 ms. Difficult's early
+recovery improved from 0.261 to 0.240 m relative to full rate and still
+exceeded the 0.15 m target. The omits were preselected from a prior trace
+with within-block lookahead. No online controller was evaluated.
+[Thermal withholding replay](irs-thermal-innovation-withholding-2026-11-22.md).
+
+Crossing the omission lists by half isolated a carryover effect on
+Difficult. With identical fixed thinning during the second half, using
+residual-based withholding in the first half lowered second-half RMSE
+from 0.243 to 0.131 m, even though first-half RMSE increased from 0.070
+to 0.087 m. In a separate twelve-replay test, five of six high-residual
+single-frame omissions improved two-second position error. Only three
+beat the nearby low-residual omission, including one of three on Difficult.
+Difficult's largest single-frame benefit came from a low-residual
+omission. These results motivate evaluating decisions on downstream
+trajectory error. They leave a reliable online admission rule open.
+[Half-window and single-update replays](irs-thermal-innovation-withholding-2026-11-22.md#difficult-half-window-attribution).
+
 ## Conclusion and limits
 
 Thermal input improved accuracy in the tested sustained-darkness and
@@ -81,7 +118,14 @@ in recorded smoke. The stateful smoke comparison and controlled recovery
 windows establish limits on those gains. Thermal availability alone does
 not establish an accuracy benefit, and nominal sensor-time continuity
 does not establish receiver-side delivery. Independent metric validation
-during natural field recovery remains open. PARK contributes an
-image-space field comparison within the present validation scope.
+during natural field recovery remains open. PARK contributes image-space
+field evidence. The route crosses a shaded passage into daylight, but
+its thermal calibration conflict and reference-to-body frame binding
+prevent metric scoring. M2DGR Door and Brno offer complementary public
+reference material. The Door bags were inaccessible during intake and
+the Leica exports contain position only. Brno has paired camera
+timestamps and GNSS positions, with fix quality, full attitude and the
+location of any degradation interval still unresolved.
 [PARK geometry](diter-plusplus-park-geometry-2026-11-19.md),
+[natural transition intake](natural-transition-reference-intake-2026-11-22.md),
 [paced delivery](irs-rtvi-paced-imu-bridge-delivery-2026-11-18.md).
