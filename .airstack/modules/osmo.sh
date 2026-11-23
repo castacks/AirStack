@@ -31,9 +31,10 @@ OSMO_STATE_FILE="${OSMO_STATE_DIR}/osmo-state"
 OSMO_WEBRTC_TCP="49100"
 OSMO_WEBRTC_UDP="49099"
 
-# GCS Foxglove websocket: container 8765 → host 8766 (per
-# gcs/docker/docker-compose.yaml).
-OSMO_FOXGLOVE_PORT="8766:8766"
+# Foxglove websocket: the svg_ground_control bridge in robot-desktop (host
+# network, robot domain; sees every drone topic incl. cameras), port 8765.
+# The gcs container bridge (host 8766, domain 0) never sees drone topics.
+OSMO_FOXGLOVE_PORT="8765:8765"
 
 # SSH port-forward: local 2200 → pod 22.
 OSMO_SSH_PORT="2200:22"
@@ -678,7 +679,7 @@ function cmd_osmo_foxglove {
     fi
 
     log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_FOXGLOVE_PORT} --connect-timeout ${OSMO_PF_TIMEOUT}"
-    log_info "Then in Foxglove Desktop: Open connection → ws://localhost:8766"
+    log_info "Then in Foxglove Desktop: Open connection → ws://localhost:8765"
     log_info "  Layouts → Import from file → ${ext_src}/airstack_default.json"
     log_info "  (Restart Foxglove Desktop once if newly-installed panels still show as 'Unknown panel type'.)"
     _osmo_run_port_forward "$wf" workspace \
@@ -714,6 +715,6 @@ function register_osmo_commands {
     COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
     COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"
-    COMMAND_HELP["osmo:foxglove"]="Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766). Override target dir with OSMO_FOXGLOVE_EXT_DIR; skip install with OSMO_FOXGLOVE_SKIP_EXTENSIONS=1."
+    COMMAND_HELP["osmo:foxglove"]="Install AirStack Foxglove extensions locally, then port-forward the ground-control Foxglove websocket (8765:8765). Override target dir with OSMO_FOXGLOVE_EXT_DIR; skip install with OSMO_FOXGLOVE_SKIP_EXTENSIONS=1."
     COMMAND_HELP["osmo:down"]="Cancel the active workflow (push to git before running this)"
 }

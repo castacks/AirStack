@@ -62,7 +62,7 @@ flowchart LR
   end
   osmo -- submit and port-forward --> pod
   ide -- ssh on 2200 --> sshd
-  fox -- ws on 8766 --> gcs
+  fox -- ws on 8765 --> robot
   webrtc -- "WebRTC on 49100/tcp, 49099/udp" --> isaac
   inner --> isaac
   inner --> robot
@@ -448,8 +448,9 @@ osmo workflow port-forward $WF workspace --port 49099 --udp --connect-timeout 86
 
 ## Step 7 — View ROS topics in Foxglove
 
-The GCS container runs `foxglove_bridge` on container-port `8765`,
-published as host-port `8766` on the workspace pod. To install the
+The ground-control launch in robot-desktop runs `foxglove_bridge` on
+port `8765` (host network, robot domain, so every drone topic incl. the
+cameras). The `gcs` container bridge on `8766` only sees domain 0. To install the
 AirStack Foxglove extensions locally and forward the websocket in one
 step:
 
@@ -462,13 +463,13 @@ Editor, Polygon Editor) into your local Foxglove Desktop user-extensions
 dir (default `~/.foxglove-studio/extensions`; override with
 `OSMO_FOXGLOVE_EXT_DIR`, skip with `OSMO_FOXGLOVE_SKIP_EXTENSIONS=1` for
 `app.foxglove.dev` which doesn't load local extensions), then runs the
-`localhost:8766 → pod:8766` port-forward in the foreground — leave the
+`localhost:8765 → pod:8765` port-forward in the foreground — leave the
 terminal running.
 
 Then in [https://app.foxglove.dev](https://app.foxglove.dev) (or Foxglove
 Desktop):
 
-1. **Open connection** → `ws://localhost:8766`.
+1. **Open connection** → `ws://localhost:8765`.
 2. **Layouts** → **Import from file** →
    [`gcs/foxglove_extensions/airstack_default.json`](https://github.com/castacks/AirStack/blob/main/gcs/foxglove_extensions/airstack_default.json)
    from your AirStack clone.
@@ -487,7 +488,7 @@ difference is the `osmo:foxglove` line in front of it.
 as `cmd_osmo_foxglove`) wraps the extension install plus:
 
 ```bash
-osmo workflow port-forward $WF workspace --port 8766:8766 --connect-timeout 86400
+osmo workflow port-forward $WF workspace --port 8765:8765 --connect-timeout 86400
 ```
 
 Set `OSMO_FOXGLOVE_SKIP_EXTENSIONS=1` to only run the port-forward.
@@ -559,7 +560,7 @@ osmo workflow cancel $WF
 | Logs show `WARN: airlab-nucleus OSMO credential not set` and Isaac Sim asset loads fail, **or** Isaac Sim shows "Login Required: Unable to connect server omniverse://airlab-nucleus..." with the auth-service log showing `Tokens.auth_with_api_token … status: 'DENIED'` | Your `airlab-nucleus` API token is missing, expired, or revoked (rotation invalidates the predecessor). Confirm by SSH'ing the Nucleus host and running `sudo docker logs --tail 200 base_stack-nucleus-auth-1`. Regenerate the token at <https://airlab-nucleus.andrew.cmu.edu/omni/web3/>, then `./airstack.sh osmo:setup` and `./airstack.sh osmo:down && ./airstack.sh osmo:up --pool airstack` to resubmit (or live-edit `simulation/isaac-sim/docker/omni_pass.env` in the pod and recreate the `isaac-sim-livestream` container — see row above). |
 | Isaac Sim container restarts repeatedly | GPU not visible to the inner Docker daemon (toolkit not configured on the node) | Lab admin task. From inside the pod: `docker info \| grep -i runtime` should list `nvidia`. |
 | Isaac Sim is up but the WebRTC stream is blank | The Pegasus script isn't getting `--/app/livestream/enabled=true`, or the wrong Compose profile is active | In the integrated terminal: `docker logs airstack-isaac-sim-livestream-1`. Confirm `ISAAC_SIM_LIVESTREAM=true` and that the `isaac-sim-livestream` profile is the one running (`docker ps`). |
-| Foxglove "no connection" | Port-forward died, GCS container hasn't started yet, or browser is caching an old connection | Re-run `./airstack.sh osmo:foxglove`; check `docker ps` shows `airstack-gcs-1` Up; try `ws://127.0.0.1:8766` instead of `ws://localhost:8766`. |
+| Foxglove "no connection" | Port-forward died, ground control (robot-desktop) hasn't started yet, or browser is caching an old connection | Re-run `./airstack.sh osmo:foxglove`; in the pod `ss -ltnp \| grep 8765` shows the bridge; try `ws://127.0.0.1:8765` instead of `ws://localhost:8765`. |
 | First Remote-SSH connect takes forever | VS Code / Cursor downloading its remote server (~50 MB) into the fresh pod | Wait it out the first time. Subsequent connects to the same pod hit the cache. |
 | **I forgot to push before tearing down** | The pod is still up; cancel hasn't fired yet | Don't run `./airstack.sh osmo:down`. SSH in via the existing port-forward (`./airstack.sh osmo:ide --no-open` if the tunnel is gone), push from the IDE terminal, *then* tear down. If the workflow has already terminated and the pod is gone, the work is gone — git is the only persistence layer. |
 
