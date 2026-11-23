@@ -1,4 +1,8 @@
-[Natural transition reference check](../natural-transition-reference-intake-2026-11-22.md) verifies M2DGR doorway and Brno winter position products, and rechecks PARK pose binding.
+[Natural recovery baseline gate](../natural-recovery-baseline-gate-2026-11-23.md) checks KAIST and CMHT release access, inertial provenance and pose references.
+
+[CAVERS headlight transition](../cavers-headlight-transition-intake-2026-11-22.md) checks the author's transition report, sensor frames, and released OptiTrack coverage.
+
+[Natural transition reference check](../natural-transition-reference-intake-2026-11-22.md) verifies M2DGR doorway and Brno winter position products, rechecks PARK pose binding, and checks the JPL Mars Yard flight and reference design.
 
 [Thermal pre-update innovation test](../irs-thermal-admission-innovation-2026-11-22.md) uses the ROVIO paper's direct photometric innovation as prior art and checks the pinned implementation's update order.
 

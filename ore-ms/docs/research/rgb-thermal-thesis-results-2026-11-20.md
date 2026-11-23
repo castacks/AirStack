@@ -21,6 +21,7 @@ output gaps, and loader timing as distinct outcomes.
 | [IRS thermal residual withholding](irs-thermal-innovation-withholding-2026-11-22.md), full rate vs. fixed thinning vs. residual withholding | Dimming RMSE on Medium 0.102 / 0.105 / 0.106 m and Difficult 0.186 / 0.184 / 0.114 m. Difficult early recovery 0.261 / 0.342 / 0.240 m. | 180 and 168 common dimming epochs out of 200 per recording. Full coverage in early recovery. The two sparse arms approximately double output gaps to 100 ms. | Each sparse arm omits 20 of 200 thermal images. Wall-clock cost was outside the comparison. | Fixed-thermal and IMU replay with a frozen open-loop omit list. Vicon–IMU position on common supported timestamps. |
 | [IRS single thermal update](irs-thermal-innovation-withholding-2026-11-22.md#single-update-effects-over-the-next-two-seconds), keep vs. omit | High-residual omission lowered 2 s position RMSE in five of six cases and beat its nearby low-residual omission in three of six pairs. | Exactly one missing output per replay. 478 of 480 common reference epochs across the twelve comparisons. | One frame omitted per arm. | Both replays receive identical subsequent inputs. Each starts with full-rate estimator history. The standalone residual missed the frozen two-recording criterion. |
 | [DiTer++ PARK](diter-plusplus-park-geometry-2026-11-19.md), shaded passage to daylight | Median held-out epipolar support at equal match count was 98.1% RGB vs. 92.5% stretched thermal. | Median supported half-second feature chains were 64 RGB vs. 5 stretched thermal. | Feature comparison; compute outside scope. | Image-space field evidence. Pose-frame and thermal calibration provenance remain open. |
+| [CAVERS headlight movement](cavers-headlight-transition-intake-2026-11-22.md), handheld cave recording | Median adjacent-frame RGB track retention 82.3% before, 7.4% during and 69.5% after the selected event. Every tested sensor-only start exceeded the 0.15 m pre-event translation bound. | All expected camera epochs emitted poses in the matched replay. Publication measures output continuity. | Native asynchronous streams. Compute was outside this comparison. | OptiTrack body pose and a post-scout development window. The failed pre-event controls leave trajectory recovery unqualified. |
 
 ## Claim supported by these results
 
@@ -39,8 +40,12 @@ supplied-reference field evidence. Keep PARK as a field frontend
 comparison and an optional extension. Its calibration and reference
 frame remain unresolved for metric replay. The
 [natural-transition audit](natural-transition-reference-intake-2026-11-22.md)
-records the remaining PARK, M2DGR Door and Brno reference gaps.
-Independent metric recovery through a natural field transition remains open.
+records the PARK, M2DGR Door, Brno and JPL Mars Yard limitations.
+The CAVERS replay qualified the input and output timing and exposed
+initialization sensitivity before the event. Independent metric recovery
+through a natural field transition remains open. A new candidate needs
+an RGB+IMU lead-in control before any recovery comparison.
+[Baseline and recording gates](natural-recovery-baseline-gate-2026-11-23.md).
 
 For chapter figures, use separate panels for the IRS controlled
 degradation and its early recovery, the SmokeRoom field comparison,

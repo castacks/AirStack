@@ -110,6 +110,27 @@ omission. These results motivate evaluating decisions on downstream
 trajectory error. They leave a reliable online admission rule open.
 [Half-window and single-update replays](irs-thermal-innovation-withholding-2026-11-22.md#difficult-half-window-attribution).
 
+## A qualified reference still requires a valid estimator baseline
+
+On CAVERS `loc_handheld_1`, median adjacent-frame RGB track retention
+fell from 82.3% to 7.4% during the selected one-second interval and
+returned to 69.5% in the next two seconds. The event was selected
+after the image sweep and represents moving headlight illumination
+inside a cave. OptiTrack and IMU bracketed every camera arrival in
+the five-second context. All matched replay arms published at every
+expected camera epoch, while the sensor-only RGB+IMU estimate
+failed the pre-event translation control.
+
+With the constructor gravity, the first-sample and fixed accelerometer
+mean initializers gave 0.316 m and 1.283 m pre-event translation RMSE.
+A single OptiTrack-derived tilt at startup reduced that error to
+0.040 m. None of 6,011 candidate IMU windows met the frozen
+stationarity rule. These results document an initialization
+dependency and close this recording for the tested sensor-only
+recovery protocol. The image-space tracking loss and partial return
+remain measurable on the released recording.
+[CAVERS intake and controls](cavers-headlight-transition-intake-2026-11-22.md).
+
 ## Conclusion and limits
 
 Thermal input improved accuracy in the tested sustained-darkness and
@@ -125,7 +146,10 @@ prevent metric scoring. M2DGR Door and Brno offer complementary public
 reference material. The Door bags were inaccessible during intake and
 the Leica exports contain position only. Brno has paired camera
 timestamps and GNSS positions, with fix quality, full attitude and the
-location of any degradation interval still unresolved.
+location of any degradation interval still unresolved. Establish a
+qualified RGB+IMU control on the clear lead-in before comparing
+candidate sensor policies through a new transition.
 [PARK geometry](diter-plusplus-park-geometry-2026-11-19.md),
 [natural transition intake](natural-transition-reference-intake-2026-11-22.md),
+[baseline and recording gates](natural-recovery-baseline-gate-2026-11-23.md),
 [paced delivery](irs-rtvi-paced-imu-bridge-delivery-2026-11-18.md).

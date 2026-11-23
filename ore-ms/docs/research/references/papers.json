@@ -3274,9 +3274,71 @@
           "date": "2026-11-22",
           "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
           "inspection": "Targeted sensor and data-format inspection. Checked author sequence inventory and calibration revision; CRC-verified reference and timestamp sidecars. No full video or estimator replay."
+        },
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
+          "inspection": "Checked the winter extension data-format table for IMU attitude and auxiliary GNSS provenance. CRC-verified auxiliary sidecars and checked their coverage and agreement with the released Trimble positions."
         }
       ],
       "updated": "2026-11-22"
+    },
+    {
+      "id": "delaune2019thermalflight",
+      "title": "Thermal-Inertial Odometry for Autonomous Flight Throughout the Night",
+      "venue_or_version": "IROS 2019",
+      "url": "https://data.nasa.gov/docs/datasets/public/jpl-mars-yard/IROS19_1819_FI.pdf",
+      "reading_history": [
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/natural-transition-reference-intake-2026-11-22.md",
+          "inspection": "Checked Section V for flight separation, time-of-night sampling, and OptiTrack reference construction. Inspected a bounded ROS bag prefix and release inventory. No estimator reproduction."
+        }
+      ],
+      "updated": "2026-11-22"
+    },
+    {
+      "id": "franchini2026cavers",
+      "title": "CAVERS: Multimodal SLAM Data From a Natural Karstic Cave With Ground Truth Motion Capture",
+      "venue_or_version": "IEEE Robotics and Automation Letters 11(10), 2026",
+      "url": "https://doi.org/10.1109/LRA.2026.3726391",
+      "release_repository": "https://github.com/spaceuma/cavers/tree/706fe2bc5e05367f0a3a094b8945212a8ec2805e",
+      "reading_history": [
+        {
+          "date": "2026-11-22",
+          "source_note": "docs/research/cavers-headlight-transition-intake-2026-11-22.md",
+          "inspection": "Read the dataset, calibration, ground truth and handheld benchmark sections. Inspected the pinned exporter and audited versioned sidecar timing and frames. No image or estimator replay."
+        }
+      ],
+      "updated": "2026-11-22"
+    },
+    {
+      "id": "choi2018kaistdaynight",
+      "title": "KAIST Multi-Spectral Day/Night Data Set for Autonomous and Assisted Driving",
+      "venue_or_version": "IEEE Transactions on Intelligent Transportation Systems 19(3), 2018",
+      "url": "https://doi.org/10.1109/TITS.2018.2791533",
+      "reading_history": [
+        {
+          "date": "2026-11-23",
+          "source_note": "docs/research/natural-recovery-baseline-gate-2026-11-23.md",
+          "inspection": "Read the sensor and synchronized export sections and checked the author repository, legacy download links and benchmark suite for complete recording access. No data payload or replay."
+        }
+      ],
+      "updated": "2026-11-23"
+    },
+    {
+      "id": "zhang2025cmht",
+      "title": "CMHT autonomous dataset: A multi-sensor dataset including radar and IR for autonomous driving",
+      "venue_or_version": "Data in Brief 60, 2025",
+      "url": "https://doi.org/10.1016/j.dib.2025.111552",
+      "reading_history": [
+        {
+          "date": "2026-11-23",
+          "source_note": "docs/research/natural-recovery-baseline-gate-2026-11-23.md",
+          "inspection": "Read the sensor, timing and label specifications and checked the linked dataset landing pages for an independent rig pose product. No data payload or replay."
+        }
+      ],
+      "updated": "2026-11-23"
     }
   ]
 }

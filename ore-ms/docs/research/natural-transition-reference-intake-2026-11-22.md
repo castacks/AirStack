@@ -61,6 +61,57 @@ The weather and time-of-day tags do not locate a visibility transition.
 No video payload or estimator was run. The sequence is accessible for
 further screening and remains unqualified for metric recovery.
 
+### Auxiliary reference check
+
+Before inspecting the auxiliary sidecars, use full recording coverage and
+independence from the estimator's IMU as reference requirements. Six ZIP
+members passed CRC after bounded range reads with a matching archive ETag.
+All six streams have finite values and strictly increasing timestamps.
+The 150,150 IMU attitude rows have maximum quaternion norm error of
+\(1.01\times10^{-6}\) and span 3,749 of 3,750 RGB timestamps and all 11,234
+thermal timestamps. The delta quaternion sidecar has identical timestamps.
+The authors describe both as products of the onboard IMU. They provide a
+diagnostic for that sensor and cannot supply independent attitude truth
+for an estimator using the same IMU. [Winter extension data formats](https://pmc.ncbi.nlm.nih.gov/articles/PMC8683662/)
+
+The auxiliary IMU GNSS spans only 1,671 RGB timestamps, starting 208.07 s
+into the drive. All 8,366 altitude values are zero. For 8,364 auxiliary
+samples with a Trimble sample within 100 ms, the median horizontal
+separation is 440.04 m using the released system timestamps and a
+local spherical approximation. The separation does not identify its
+cause. The Trimble sidecar also contains 1,660 zero azimuth values among
+7,474 rows, with no validity field to interpret them. These products
+leave the independent body-pose requirement unmet. Close this
+reference route for metric recovery unless additional provenance or
+an independent pose product becomes available. The forward RGB and
+thermal videos account for 9.12 GB of compressed members and were not
+retrieved for this reference check.
+
+Reproduction inputs, range and hash receipts, and the audit script and
+JSON output are under `/root/ore-ms-artifacts/brno-3_1_4_2/`.
+
+## JPL Mars Yard
+
+The authors' night characterization consists of repeated thermal flights
+from before sunset to after sunrise, with flat-field correction before
+each flight. Their visible-camera comparison is a separate daytime
+reference flight. The public README lists thermal imagery, IMU, raw
+OptiTrack and filtered OptiTrack/IMU pose for the thermal recordings.
+The paper reports raw OptiTrack outliers near sunset and sunrise and
+uses the same onboard IMU to filter the evaluation reference.
+[Paper, Section V](https://data.nasa.gov/docs/datasets/public/jpl-mars-yard/IROS19_1819_FI.pdf) · [NASA release](https://catalog.data.gov/dataset/thermal-inertial-uav-night-dataset)
+
+The first 2 MiB of the published 06:30 flight returned HTTP 206. The
+ROS bag connections recovered from this prefix include thermal imagery,
+raw IMU, raw OptiTrack and filtered pose. The two bounded requests for
+the 08:41 daytime comparison archive timed out, so its topic inventory
+is unverified. The published comparison uses separate flights and does
+not establish a paired degradation and return interval. Keep it as
+prior evidence for thermal flight across times of night. No full bag
+or estimator was run. The downloaded README and paper, prefix,
+sanitized response headers and connection audit are under
+`/root/ore-ms-artifacts/jpl-mars-yard-intake/`.
+
 None of the inspected paths supplies a verified full reference through
 a measured visible degradation and return interval. No handoff replay
 or recovery score was produced. Source pins, bounded request receipts,
