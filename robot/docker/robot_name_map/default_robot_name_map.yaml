@@ -12,5 +12,5 @@ mappings:
 
   # catch all fall-back
   - pattern: '.*'
-    robot: 'unknown-robot'
+    robot: 'unknown_robot'  # must be a valid ROS namespace (no '-')
     domain_id: '0'

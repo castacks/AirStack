@@ -67,7 +67,7 @@ The default mapping rule in [`robot/docker/robot_name_map/default_robot_name_map
   robot: 'robot_{1}'
   domain_id: '{1}'
 - pattern: '.*'           # catch-all
-  robot: 'unknown-robot'
+  robot: 'unknown_robot'
   domain_id: '0'
 ```
 
@@ -286,7 +286,7 @@ Without `allow_substs="true"`, the substitution string is loaded literally and t
 If two robots share a domain, every topic collides — both `/robot_1/odometry` publishers will be visible to both subscribers, and DDS will sometimes deliver crossed data. The default `robot_name_map` derives the domain from the robot index, so this only happens if you:
 
 - Hardcode `ROS_DOMAIN_ID` in compose to the same value for two replicas
-- Use a hostname that doesn't match any rule and falls through to the catch-all (both robots get `unknown-robot`, domain `0`)
+- Use a hostname that doesn't match any rule and falls through to the catch-all (both robots get `unknown_robot`, domain `0`)
 
 Always verify after starting:
 

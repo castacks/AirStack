@@ -51,7 +51,7 @@ mappings:
     domain_id: '{1}'
 
   - pattern: '.*'
-    robot: 'unknown-robot'
+    robot: 'unknown_robot'
     domain_id: '0'
 ```
 

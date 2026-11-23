@@ -83,35 +83,79 @@ function cws(){
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
-# Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)
-if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
-    # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-    # WARNING: this technique ONLY works with docker version 29 and up.
-    name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-    CONTAINER_NAME=":$name_to_map"
-elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
-    name_to_map=$(hostname)
-else
-    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
-    name_to_map=""
-    export ROBOT_NAME="unknown_robot"
-    export ROS_DOMAIN_ID=0
-fi
-# set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
-if [ -n "$name_to_map" ]; then
-    script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
-    script_dir=$(dirname "$script_path")
+# Resolve this container's docker compose container name from inside the
+# container: reverse-DNS the container IP (hostname -> IP -> PTR record), then
+# strip the network suffix. Docker's embedded DNS serves the PTR record with the
+# compose container name (e.g. airstack-robot-desktop-1).
+# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+# This ONLY works with docker 29+ AND a bridge network. It can never work under
+# `network_mode: host` (no embedded DNS; the lookup hits the host's resolver), nor
+# on older dockerd (e.g. the inner dockerd of the OSMO pod). In those cases the
+# lookup yields junk like "3(NXDOMAIN)", so validate the result and print nothing
+# on failure; the caller falls back below.
+_resolve_container_name() {
+    local ip name
+    ip=$(host "$(hostname)" 2>/dev/null | awk '/has address/ {print $NF; exit}')
+    [ -n "$ip" ] || return 1
+    name=$(host "$ip" 2>/dev/null | awk '/domain name pointer/ {print $NF; exit}' | awk -F . '{print $1}')
+    [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || return 1
+    echo "$name"
+}
 
-    existing_robot_domain_id=${ROS_DOMAIN_ID:-}
-
-    eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
-    export ROBOT_NAME
-
-    # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
-    if [ -z "$existing_robot_domain_id" ]; then
-        export ROS_DOMAIN_ID
+# If ROBOT_NAME is pre-set (e.g. via docker compose or `docker exec -e`), keep it.
+# Otherwise derive ROBOT_NAME and ROS_DOMAIN_ID from the container name / hostname mapping.
+if [ -z "${ROBOT_NAME:-}" ]; then
+    if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
+        if ! name_to_map=$(_resolve_container_name); then
+            # Container-name lookup is unavailable (host networking or docker < 29).
+            # With a single robot there is no ambiguity: it is replica 1. With
+            # several replicas we cannot tell them apart, so leave it unresolved
+            # and let the warning below fire rather than guess and collide.
+            if [ "${NUM_ROBOTS:-1}" -le 1 ] 2>/dev/null; then
+                name_to_map="${ROBOT_CONTAINER_NAME_FALLBACK:-airstack-robot-desktop-1}"
+            else
+                name_to_map="unresolved-container-name"
+                echo "WARNING: NUM_ROBOTS=$NUM_ROBOTS but this container cannot look up its own" \
+                     "container name (needs docker 29+ on a bridge network). Set ROBOT_NAME" \
+                     "explicitly per container."
+            fi
+        fi
+        CONTAINER_NAME=":$name_to_map"
+    elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
+        name_to_map=$(hostname)
     else
-        export ROS_DOMAIN_ID=$existing_robot_domain_id
+        echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
+        name_to_map=""
+        export ROBOT_NAME="unknown_robot"
+        export ROS_DOMAIN_ID=0
+    fi
+
+    # set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
+    if [ -n "$name_to_map" ]; then
+        script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
+        script_dir=$(dirname "$script_path")
+
+        existing_robot_domain_id=${ROS_DOMAIN_ID:-}
+
+        eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
+        export ROBOT_NAME
+
+        # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
+        if [ -z "$existing_robot_domain_id" ]; then
+            export ROS_DOMAIN_ID
+        else
+            export ROS_DOMAIN_ID=$existing_robot_domain_id
+        fi
+    fi
+
+    # Fail loudly instead of launching into an invalid / un-namespaced graph.
+    if [ -z "${ROBOT_NAME:-}" ] || [ "$ROBOT_NAME" == "unknown_robot" ]; then
+        echo "WARNING: could not resolve a robot identity from '${name_to_map:-<empty>}'" \
+             "using $ROBOT_NAME_MAP_CONFIG_FILE."
+        echo "         ROBOT_NAME='${ROBOT_NAME:-<unset>}' ROS_DOMAIN_ID='${ROS_DOMAIN_ID:-<unset>}'"
+        echo "         Topics will not be under /robot_<n>, so the GCS and Foxglove panels"
+        echo "         will not find this robot. Fix by setting ROBOT_NAME for this container,"
+        echo "         or by adding a mapping under robot/docker/robot_name_map/."
     fi
 fi
 

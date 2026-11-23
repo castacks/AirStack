@@ -19,6 +19,7 @@ services:
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}  # .bashrc: single robot => replica 1 when the container-name lookup is unavailable
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
     volumes:
       # display stuff
