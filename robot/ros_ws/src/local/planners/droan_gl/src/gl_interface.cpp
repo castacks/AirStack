@@ -1,5 +1,12 @@
 #include <droan_gl/gl_interface.hpp>
 
+#include <EGL/eglext.h>
+
+#include <cctype>
+#include <fstream>
+#include <stdexcept>
+#include <string>
+
 /**
  * @brief Constructor for GLInterface
  * @param node Pointer to the ROS node for parameter access and logging
@@ -475,48 +482,197 @@ float GLInterface::gl_toc()
  * - GPU textures and buffers for disparity data and trajectories
  * - Uniform buffers for camera intrinsics and trajectory parameters
  */
-void GLInterface::initGL(int original_width, int original_height, int downsampled_width, int downsampled_height)
+namespace
 {
+// The compute shaders need GL >= 4.3 on real GPU hardware. A context can be
+// created successfully yet be useless: under Xvfb (or any Mesa software
+// driver) GLFW/EGL happily hand back llvmpipe/softpipe. Check the context that
+// is current right now and reject those.
+bool contextUsable(const char *label, const rclcpp::Logger &logger)
+{
+  GLint major = 0, minor = 0;
+  glGetIntegerv(GL_MAJOR_VERSION, &major);
+  glGetIntegerv(GL_MINOR_VERSION, &minor);
+  const char *renderer_c = reinterpret_cast<const char *>(glGetString(GL_RENDERER));
+  const char *vendor_c = reinterpret_cast<const char *>(glGetString(GL_VENDOR));
+  std::string renderer = renderer_c ? renderer_c : "(unknown)";
+  std::string vendor = vendor_c ? vendor_c : "(unknown)";
+
+  std::string lower = renderer;
+  for (auto &c : lower)
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  const bool software = lower.find("llvmpipe") != std::string::npos ||
+                        lower.find("softpipe") != std::string::npos ||
+                        lower.find("software rasterizer") != std::string::npos ||
+                        lower.find("swrast") != std::string::npos;
+  const bool too_old = major < 4 || (major == 4 && minor < 3);
+
+  if (software || too_old)
+  {
+    RCLCPP_WARN(logger, "OpenGL (%s): rejecting context GL %d.%d, renderer '%s', vendor '%s' (%s)",
+                label, major, minor, renderer.c_str(), vendor.c_str(),
+                software ? "software renderer" : "need GL >= 4.3");
+    return false;
+  }
+  RCLCPP_INFO(logger, "OpenGL context: %s, GL %d.%d, renderer '%s', vendor '%s'",
+              label, major, minor, renderer.c_str(), vendor.c_str());
+  return true;
+}
+
+// Hidden GLFW window. This is the historical default and what desktops use;
+// on failure (or a software context) everything is torn down again.
+bool initGLFWContext(GLFWwindow *&window, const rclcpp::Logger &logger)
+{
+  window = nullptr;
   if (!glfwInit())
   {
-    static const EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-        EGL_BLUE_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_RED_SIZE, 8,
-        EGL_DEPTH_SIZE, 24,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
-        EGL_NONE};
-
-    static const EGLint pbufferAttribs[] = {
-        EGL_WIDTH,
-        image_width,
-        EGL_HEIGHT,
-        image_height,
-        EGL_NONE,
-    };
-    EGLDisplay eglDpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    EGLint major, minor;
-    eglInitialize(eglDpy, &major, &minor);
-    EGLint numConfigs;
-    EGLConfig eglCfg;
-    eglChooseConfig(eglDpy, configAttribs, &eglCfg, 1, &numConfigs);
-    EGLSurface eglSurf = eglCreatePbufferSurface(eglDpy, eglCfg,
-                                                 pbufferAttribs);
-    eglBindAPI(EGL_OPENGL_API);
-    EGLContext eglCtx = eglCreateContext(eglDpy, eglCfg, EGL_NO_CONTEXT,
-                                         NULL);
-    eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx);
-    if (!gladLoadGLLoader((GLADloadproc)eglGetProcAddress))
-      std::cout << "Failed to initialize GLAD!" << std::endl;
+    RCLCPP_WARN(logger, "GLFW: glfwInit failed (no usable DISPLAY?)");
+    return false;
   }
-  else
+  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+  window = glfwCreateWindow(640, 480, "Offscreen", nullptr, nullptr);
+  if (!window)
   {
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    window_ = glfwCreateWindow(640, 480, "Offscreen", nullptr, nullptr);
-    glfwMakeContextCurrent(window_);
-    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    RCLCPP_WARN(logger, "GLFW: glfwCreateWindow failed");
+    glfwTerminate();
+    return false;
   }
+  glfwMakeContextCurrent(window);
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress) || !contextUsable("GLFW", logger))
+  {
+    RCLCPP_WARN(logger, "GLFW: context unusable, falling back to EGL");
+    glfwMakeContextCurrent(nullptr);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    window = nullptr;
+    return false;
+  }
+  return true;
+}
+
+// Bring up a headless OpenGL context on an EGL display. Every EGL call is
+// checked; on any failure the display is released and false is returned so
+// the caller can try the next option.
+bool initEGLContextOn(EGLDisplay dpy, const char *label, int width, int height,
+                      const rclcpp::Logger &logger)
+{
+  if (dpy == EGL_NO_DISPLAY)
+  {
+    RCLCPP_WARN(logger, "EGL (%s): no display", label);
+    return false;
+  }
+  EGLint major = 0, minor = 0;
+  if (!eglInitialize(dpy, &major, &minor))
+  {
+    RCLCPP_WARN(logger, "EGL (%s): eglInitialize failed (0x%x)", label, eglGetError());
+    return false;
+  }
+
+  static const EGLint configAttribs[] = {
+      EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+      EGL_BLUE_SIZE, 8,
+      EGL_GREEN_SIZE, 8,
+      EGL_RED_SIZE, 8,
+      EGL_DEPTH_SIZE, 24,
+      EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+      EGL_NONE};
+  const EGLint pbufferAttribs[] = {EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE};
+
+  EGLint numConfigs = 0;
+  EGLConfig cfg;
+  if (!eglChooseConfig(dpy, configAttribs, &cfg, 1, &numConfigs) || numConfigs < 1)
+  {
+    RCLCPP_WARN(logger, "EGL (%s): no matching config (0x%x)", label, eglGetError());
+    eglTerminate(dpy);
+    return false;
+  }
+  EGLSurface surf = eglCreatePbufferSurface(dpy, cfg, pbufferAttribs);
+  if (surf == EGL_NO_SURFACE)
+  {
+    RCLCPP_WARN(logger, "EGL (%s): eglCreatePbufferSurface failed (0x%x)", label, eglGetError());
+    eglTerminate(dpy);
+    return false;
+  }
+  if (!eglBindAPI(EGL_OPENGL_API))
+  {
+    RCLCPP_WARN(logger, "EGL (%s): eglBindAPI(OpenGL) failed (0x%x)", label, eglGetError());
+    eglTerminate(dpy);
+    return false;
+  }
+  EGLContext ctx = eglCreateContext(dpy, cfg, EGL_NO_CONTEXT, nullptr);
+  if (ctx == EGL_NO_CONTEXT)
+  {
+    RCLCPP_WARN(logger, "EGL (%s): eglCreateContext failed (0x%x)", label, eglGetError());
+    eglTerminate(dpy);
+    return false;
+  }
+  if (!eglMakeCurrent(dpy, surf, surf, ctx))
+  {
+    RCLCPP_WARN(logger, "EGL (%s): eglMakeCurrent failed (0x%x)", label, eglGetError());
+    eglTerminate(dpy);
+    return false;
+  }
+  std::string ctx_label = std::string("EGL ") + std::to_string(major) + "." +
+                          std::to_string(minor) + " " + label;
+  if (!gladLoadGLLoader((GLADloadproc)eglGetProcAddress) ||
+      !contextUsable(ctx_label.c_str(), logger))
+  {
+    RCLCPP_WARN(logger, "EGL (%s): context unusable", label);
+    eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglDestroyContext(dpy, ctx);
+    eglDestroySurface(dpy, surf);
+    eglTerminate(dpy);
+    return false;
+  }
+  return true;
+}
+
+// EGL device platform: needs no X server and ignores DISPLAY. Devices are
+// tried in enumeration order; software devices are rejected by contextUsable.
+bool initEGLDeviceContext(int width, int height, const rclcpp::Logger &logger)
+{
+  auto queryDevices = reinterpret_cast<PFNEGLQUERYDEVICESEXTPROC>(
+      eglGetProcAddress("eglQueryDevicesEXT"));
+  auto getPlatformDisplay = reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(
+      eglGetProcAddress("eglGetPlatformDisplayEXT"));
+  if (!queryDevices || !getPlatformDisplay)
+  {
+    RCLCPP_WARN(logger, "EGL (device): EGL_EXT_device_enumeration/platform_base unavailable");
+    return false;
+  }
+  EGLDeviceEXT devices[8];
+  EGLint numDevices = 0;
+  if (!queryDevices(8, devices, &numDevices) || numDevices < 1)
+  {
+    RCLCPP_WARN(logger, "EGL (device): no EGL devices found");
+    return false;
+  }
+  for (EGLint i = 0; i < numDevices; ++i)
+  {
+    EGLDisplay dpy = getPlatformDisplay(EGL_PLATFORM_DEVICE_EXT, devices[i], nullptr);
+    std::string label = "device " + std::to_string(i);
+    if (initEGLContextOn(dpy, label.c_str(), width, height, logger))
+      return true;
+  }
+  return false;
+}
+} // namespace
+
+void GLInterface::initGL(int original_width, int original_height, int downsampled_width, int downsampled_height)
+{
+  // Context selection order: GLFW hidden window (unchanged desktop behavior)
+  // -> EGL GPU device (headless, DISPLAY-independent) -> EGL default display.
+  // Every candidate is verified (GL >= 4.3, not a software renderer): under
+  // Xvfb, glfwInit() succeeds but yields llvmpipe, which used to crash the node
+  // when building the compute shaders.
+  const auto logger = node->get_logger();
+  bool have_context = initGLFWContext(window_, logger) ||
+                      initEGLDeviceContext(image_width, image_height, logger) ||
+                      initEGLContextOn(eglGetDisplay(EGL_DEFAULT_DISPLAY), "default display",
+                                       image_width, image_height, logger);
+  if (!have_context)
+    throw std::runtime_error(
+        "droan_gl: no usable OpenGL >= 4.3 GPU context (tried GLFW, EGL devices, EGL default display)");
 
   // for(float p = -90.f; p < 90.f + 1.f; p += 5.f){
   // for(float y = 0.f; y < 360.f; y += 5.f){
@@ -681,25 +837,33 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
 GLuint GLInterface::createComputeShader(const std::string &file)
 {
   std::ifstream f(file);
+  if (!f)
+    throw std::runtime_error("droan_gl: cannot open compute shader " + file);
   std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   const char *c = src.c_str();
 
   RCLCPP_INFO_STREAM(node->get_logger(), file);
 
+  // A failed compile/link used to be logged and ignored, and the node then
+  // crashed later on garbage buffer sizes (std::length_error). Fail here with
+  // the driver's message instead.
   GLuint s = glCreateShader(GL_COMPUTE_SHADER);
   glShaderSource(s, 1, &c, nullptr);
   glCompileShader(s);
-  GLint ok;
+  GLint ok = 0;
   glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
   if (!ok)
   {
     char log[1024];
-    glGetShaderInfoLog(s, 1024, nullptr, log);
-    RCLCPP_ERROR(node->get_logger(), "Shader compile error: %s", log);
+    glGetShaderInfoLog(s, sizeof(log), nullptr, log);
+    RCLCPP_ERROR(node->get_logger(), "Shader compile error in %s: %s", file.c_str(), log);
+    glDeleteShader(s);
+    throw std::runtime_error("droan_gl: compute shader failed to compile: " + file);
   }
   GLuint p = glCreateProgram();
   glAttachShader(p, s);
   glLinkProgram(p);
+  glDeleteShader(s);
 
   GLint success = 0;
   glGetProgramiv(p, GL_LINK_STATUS, &success);
@@ -707,9 +871,9 @@ GLuint GLInterface::createComputeShader(const std::string &file)
   {
     GLchar info[1024];
     glGetProgramInfoLog(p, sizeof(info), NULL, info);
-    std::cerr << "Link failed: " << info << std::endl;
+    RCLCPP_ERROR(node->get_logger(), "Shader link error in %s: %s", file.c_str(), info);
+    glDeleteProgram(p);
+    throw std::runtime_error("droan_gl: compute shader failed to link: " + file);
   }
-
-  glDeleteShader(s);
   return p;
 }
