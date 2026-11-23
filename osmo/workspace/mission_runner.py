@@ -483,6 +483,22 @@ class Stack:
                   timeout=timeout, env=self.env, cwd=self.root)
 
     def up(self):
+        # Explicit per-mission recovery of a failed generated package artifact.
+        # ensure_down() runs first; no active container may use these outputs.
+        clean = self.mission['stack'].get('clean_build_packages', [])
+        if clean and stack_containers():
+            raise RuntimeError('cannot clean build artifacts while stack containers exist')
+        for package in clean:
+            if not re.fullmatch(r'[a-z][a-z0-9_]*', str(package)):
+                raise ValueError(f'invalid clean_build_packages entry: {package!r}')
+            workspace = Path(self.root) / 'robot' / 'ros_ws'
+            for directory in ('build', 'install'):
+                path = workspace / directory / package
+                if path.is_symlink():
+                    path.unlink()
+                elif path.exists():
+                    shutil.rmtree(path)
+            log(f'cleared generated build/install artifacts for {package}')
         result = self._airstack("up", self.mission["up_timeout_s"],
                                 extra_args=self.services)
         if result.stdout:

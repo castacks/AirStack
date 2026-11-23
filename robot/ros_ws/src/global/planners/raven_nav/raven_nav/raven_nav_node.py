@@ -832,6 +832,11 @@ class RavenNavNode(Node):
         K = scores.shape[1]
         out = PointCloud2()
         out.header.stamp = stamp
+        if (getattr(self, '_share_raw_rays', False)
+                and stamp.sec == 0 and stamp.nanosec == 0):
+            # RayFronts leaves this header unset. Stamp each actual input
+            # callback, not each gossip heartbeat, so freshness is meaningful.
+            out.header.stamp = self.get_clock().now().to_msg()
         out.header.frame_id = 'map'
         out.height = 1
         out.width = n
@@ -2570,7 +2575,7 @@ class RavenNavNode(Node):
                 self.get_logger().error(f'rejected semantic map: {exc}', throttle_duration_sec=10.0)
 
     @profile_map_stage
-    def _on_stream_semantic_map(self, msg):
+    def _on_stream_semantic_map(self, msg, refresh=True):
         if self._boot_enu is None or msg.source_robot == self._robot_name:
             return
         if (getattr(self, '_reusable_feature_map', False)
@@ -2590,9 +2595,12 @@ class RavenNavNode(Node):
             if self._semantic_fusion.update(msg.source_robot, data[:, :3], data[:, 3:], msg.labels, version):
                 self._semantic_map_received_at[msg.source_robot] = time.monotonic()
                 self._semantic_map_updates[msg.source_robot] = self._semantic_map_updates.get(msg.source_robot, 0) + 1
-                self._refresh_semantic_map()
-            self._semantic_map_ack_pub.publish(String(data=json.dumps(
-                {'source_robot': msg.source_robot, 'revision': version})))
+                if refresh:
+                    self._refresh_semantic_map()
+            if refresh:
+                self._semantic_map_ack_pub.publish(String(data=json.dumps(
+                    {'source_robot': msg.source_robot, 'revision': version})))
+            return version
         except (ValueError, TypeError, RuntimeError) as exc:
             self._semantic_map_rejections += 1
             self.get_logger().error(f'rejected semantic map update: {exc}', throttle_duration_sec=10.0)
@@ -2600,10 +2608,28 @@ class RavenNavNode(Node):
     def _poll_stream_semantic_maps(self):
         if self._boot_enu is None:
             return
+        batch = os.getenv('RAVEN_MAP_BATCH_FUSION', 'false').lower() == 'true'
+        pending_acks = []
         for source, data, version in received_snapshots(self._robot_name, self._semantic_map_received_files):
             msg = deserialize_message(data, SemanticVoxelMap)
-            self._on_stream_semantic_map(msg)
+            revision = (self._on_stream_semantic_map(msg, refresh=False) if batch
+                        else self._on_stream_semantic_map(msg))
+            if batch and revision is not None:
+                pending_acks.append((msg.source_robot, revision))
             self._semantic_map_received_files[source] = version
+        if pending_acks:
+            # Apply every waiting source before materializing the wide fused
+            # array and query scores once. No source, cell or channel is dropped.
+            # ACKs remain after fusion, never merely after reading the files.
+            try:
+                self._refresh_semantic_map()
+            except (ValueError, TypeError, RuntimeError) as exc:
+                self._semantic_map_rejections += 1
+                self.get_logger().error(f'rejected batched map refresh: {exc}')
+                return
+            for source, revision in pending_acks:
+                self._semantic_map_ack_pub.publish(String(data=json.dumps(
+                    {'source_robot': source, 'revision': revision})))
 
     def _frontiers_cb(self, msg: PointCloud2):
         """(N, 6) float32: [x, y, z, empty_cnt, unobserved_cnt, occupied_cnt].
@@ -3274,6 +3300,7 @@ class RavenNavNode(Node):
                                for name, pr in self._peer_state.peer_rays.items()},
                 merged_ray_rows=(len(merged_origins) if merged_origins is not None else 0),
                 semantic_map_sharing=self._semantic_map_sharing,
+                batch_peer_map_fusion=os.getenv('RAVEN_MAP_BATCH_FUSION', 'false').lower() == 'true',
                 reusable_feature_map=self._reusable_feature_map,
                 feature_dimension=(len(self._semantic_feature_labels)-4 if self._semantic_feature_labels else 0),
                 feature_reference_error=self._feature_reference_error,

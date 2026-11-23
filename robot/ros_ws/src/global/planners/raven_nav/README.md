@@ -22,7 +22,9 @@ the existing coordinate transform and `shared_rays` schema. Each receiver stacks
 its own rays and peer rays before the unchanged target/background argmax, score,
 altitude and clustering filters. Peer rays are never republished as own rays.
 This changes communication volume; it does not change local perception, query
-thresholds, target association or BB sharing. Result JSON and auction traces
+thresholds, target association or BB sharing. Raw RayFronts clouds can have
+a zero header timestamp; raw-sharing mode stamps each actual input callback with
+the robot clock so repeated gossip heartbeats cannot masquerade as new clouds. Result JSON and auction traces
 record source/wire row counts and receiver fleet row counts for verification.
 
 ## Enabling ablations on multi-raven
@@ -662,3 +664,16 @@ poses alone: a stale planner odometry subscription can leave auction positions
 almost fixed while the physical robot moves. A missing boot GPS also blocks
 map participation even when mapper exports are healthy. Neither condition is
 proof of wire-PCA encoding failure; inspect source, receiver, and timing evidence.
+
+### Wide-map freshness recovery
+
+`RAVEN_MAP_BATCH_FUSION=true` applies every waiting peer source update before
+materializing the fused feature array and query scores once. Source/cell/channel
+contents and fusion arithmetic are unchanged; each stream ACK still follows
+successful fusion. The default remains `false`. Freshness gates remain 15 wall
+seconds, 70% after warmup, and fresh fleet maps near mission end.
+
+In semantic-map experiments, `confirmed_targets` still carries visited/completed
+targets for revisit avoidance. Unvisited BB geometry is removed from both this
+payload and the auction table; its byte counter is completed-target coordination,
+not an alternative path for sharing unvisited detections.

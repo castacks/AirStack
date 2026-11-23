@@ -378,3 +378,8 @@ topics in `record.robot_topics` to preserve timestamp/command context.
 - **CI/CD on OSMO** — the existing `.github/workflows/system-tests.yml` +
   OpenStack ephemeral runner path is unchanged. Migrating CI to OSMO is a
   separate effort.
+
+A mission can opt into `stack.clean_build_packages: [waypoint_interface]` to
+remove only that package’s generated `robot/ros_ws/build` and `install` outputs
+before startup. This is for diagnosed stale build artifacts; sources are kept,
+package names are validated, and cleanup is refused while stack containers exist.
