@@ -1,0 +1,5 @@
+oracle_control,observation,alternate_observation,constraint
+known_range,0.07999999999999999,0.08,exact transmission and independent L
+unknown_range,0.38289288597511206,0.38289288597511206,"(0.08,12) and (0.04,24)"
+unknown_source,0.08892071947552019,0.08892071947552019,"source=0.02,target2=0.11780315643341"
+emissivity_temperature,50.316048518264026,50.316048518264026,"(310,0.8) vs (330,0.4069524158861011)"

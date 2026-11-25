@@ -1,0 +1,188 @@
+{
+  "experiment": "ORE-MS-EXP-PER-001-M07-R1",
+  "starting_revision": "bfb26be02225fbc8651680883d65860366502dc2",
+  "grid_cells": 401,
+  "prior": [
+    0,
+    1
+  ],
+  "weak_sd": 0.24,
+  "mismatch_z": 5,
+  "rgb_gain": 6500,
+  "rgb_well": 4000,
+  "rgb_read_noise_e": 45,
+  "lwir_high": 110,
+  "lwir_noise": 0.55,
+  "bits": 12,
+  "length_m": 10,
+  "air_K": 294,
+  "rgb_ambient": 0.009,
+  "rgb_solid_angle": 0.8,
+  "rgb_response": {
+    "R": [
+      550,
+      610,
+      700
+    ],
+    "G": [
+      450,
+      540,
+      630
+    ],
+    "B": [
+      400,
+      460,
+      540
+    ]
+  },
+  "lwir_response": [
+    0.65,
+    1,
+    0.72
+  ],
+  "lwir_intervals": 192,
+  "optical": {
+    "rgb_floor": 0.003,
+    "rgb_span": 0.135,
+    "rgb_exponent": 0.5,
+    "scatter_fraction": 0.88,
+    "lwir_floor": [
+      0.001,
+      0.002,
+      0.003
+    ],
+    "lwir_span": [
+      0.017,
+      0.024,
+      0.013
+    ]
+  },
+  "materials": {
+    "target": {
+      "rho": [
+        0.4,
+        0.4,
+        0.4
+      ],
+      "irradiance": [
+        0.018,
+        0.018,
+        0.018
+      ],
+      "temperature_K": 320,
+      "emissivity": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "reflected_K": 285
+    },
+    "foreground": {
+      "rho": [
+        0.13,
+        0.21,
+        0.37
+      ],
+      "irradiance": [
+        0.011,
+        0.014,
+        0.017
+      ],
+      "temperature_K": 287,
+      "emissivity": [
+        0.3,
+        0.5,
+        0.7
+      ],
+      "reflected_K": 300
+    },
+    "crossover": {
+      "rho": [
+        0.4,
+        0.4,
+        0.4
+      ],
+      "irradiance": [
+        0.018,
+        0.018,
+        0.018
+      ],
+      "temperature_K": 300,
+      "emissivity": [
+        1,
+        1,
+        1
+      ],
+      "reflected_K": 285
+    }
+  },
+  "cases": [
+    {
+      "id": "matched"
+    },
+    {
+      "id": "clear"
+    },
+    {
+      "id": "moderate"
+    },
+    {
+      "id": "severe",
+      "length_m": 120
+    },
+    {
+      "id": "partial_target",
+      "length_m": 10.44030650891055
+    },
+    {
+      "id": "partial_blocked",
+      "association": false
+    },
+    {
+      "id": "complete",
+      "association": false
+    },
+    {
+      "id": "crossover",
+      "material": "crossover",
+      "air_K": 300
+    },
+    {
+      "id": "saturated",
+      "rgb_well": 1,
+      "lwir_high": 1
+    },
+    {
+      "id": "uncertain_geometry",
+      "geometry_known": false
+    },
+    {
+      "id": "uncertain_material",
+      "material_known": false
+    },
+    {
+      "id": "mismatched_air"
+    },
+    {
+      "id": "missing_rgb"
+    },
+    {
+      "id": "invalid_lwir"
+    }
+  ],
+  "m06_cases": [
+    {
+      "id": "ensemble_fixed",
+      "air_known": false,
+      "rgb_read_noise_e": 0,
+      "lwir_noise": 0
+    },
+    {
+      "id": "ensemble_covered",
+      "air_known": false,
+      "association": false,
+      "rgb_read_noise_e": 0,
+      "lwir_noise": 0
+    }
+  ]
+}

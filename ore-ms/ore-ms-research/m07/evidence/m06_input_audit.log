@@ -1,0 +1,6 @@
+M06 checksum manifest passed. Rows: 793 2343
+Probe splits by independent realization: {'development': 96, 'holdout': 32}
+Codes available: R_code G_code B_code lwir_code. Nominal detector: {'bits': 12, 'lwir_high': 110, 'lwir_sigma': 0, 'rgb_gain': 6500, 'rgb_read_noise_e': 0, 'rgb_well': 4000}
+Privileged fields carried in originals include burden_avg, RGB/LWIR transmission, latent coefficient vectors, true range, and first-hit truth.
+M06 RGB restricted shared-burden inverse is valid with declared length and target nuisance inputs.
+M06 LWIR path temperature is unknown, so use an independent, matched, temperature-constrained M07 calibration corpus to compare modes.

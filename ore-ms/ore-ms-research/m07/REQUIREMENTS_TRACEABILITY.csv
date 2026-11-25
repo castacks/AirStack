@@ -1,0 +1,8 @@
+ID,Requirement,Original task linkage,Code and evidence,Checks,Disposition
+M07-R01,Constrained and structurally underdetermined inverses,MATH-15,OBSERVABILITY.md and oracle.csv,V01/V02,PASS scoped inverses
+M07-R02,Scaled Jacobians rank conditioning and information,MATH-15 and MATH-16,observability.py and observability.csv,V03/V06,PASS analytical probes
+M07-R03,Classical noise-aware bounded estimation and priors,MATH-16 and INT-13,estimate.py and SCIENTIFIC_MODEL.md,V04/V05,PASS synthetic conditional burden
+M07-R04,RGB LWIR and joint matched comparison and degeneracies,MATH-15 and INT-13,verify.py and metrics.csv,V06/V07,PASS
+M07-R05,Framewise replay and split/truth isolation,INT-13,features.py generate.py and DATA_CONTRACT.md,V08/V09,PASS framewise; sequential not tested
+M07-R06,Prior archive preservation and reproducibility,Original specification §§5–6 and M07-R1 §§2 and 8,regressions.sh and manifests,V10,PASS
+M07-R07,Sequential filters and unidentifiable drivers,MATH-17 through MATH-20,OBSERVABILITY.md and AC10,V08,NOT TESTED

@@ -1,0 +1,3 @@
+# Development record
+
+M06 acceptance and Phase II conditional completion were recorded before implementation. The M06 archive, case/time coverage, detector settings and realization partitions were audited before freezing the inverse. The public registry and private generation settings are separate. The frozen M07 protocol uses the existing physics kernels without modifying them. Inference, scoring and analytical reference code reside in separate modules. A verifier import collision with the earlier milestone's reference file was resolved before verification. The fixed-grid M06 warning and mismatch undercoverage remain in the evidence.

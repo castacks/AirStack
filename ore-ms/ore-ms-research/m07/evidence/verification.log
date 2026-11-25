@@ -1,0 +1,14 @@
+test_analytic_inverse_ambiguities_and_information (__main__.Verification.test_analytic_inverse_ambiguities_and_information) ... inverse error=1.38777878e-17; band inverse max=4.4408921e-16; ambiguity output residual=0; Jacobian error=2.71621836e-10; scalar information={'rgb_known': 278.09445846696184, 'lwir_known': 32.38002409674777, 'joint_known': 310.47448256370967, 'unknown_range_one_band': 2416.650246627743, 'unknown_range_two_bands': 2640.111252188836, 'lwir_crossover': 0.0, 'target_occluded': 0.0, 'rail_plateau': 0.0}
+ok
+test_degraded_ambiguity_and_missingness (__main__.Verification.test_degraded_ambiguity_and_missingness) ... severe RGB weak/abstain=256; mismatch joint MAE=0.047516436; coverage=0.8515625; warnings=7/256
+ok
+test_leakage_and_time_partition (__main__.Verification.test_leakage_and_time_partition) ... 6144 feature rows, 24576 mode outputs; 96 M06 holdout fixed frames; isolated inference reproduced without labels
+ok
+test_matched_holdout_calibration_and_modes (__main__.Verification.test_matched_holdout_calibration_and_modes) ... matched holdout (mode, MAE, coverage, width)=[('prior', 0.24026207431972937, 0.9609375, 0.95), ('RGB', 0.033386447956962995, 0.94921875, 0.16666720502191704), ('LWIR', 0.12946508177950705, 0.96484375, 0.6277041914607004), ('joint', 0.03234913396689751, 0.9453125, 0.16264398307051517)]
+M06 frozen-grid warning realization=96 t=6; grid z=5.401319529392977; independent finer local search residual=0.473731 LSB
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.186s
+
+OK

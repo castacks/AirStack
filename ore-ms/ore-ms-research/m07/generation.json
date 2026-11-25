@@ -1,0 +1,36 @@
+{
+  "controlled": {
+    "realizations": 384,
+    "development": 128,
+    "truth_seed": 71001,
+    "noise_seed": 72001
+  },
+  "cases": {
+    "clear": {
+      "burden": 0
+    },
+    "moderate": {
+      "burden": 0.5
+    },
+    "severe": {
+      "burden": 0.98
+    },
+    "partial_blocked": {
+      "actual_material": "foreground",
+      "actual_length_m": 5
+    },
+    "complete": {
+      "actual_material": "foreground",
+      "actual_length_m": 5
+    },
+    "mismatched_air": {
+      "actual_air_K": 318
+    },
+    "missing_rgb": {
+      "drop_rgb": true
+    },
+    "invalid_lwir": {
+      "invalidate_lwir": true
+    }
+  }
+}
