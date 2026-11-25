@@ -1,0 +1,106 @@
+ID,Workstream,Milestone,Task,Disposition
+MATH-01,MATH,M01,Define state variables units and probability conventions,EXECUTED
+MATH-02,MATH,M01,Derive slab transfer and optical depth,EXECUTED
+MATH-03,MATH,M01,Derive pinhole first-hit geometry,EXECUTED
+MATH-04,MATH,M01,Specify spectral integration and truncation limits,EXECUTED
+MATH-05,MATH,M01,Set numerical refinement verification protocol,EXECUTED
+MATH-06,MATH,M02,Generalize to piecewise atmospheric fields,PLANNED
+MATH-07,MATH,M02,Derive registration Jacobians,PLANNED
+MATH-08,MATH,M02,Propagate calibration covariance into radiance,PLANNED
+MATH-09,MATH,M02,Analyze range and extinction confounding,PLANNED
+MATH-10,MATH,M02,Define physical observability reference metrics,PLANNED
+MATH-11,MATH,M03,Establish discrete Markov weather states,PLANNED
+MATH-12,MATH,M03,Model spatial medium as a Gaussian random field,PLANNED
+MATH-13,MATH,M03,Design stochastic differential transition models,PLANNED
+MATH-14,MATH,M03,Compare discretizations and stability,PLANNED
+MATH-15,MATH,M03,Build controlled observability experiments,PLANNED
+MATH-16,MATH,M03,Derive a Bayesian likelihood and priors,PLANNED
+MATH-17,MATH,M03,Implement linear state-space baseline,PLANNED
+MATH-18,MATH,M03,Derive extended and unscented filters,PLANNED
+MATH-19,MATH,M03,Implement sequential Monte Carlo reference,PLANNED
+MATH-20,MATH,M03,Evaluate particle degeneracy and sample budgets,PLANNED
+MATH-21,MATH,M03,Propagate posterior ensembles to forecasts,PLANNED
+MATH-22,MATH,M04,Evaluate horizon-wise proper scores,PLANNED
+MATH-23,MATH,M04,Quantify aleatoric and parameter uncertainty,PLANNED
+MATH-24,MATH,M05,Validate uncertainty under distribution shift,PLANNED
+MATH-25,MATH,M05,Report identifiability and irreducible uncertainty,PLANNED
+PHY-01,PHY,M01,Define radiance spectral units and response,EXECUTED
+PHY-02,PHY,M01,Document atmospheric extinction and scattering,EXECUTED
+PHY-03,PHY,M01,Characterize plausible use of constant path source,EXECUTED
+PHY-04,PHY,M01,Derive Planck emission and constants,EXECUTED
+PHY-05,PHY,M01,Derive opaque surface reflection and emission,EXECUTED
+PHY-06,PHY,M01,Specify illustrative LWIR spectral response,EXECUTED
+PHY-07,PHY,M01,Specify linearized additive noise model,EXECUTED
+PHY-08,PHY,M01,Catalog degradation and shared causes,EXECUTED
+PHY-09,PHY,M02,Measure wavelength-dependent attenuation,PLANNED
+PHY-10,PHY,M02,Obtain measured spectral response and gain,PLANNED
+PHY-11,PHY,M02,Measure directional surface emissivity,PLANNED
+PHY-12,PHY,M02,Quantify reflected environment radiance,PLANNED
+PHY-13,PHY,M02,Qualify aerosol and fog reference inputs,PLANNED
+PHY-14,PHY,M02,Compare scattering phase models,PLANNED
+PHY-15,PHY,M02,Model LWIR path emission from measured temperature,PLANNED
+PHY-16,PHY,M02,Measure saturation and dynamic range,PLANNED
+PHY-17,PHY,M02,Estimate shot read and fixed pattern noise,PLANNED
+PHY-18,PHY,M02,Establish blackbody calibration protocol,PLANNED
+PHY-19,PHY,M02,Measure PSF and exposure-dependent blur,PLANNED
+PHY-20,PHY,M02,Measure gain and nonuniformity correction behavior,PLANNED
+PHY-21,PHY,M03,Quantify thermal crossover distributions,PLANNED
+PHY-22,PHY,M03,Estimate coupled degradation residuals,PLANNED
+PHY-23,PHY,M03,Assess multiple scattering breakdown,PLANNED
+PHY-24,PHY,M03,Model optical-window contamination,PLANNED
+PHY-25,PHY,M03,Describe sensor fault transitions and observables,PLANNED
+PHY-26,PHY,M04,Generate bounded physical training domains,PLANNED
+PHY-27,PHY,M04,Design unseen compound-degradation regimes,PLANNED
+PHY-28,PHY,M05,Collect controlled paired physical exposures,PLANNED
+PHY-29,PHY,M05,Compare calibrated residuals with model uncertainty,PLANNED
+PHY-30,PHY,M05,Publish validity domains and physical failure cases,PLANNED
+ML-01,ML,M01,Define forecast targets and data contract,EXECUTED
+ML-02,ML,M01,Plan persistence statistical and learned comparisons,EXECUTED
+ML-03,ML,M01,Plan leakage controls and calibration metrics,EXECUTED
+ML-04,ML,M02,Define recording-level split metadata,PLANNED
+ML-05,ML,M02,Qualify reference labels and missing truth,PLANNED
+ML-06,ML,M02,Freeze development and holdout splits,PLANNED
+ML-07,ML,M02,Define subgroup coverage and sample-size rationale,PLANNED
+ML-08,ML,M03,Implement persistence predictor,PLANNED
+ML-09,ML,M03,Implement climatology predictor,PLANNED
+ML-10,ML,M03,Evaluate linear temporal baselines,PLANNED
+ML-11,ML,M03,Benchmark hidden-state estimation,PLANNED
+ML-12,ML,M03,Evaluate probabilistic temporal forecasts,PLANNED
+ML-13,ML,M03,Report horizon calibration and proper scores,PLANNED
+ML-14,ML,M04,Train a matched-input temporal learner,PLANNED
+ML-15,ML,M04,Develop bounded physics residual learner,PLANNED
+ML-16,ML,M04,Compare learned and physics-informed ablations,PLANNED
+ML-17,ML,M04,Evaluate OOD scores and abstention,PLANNED
+ML-18,ML,M04,Test sensor dropout robustness,PLANNED
+ML-19,ML,M04,Calibrate uncertainty and report coverage,PLANNED
+ML-20,ML,M04,Estimate error correlations across modalities,PLANNED
+ML-21,ML,M04,Implement reliability-aware fusion,PLANNED
+ML-22,ML,M04,Compare fusion with both single modalities,PLANNED
+ML-23,ML,M04,Measure latency and resource use,PLANNED
+ML-24,ML,M04,Test temporal alignment sensitivity,PLANNED
+ML-25,ML,M05,Evaluate simulation-to-real transfer,PLANNED
+ML-26,ML,M05,Measure calibration on unseen physical regimes,PLANNED
+ML-27,ML,M05,Evaluate selective risk across fault conditions,PLANNED
+ML-28,ML,M05,Assess robustness under compute constraints,PLANNED
+ML-29,ML,M05,Document model and dataset limitations,PLANNED
+ML-30,ML,M05,Package reproducible evaluation artifacts,PLANNED
+INT-01,INT,M01,Audit tools hardware and baseline identity,PARTIAL
+INT-02,INT,M01,Specify shared scene and truth interfaces,EXECUTED
+INT-03,INT,M01,Implement RGB forward baseline,EXECUTED
+INT-04,INT,M01,Implement LWIR forward baseline,EXECUTED
+INT-05,INT,M01,Generate paired observations,EXECUTED
+INT-06,INT,M01,Run separate analytic verification and reproduce capture,EXECUTED
+INT-07,INT,M01,Freeze evidence and record gate dispositions,EXECUTED
+INT-08,INT,M02,Qualify sensor and scene metadata schema,PLANNED
+INT-09,INT,M02,Evaluate simulator and renderer adapters,PLANNED
+INT-10,INT,M02,Build reference calibration scene,PLANNED
+INT-11,INT,M02,Validate cross-simulator geometry and ray parity,PLANNED
+INT-12,INT,M02,Record calibrated paired sequences and timebase,PLANNED
+INT-13,INT,M03,Implement state estimator interface and replay,PLANNED
+INT-14,INT,M03,Integrate forecasting and reporting contracts,PLANNED
+INT-15,INT,M03,Run deterministic and stochastic regression tests,PLANNED
+INT-16,INT,M04,Integrate calibrated fusion interface,PLANNED
+INT-17,INT,M04,Qualify latency throughput and failure telemetry,PLANNED
+INT-18,INT,M05,Validate physical replay and evidence integrity,PLANNED
+INT-19,INT,M05,Conduct deployment-readiness review,PLANNED
+INT-20,INT,M05,Freeze independently reviewed qualification packet,PLANNED

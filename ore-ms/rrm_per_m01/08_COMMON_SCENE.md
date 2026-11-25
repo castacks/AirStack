@@ -1,0 +1,3 @@
+# Common reference scene
+
+The co-located modalities use a single undistorted 17 by 13 pinhole camera, +X right, +Y down, +Z forward, zero-based pixel coordinates and 14 px focal length. A target plane fills the view at z=12 m. The rectangular foreground is at z=4 m. Its closed bounds are in `scene.json` and project to rows 4–9 and columns 6–9. The rest of the target plane is visible. The two atmosphere cases replay the same geometry. This construction models perfect registration and hard opaque edges. Each CSV row carries the case, row, column, visibility, first surface, slant range and noiseless/noisy pairs.

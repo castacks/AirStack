@@ -1,0 +1,5 @@
+# Future machine learning architecture
+
+Begin with persistence, climatology and state-space forecasts. Benchmark predictions with Brier score for degradation events, CRPS for continuous forecasts, calibration curves, interval coverage and error by horizon and condition. Split by recording, environment and sensor rig to control temporal and calibration leakage. Audit training overlap before treating an unseen split as external evidence.
+
+A later residual learner could predict bounded corrections to shared physical state or observation residuals. Compare with uncorrected physics and a data-only baseline under matched inputs. A fusion policy should propagate calibrated uncertainty through modality failures, test against both single sensors, and report compute and latency. Develop out-of-distribution abstention with declared coverage. Favor synthetic data for controlled factors and independently qualified records for transfer. Training awaits authorization and verified models and datasets.

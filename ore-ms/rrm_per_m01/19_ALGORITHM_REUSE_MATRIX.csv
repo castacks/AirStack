@@ -1,0 +1,11 @@
+Component,M01 selection,Reuse candidate,Qualification before use
+Ray geometry,Analytic pinhole and planes,AirStack Isaac Sim or Warp,Compare axes range first hits and occluding edges
+Transport,Homogeneous analytic slab,libRadtran or Mitsuba 3,Verify wavelength units medium geometry and path radiance
+Blackbody,Planck from exact constants,PyRadi or SciPy,Compare unit conversions and integral against retained reference
+Spectral quadrature,stdlib trapezoids,SciPy or NumPy,Re-run convergence and verify response normalization
+Symbolic sensitivities,Deferred,SymPy,Compare analytic derivatives to finite differences
+Sensor registration,Ideal shared rays,OpenCV and ROS 2,Verify distortion extrinsics timestamps and calibration metadata
+Robot motion,Static,MuJoCo Gazebo or Isaac Sim,Compare pose and frame contracts on controlled trajectories
+Estimation,Deferred,NumPy and SciPy,Compare state observability and controlled noise replay
+Learning,Deferred,PyTorch,Measure leakage calibration transfer and budget
+Existing benchmark,Read-only candidate,ore-ms MAC-VO and research index,Verify sensor contracts and preserve frozen baselines

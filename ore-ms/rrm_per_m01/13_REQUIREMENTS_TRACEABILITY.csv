@@ -1,0 +1,9 @@
+Requirement,Directive task,Design or equation,Implementation,Verification
+R01,T01/T08,00 and 24,new project directory,V01/V02
+R02,T02,04 E1-E5,physics.py and simulate.py,V03
+R03,T03,04 E1,physics.transport,V04/V05
+R04,T04,04 E3-E4,physics.planck and physics.thermal_band,V06/V07/V08
+R05,T05,04 E2 and 08,simulate.observations and scene.json,V05/V09
+R06,T08,04 E5 and 21,physics.noise_stream and simulate.main,V10/V11
+R07,T06/T07,05 and 15-19,planning artifacts,V12/V13
+R08,T08,21 and 23-26,frozen manifest and evidence,V14

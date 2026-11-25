@@ -1,0 +1,14 @@
+{
+  "width": 17, "height": 13, "focal_px": 14,
+  "target_z_m": 12, "foreground_z_m": 4,
+  "foreground_xy_m": [-0.85, 0.30, -0.60, 0.95],
+  "target": {"rgb": [2, 4, 6], "temperature_K": 310, "emissivity": 0.92},
+  "foreground": {"rgb": [7, 3, 1], "temperature_K": 288, "emissivity": 0.80},
+  "rgb_path_source": [1, 2, 3], "reflected_K": 295, "air_K": 292,
+  "response_edges": [0.8, 1.0], "intervals": 128,
+  "rgb_seed": 142, "lwir_seed": 981, "rgb_noise_sigma": 0.02, "lwir_noise_sigma": 0.04,
+  "cases": {
+    "clear": {"rgb_extinction": [0, 0, 0], "lwir_extinction": 0},
+    "attenuated": {"rgb_extinction": [0.13, 0.10, 0.08], "lwir_extinction": 0.025}
+  }
+}
