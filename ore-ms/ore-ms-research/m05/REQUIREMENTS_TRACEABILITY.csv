@@ -1,0 +1,9 @@
+ID,Requirement,Catalog linkage,Implementation and evidence,Verification,Status
+M05-R01,Stationary OU dynamics and deterministic forced regimes,MATH-11 MATH-13,environment.py and forced.csv,V01/V02/V03,PASS prescribed switches
+M05-R02,Spatial correlations and transport,MATH-12,Field and trajectories.csv,V04/V06,PASS periodic transect
+M05-R03,Time discretization and long horizon stability,MATH-14,transition and stress.csv,V03/V05,PASS
+M05-R04,Physically bounded state and dimensional optical split,MATH-09 and MATH-13,physical_sample and trajectories.csv,V05/V08,PASS synthetic bounds
+M05-R05,RGB LWIR and geometric compatibility; range extinction ambiguity,MATH-09,verify.py test_interfaces_and_admissibility,V08,PASS standalone probes
+M05-R06,Independent realizations and deterministic replay,Original specification §§5–6 and M05-R1 §5,statistics.csv and replay.log,V02/V03/V04/V07,PASS
+M05-R07,Governance and regression preservation,M05-R1 §§2 and 6–9,Acceptance Conditions Register and provenance logs,V09,PASS
+M05-R08,Sensor faults and empirical environmental or hardware fit,PHY-25 and later qualification,Acceptance Conditions Register,Separate authorized experiments,NOT TESTED

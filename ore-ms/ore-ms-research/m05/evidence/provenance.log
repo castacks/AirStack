@@ -1,0 +1,8 @@
+Starting revision 21eaa450c5b1a904d464148ec0b1f764f78aa42d on ore-ms-orb-development
+PASS: 13 milestones, five phases, 105 tasks and 147 dependency edges preserved.
+PASS: 13 open acceptance conditions classified, owned and assigned closure gates.
+PASS: M01–M04 implementations and evidence unchanged; only roadmap, new register and M05 package modified.
+063751a7d50a7943aa8d8df30f505aa23ffc43d2e8124c3992e8796b5f69d026  ore-ms/ore-ms-research/m02/rgb_model.py
+5d2183a9b097ad419b5f3aec762327a0e2ba5e166143e27ddf654c872b72fcec  ore-ms/ore-ms-research/m03/thermal_model.py
+3f6409437d1e51ece1aa7882a3c704b6a64a47ac5d3d37a333b1b1673e33e9fc  ore-ms/ore-ms-research/m04/geometry.py
+Research documentation checks passed.

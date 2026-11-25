@@ -54,9 +54,9 @@ The program retains 25 mathematics, 30 physics, 30 machine learning and 20 syste
 
 ### 5. Milestone authorization policy
 
-**Current execution authorization: M04 only.**
+**Current execution authorization: M05 only.**
 
-M05–M13 are pending.
+M06–M13 are pending.
 
 Codex shall not begin implementation of a subsequent milestone without explicit authorization from the Project Director.
 
@@ -101,8 +101,8 @@ The governing research principles are:
 | M01 | Authorized | Accepted | [R01–R08](02_SYSTEM_REQUIREMENTS.md) | [M01 evidence and mapping](M01_ACCEPTANCE_REPORT.md) | [G0–G6](24_ACCEPTANCE_GATES.md) | External review and physical validation pending | Conditionally accepted under M03-R1, recorded 2026-11-25 |
 | M02 | Authorized | Accepted | [M02 requirements](m02/REQUIREMENTS_TRACEABILITY.csv) | [RGB degradation model and evidence](m02/ACCEPTANCE_REPORT.md) | [V01–V06 passed](m02/VERIFICATION_REPORT.md) | Physical spectral response and multiple-scattering validity remain open | Conditionally accepted under M03-R1, recorded 2026-11-25 |
 | M03 | Authorized | Accepted | [M03 requirements](m03/REQUIREMENTS_TRACEABILITY.csv) | [Thermal model and evidence](m03/ACCEPTANCE_REPORT.md) | [V01–V07 passed](m03/VERIFICATION_REPORT.md) | Physical response, atmospheric coefficients and external review open | Conditionally accepted under M04-R1, recorded 2026-11-25 |
-| M04 | Authorized | Verification | [M04 requirements](m04/REQUIREMENTS_TRACEABILITY.csv) | [Geometry and visibility evidence](m04/ACCEPTANCE_REPORT.md) | [V01–V08 passed](m04/VERIFICATION_REPORT.md) | Physical camera and complex geometry validation pending | Director review pending |
-| M05 | Pending | Not Started | Stochastic medium evolution | Latent field and transition simulator | Planned: Moment, convergence and regime tests | Transition parameter identifiability | Pending authorization |
+| M04 | Authorized | Accepted | [M04 requirements](m04/REQUIREMENTS_TRACEABILITY.csv) | [Geometry and visibility evidence](m04/ACCEPTANCE_REPORT.md) | [V01–V08 passed](m04/VERIFICATION_REPORT.md) | Physical camera and complex geometry validation pending | Conditionally accepted under M05-R1, recorded 2026-11-25 |
+| M05 | Authorized | Verification | [M05 requirements](m05/REQUIREMENTS_TRACEABILITY.csv) | [Stochastic evolution evidence](m05/ACCEPTANCE_REPORT.md) | [V01–V09 passed](m05/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Director review pending |
 | M06 | Pending | Not Started | Combined RGB/LWIR environmental simulation | Paired simulation corpus and provenance schema | Planned: Cross-modal consistency and held-out scenarios | Paired coverage and uncertainty | Pending authorization |
 | M07 | Pending | Not Started | Hidden state estimation | Likelihoods and classical filters | Planned: Identifiability, error and interval metrics | Range/extinction ambiguity | Pending authorization |
 | M08 | Pending | Not Started | Classical probabilistic prediction | Baseline forecasts and scoring protocol | Planned: Proper scores by horizon and condition | Event definitions and split coverage | Pending authorization |
@@ -142,3 +142,13 @@ Any proposed change must include:
 - Project Director approval status.
 
 Until approved, the original roadmap remains in force.
+
+### 10. Acceptance conditions governance
+
+**ACCEPT WITH CONDITIONS** means the authorized milestone passed its acceptance criteria and any outstanding conditions are classified and tracked. The [Acceptance Conditions Register](ACCEPTANCE_CONDITIONS_REGISTER.md) records classification, originating milestone, responsible owner, target milestone or gate, closure evidence and progression impact for each item.
+
+- **Required acceptance obligation** applies before the named scientific claim, integration gate or milestone acceptance.
+- **Deferred validation** is required verification assigned to an explicit later milestone. M11 covers independent simulator verification and M12 covers physical sensor verification.
+- **Optional future extension** is outside accepted scope and applies only if separately authorized or needed for a later claim.
+
+Organizationally independent assurance has its own review gate. Procedural separation within Codex is numerical verification evidence, with organizational independence still open. This amendment preserves all historical reports, numerical results, protocols and manifests.

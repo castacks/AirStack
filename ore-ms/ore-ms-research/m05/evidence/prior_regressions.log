@@ -1,0 +1,77 @@
+0e668832b27443ddc3cee5be97f991e26faffc06e60b5755796104654a5fa1ab  ORE-MS-EXP-PER-001-M01-R2.tar.gz
+ccf87274539af8090be18792ded070b6375d1e2a9ef148f4545d80711db94cdd  ORE-MS-EXP-PER-001-M02-R1.tar.gz
+194e494495fc942cfd2cdbb64b4989615beb3f37e114925bb2a2eb45f43c77b1  ORE-MS-EXP-PER-001-M03-R1.tar.gz
+9458b6290a68d343047ba844a322a9c32347012603473c8f38bf7a4bfa77aa7e  ORE-MS-EXP-PER-001-M04-R1.tar.gz
+test_band_reference_and_convergence (__main__.Verification.test_band_reference_and_convergence) ... band T=310 extinction=0.025 reference=52.8149145603 errors=[0.0053375196749101406, 0.001334376728657105, 0.00033359397992427375]
+band T=288 extinction=0.025 reference=41.9033363876 errors=[0.004544345939706318, 0.0011360605943480095, 0.0002840135285069323]
+band T=310 extinction=0 reference=56.0793015285 errors=[0.005568094523198397, 0.0013920275063270537, 0.0003480071156687359]
+band T=288 extinction=0 reference=41.7370617718 errors=[0.00453024014392156, 0.0011325338819503372, 0.0002831318339531208]
+ok
+test_noise_stream (__main__.Verification.test_noise_stream) ... ok
+test_paired_capture (__main__.Verification.test_paired_capture) ... ok
+test_planck_units_and_boundaries (__main__.Verification.test_planck_units_and_boundaries) ... ok
+test_rgb_boundaries (__main__.Verification.test_rgb_boundaries) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.551s
+
+OK
+442 observations; per case: {'clear': 221, 'attenuated': 221}; target visible: {'clear': 197, 'attenuated': 197}
+5 passing tests; maximum relative LWIR integration error 0.000678370%
+105 tasks {'MATH': 25, 'PHY': 30, 'ML': 30, 'INT': 20}, 147 acyclic milestone-ordered edges, 13 milestones, 5 phases, 27 numbered deliverables
+test_analytic_transfer (__main__.Verification.test_analytic_transfer) ... ok
+test_capture_and_trends (__main__.Verification.test_capture_and_trends) ... 18 cases; 26136 channel records
+ok
+test_metrics (__main__.Verification.test_metrics) ... ok
+test_phase_and_admissibility (__main__.Verification.test_phase_and_admissibility) ... HG g=.65 angular integral=0.9999998214
+ok
+test_projection_and_illumination (__main__.Verification.test_projection_and_illumination) ... ok
+test_sensor_and_noise (__main__.Verification.test_sensor_and_noise) ... noise read=12 shot=False sample mean=0.0704078 variance=144.365
+noise read=0 shot=True sample mean=0.131197 variance=501.266
+ok
+test_spatial_convergence (__main__.Verification.test_spatial_convergence) ... RK4 reference=0.0044056844337323; refinement errors=[2.8216274664243784e-07, 7.055356483244568e-08, 1.7639196481060437e-08]; ratios=[3.999269878319158, 3.999817390106203]
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.276s
+
+OK
+PASS: all radiance fields identical and clear capture has zero upper clipping.
+clear contrast_G=0.61547912 SSIM=1.00000000 radiance_RMSE_W_m2_sr=0.00003718
+out_scattering contrast_G=0.61520999 SSIM=0.70812507 radiance_RMSE_W_m2_sr=0.11513666
+isotropic_path contrast_G=0.56376887 SSIM=0.73944550 radiance_RMSE_W_m2_sr=0.10641625
+forward_path contrast_G=0.50418605 SSIM=0.77616348 radiance_RMSE_W_m2_sr=0.09446905
+test_captures_and_crossover (__main__.Verification.test_captures_and_crossover) ... 53 cases; 20458 spectra; 6784 detector readings; crossover 316.91729563 K bracketed [316,320] K; contrast at endpoints=-0.37480863, 1.25959849
+ok
+test_detector (__main__.Verification.test_detector) ... noise sample mean=-0.001145584782; variance=0.09036170518
+ok
+test_integration_convergence (__main__.Verification.test_integration_convergence) ... Simpson band reference=44.9797842017; refinement=2.842170943e-14; trapezoid errors=[0.0005901535253016732, 0.0001475367830252594, 3.6884096090261664e-05]; ratios=[4.000043332926912, 4.000010808566699]
+ok
+test_layered_reference (__main__.Verification.test_layered_reference) ... layer RK4 max absolute error=1.776356839e-14; refinement=7.638334409e-14
+ok
+test_planck (__main__.Verification.test_planck) ... maximum pointwise relative error=8.881784197e-16
+ok
+test_stefan_boltzmann (__main__.Verification.test_stefan_boltzmann) ... T=280: Stefan-Boltzmann rel. errors=6.91835278e-09,6.918352669e-09; refinement=1.280932398e-16
+T=300: Stefan-Boltzmann rel. errors=5.619522625e-09,5.619522625e-09; refinement=0
+T=320: Stefan-Boltzmann rel. errors=4.62514238e-09,4.625142491e-09; refinement=1.501718109e-16
+T=340: Stefan-Boltzmann rel. errors=3.850987862e-09,3.850987862e-09; refinement=0
+ok
+test_surface_and_gray_atmosphere (__main__.Verification.test_surface_and_gray_atmosphere) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.488s
+
+OK
+test_boundary_parallel_and_ties (__main__.Verification.test_boundary_parallel_and_ties) ... ok
+test_camera_and_jacobian (__main__.Verification.test_camera_and_jacobian) ... maximum camera Jacobian error=7.571565597e-11 px/m
+ok
+test_masks_ranges_and_timing (__main__.Verification.test_masks_ranges_and_timing) ... 30 frames; 5610 rays; 0 label mismatches; maximum range/depth error=3.552713679e-15 m
+ok
+test_surface_replacement_and_radiometric_invariance (__main__.Verification.test_surface_replacement_and_radiometric_invariance) ... 1148 first-hit observations; RGB max abs error=5.551115123e-17; LWIR clear max component error=0.0001003359194; attenuated LWIR max relative error=2.077100744e-06
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.074s
+
+OK
+PASS: M01–M04 manifest, regression and replay checks.

@@ -1,0 +1,13 @@
+test_coupled_refinement_and_deterministic_forcing (__main__.Verification.test_coupled_refinement_and_deterministic_forcing) ... deterministic max error=2.22044605e-15; coupled refinement=8.8817842e-16; forced mean max error=0.0257018011
+ok
+test_interfaces_and_admissibility (__main__.Verification.test_interfaces_and_admissibility) ... isolated 5 m kernel transmissions RGB=0.597373966, LWIR=0.913764378; abs errors=1.11e-16/0; unchanged M04 target hit and equal-depth ambiguity
+ok
+test_stationary_temporal_and_spatial (__main__.Verification.test_stationary_temporal_and_spatial) ... 4096 realizations per arm; max errors={'mean': 0.04014770203859223, 'variance': 0.02892338510577097, 'temporal': 0.025592652446224995, 'spatial': 0.03715566283286409}; coarse/fine=0.0123543349; L_e=9.94857915 m; lag6 baseline/slow=0.355556018/0.612371169; raw variance baseline/low=0.971076615/0.252794812
+ok
+test_transport_and_bounds (__main__.Verification.test_transport_and_bounds) ... 3664 field samples; 131072 stress samples, 0 invalid; peak error=0.0 m; mapping error=3.46944695e-18; clear/driven/recovery=0.01798621/0.907440802/0.0182633541
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.266s
+
+OK

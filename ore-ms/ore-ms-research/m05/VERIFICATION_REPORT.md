@@ -1,0 +1,18 @@
+# M05 verification report
+
+The [protocol](EXPERIMENT_PLAN.md) and configuration hashes predate implementation. Verification used independently expressed forced solutions, OU semigroup and coupling identities, a trigonometric covariance expressed as a quadratic, and pointwise statistical intervals over independent draws. Forward and verification code were written within the same development effort. Organizational independence remains open.
+
+| Criterion | Reference and measured result | Frozen tolerance | Status |
+|---|---|---|---|
+| V01 deterministic and forced evolution | Closed-form forcing at two time steps, worst latent error 2.22e−15. Forced ensemble worst mean error 0.02570. Clear/driven/recovery burden 0.01799 / 0.90744 / 0.01826 at the co-moving probe. | 2e−12 deterministic, 0.14 forced mean, increase ≥0.4 and return within 0.015 | PASS |
+| V02 moments | Standard normal fixed-point moments. Across stationary arms max normalized mean error 0.04015 and variance error 0.02893. Cross-field covariance passed. | 0.075 mean, 0.11 variance, 0.10 cross-field covariance | PASS |
+| V03 temporal correlation and refinements | Exponential covariance max error 0.02559, 2 s/0.5 s arm difference 0.01235. Exact coupling error 8.88e−16. At lag 6 s the slower arm increased normalized covariance from 0.35556 to 0.61237. Half-amplitude variance was 0.25279 versus 0.97108. | 0.11 vs theory, 0.14 coarse/fine, 2e−12 coupled | PASS |
+| V04 spatial covariance | Analytic kernel max error 0.03716. Its first e-fold separation was 9.94858 m. | 0.11 normalized covariance | PASS |
+| V05 admissibility | 3,664 trajectory records and 131,072 stress samples. Zero invalid or nonfinite states. Stress temperature 255.821–323.747 K. Maximum checked LWIR mapping error 3.47e−18 m⁻¹. | Frozen bounds, separate bands, closure to 2e−12 | PASS |
+| V06 transport | Ten analytically displaced peak locations including wrap. Zero grid-position error, with expected logistic peak. | 1e−10 m and 2e−12 burden | PASS |
+| V07 replay | Independent invocations gave byte-identical ensemble, forcing, trajectory, stress and summary CSVs. Alternate seed produced different values and passed stationary checks. | Byte equality for repeated seed and statistical acceptance for alternate seed | PASS |
+| V08 compatibility | Unchanged 5 m RGB/LWIR kernel transmission errors 1.11e−16 and 0. Standalone M04 target hit remained at 5 m. Halving extinction and doubling length preserved direct transmission. | 2e−12 absolute and unchanged label/range | PASS |
+| V09 regression and scope | M01–M04 archived checksums, raw replays and harnesses passed. Roadmap preserved 13 milestones, five phases, 105 tasks and 147 edges. Governance register separates and tracks later obligations. | Exact checksums/captures/catalog scope | PASS |
+| Physical evolution and external independent verification | Synthetic analogs and procedural references only. | Qualified real environmental measurements and external review | NOT TESTED |
+
+Baseline co-moving lag-6 covariance was 0.35556, with approximate pointwise 99% CI [0.31429, 0.39682], versus theory 0.36788. The 8 m normalized covariance was 0.51976 [0.47594, 0.56358], versus 0.55355. Baseline unit-variance estimate was 0.97108 [0.91635, 1.02581]. The forced mean at 36 s was 2.28562 [2.24787, 2.32336] versus 2.28278. The intervals are estimates from independent realization contributions. They do not describe measured environment uncertainty or simultaneous coverage. See [all estimates](evidence/statistics.csv), [test log](evidence/verification.log), [replay](evidence/replay.log), [prior regressions](evidence/prior_regressions.log), and [provenance](evidence/provenance.log).

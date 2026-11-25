@@ -1,0 +1,25 @@
+{
+  "period_m":64,"grid_cells":16,"weights":[0.2,0.5,0.3],
+  "stationary_size":4096,"forced_size":512,"stationary_seed":51001,"alternate_seed":51002,
+  "trajectory_seed":51201,"forced_seed":51301,"stress_seed":51401,
+  "lags_s":[0,2,6,12],"separations_m":[0,4,8,16,24],
+  "stationary_arms":[
+    {"name":"baseline","dt_s":2,"tau_s":6,"sigma":1,"seed":51001},
+    {"name":"fine","dt_s":0.5,"tau_s":6,"sigma":1,"seed":51003},
+    {"name":"slow","dt_s":2,"tau_s":12,"sigma":1,"seed":51004},
+    {"name":"low_amplitude","dt_s":2,"tau_s":6,"sigma":0.5,"seed":51005},
+    {"name":"alternate","dt_s":2,"tau_s":6,"sigma":1,"seed":51002}
+  ],
+  "forced":{"dt_s":1,"tau_s":6,"sigma":0.35,"velocity_m_s":1,"end_s":72,
+            "switch_s":[12,36],"check_s":[0,12,36,72],"clear_mean":-4,
+            "driven_mean":1.6,"driven_cosine":0.8},
+  "transport":{"dt_s":8,"velocity_m_s":1,"end_s":72,"fixed_cosine":2},
+  "stress":{"paths":16,"steps":512,"dt_s":2,"tau_s":6,"sigma":6,"velocity_m_s":1},
+  "temperature":{"min_K":250,"max_K":330,"tau_s":18,"sigma":0.6},
+  "media":{
+    "fog":{"rgb_floor":0.003,"rgb_span":0.135,"rgb_exponent":0.5,"scatter_fraction":0.88,
+           "lwir_floor":[0.001,0.002,0.003],"lwir_span":[0.017,0.024,0.013]},
+    "dust":{"rgb_floor":0.004,"rgb_span":0.16,"rgb_exponent":1.2,"scatter_fraction":0.68,
+            "lwir_floor":[0.002,0.003,0.002],"lwir_span":[0.026,0.012,0.029]}
+  }
+}
