@@ -1,0 +1,7 @@
+Starting revision 1a4e4e9735f28ad64efc84f0e48f28f91c82ad50 on ore-ms-orb-development
+PASS: 105 tasks, 147 edges, 13 milestones and five phases preserved. Only M02 authorization and register updated.
+442 observations; per case: {'clear': 221, 'attenuated': 221}; target visible: {'clear': 197, 'attenuated': 197}
+5 passing tests; maximum relative LWIR integration error 0.000678370%
+105 tasks {'MATH': 25, 'PHY': 30, 'ML': 30, 'INT': 20}, 147 acyclic milestone-ordered edges, 13 milestones, 5 phases, 27 numbered deliverables
+PASS: original M01 sources and evidence remain unchanged. Frozen M01 R2 checksums and replay verified.
+Research documentation checks passed.

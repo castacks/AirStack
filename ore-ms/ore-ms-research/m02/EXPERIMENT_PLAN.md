@@ -1,0 +1,22 @@
+# M02 frozen experiment and verification plan
+
+ORE-MS-EXP-PER-001-M02-R1 authorizes visible transfer, illumination, sensor response and comparative metrics at starting revision `1a4e4e973`. The original specification sections 3.1–3.2 and 5–6 govern radiance, verification and evidence. The [roadmap mandate](../RESEARCH_ROADMAP_MANDATE.md) governs scope. MATH-06 covers layered extinction. PHY-09 covers synthetic spectral attenuation, with physical measurements open. PHY-13 and PHY-14 cover an explicitly synthetic medium and illustrative phase comparison, with physical aerosol inputs open. PHY-23 covers the repeated-scattering risk diagnostic, with a quantitative multiple-scattering model deferred. Milestone assignments and predecessor relationships are preserved.
+
+## Fixed scene and comparisons
+
+Use a static 22×22 aligned checkerboard of two Lambertian reflectances on a single range plane. Freeze a clear unperturbed reference, extinction-only and distance sweeps, absorption versus scattering, isotropic versus Henyey–Greenstein illumination, a piecewise medium and its layer reversal, illumination-only dim/bright controls, noise-only, and combined dim/haze/noise and bright/haze/clipping. Use fixed linear-response peaks, full-scale code range and a repeated seed, with a second seed used for sensitivity. No per-image scaling or successful-frame selection. Record every pixel and case.
+
+Measure Michelson contrast per channel using the two material means, equivalent input radiance RMSE against the same clear linear reference, sensor SNR from observed residuals against case-specific noiseless digitization, and local SSIM on an equal-weight RGB code proxy on the fixed normalized range [0,1]. Retain undefined ratios explicitly. Report clipping separately since SNR can look better when both control and observation clip.
+
+## Criteria fixed before execution
+
+| ID | Verification | Acceptance |
+|---|---|---|
+| V01 | Vacuum, purely absorbing slab, thick slab, scattering-only isotropic equilibrium, wavelength variation, two-layer optical depth, and nonnegative transmission/direct/path | Closed forms match within 2e-12 absolute plus 2e-12 relative in stated SI-derived units; transmission in [0,1]. |
+| V02 | Spatially varying extinction and source, midpoint-layer approximation against an independent continuous ODE reference at 16, 32 and 64 layers | At 64 layers absolute radiance error ≤5e-6 W·m⁻²·sr⁻¹·nm⁻¹; refinement error ratios 3.7–4.3. Independent RK4 reference at 2048 and 4096 steps agrees within 1e-12 in the same units. |
+| V03 | Spectral projection, reflectance/illumination scaling, gain/limits, seeded noise, variance and quantization | Exact polynomial integral checks use V01 tolerance, quantization ≤0.5 LSB below saturation, configured noiseless clipping exact, repeated seed equality and alternate seed sensitivity. For 8192 fixed Gaussian samples use a mean within 0.05σ and sample variance within 5% of σ² for read and Gaussian shot approximations. |
+| V04 | Metrics and scene comparisons | Identity SSIM = 1, zero RMSE, analytic Michelson/RMSE/SNR cases within V01 tolerance. Verify complete pixel counts, zero extinction yields zero path, extinction and distance reduce direct transmission, common path radiance reduces contrast relative to the matched no-path arm, and illumination scales boundary independently. Preserve any combined case that fails to improve quality. |
+| V05 | Phase and admissibility | Isotropic and g=0 HG agree. Numerically integrate the g=0.65 HG phase over the sphere and require |integral−1| < 0.0001. Reject invalid coefficients, reflectance, geometry lengths, response and sensor limits. |
+| V06 | Reproducibility and isolation | Two fresh process outputs byte-identical, both replay under recorded CPython, M01 files and 105-task/147-edge inventories unchanged, only the M02 register entries and this directory changed. |
+
+Analytic tolerances allow rounding from double-precision exponential and quadratic sums. Spatial tolerance is a discretization budget for this manufactured smooth case, verified by a second-order refinement check. Noise tolerances allow sampling variability around the configured moments, with no physical-camera inference. A high optical depth is a mathematical limit check. Multiple scattering is indicated using scattering optical depth alone. A Poisson interaction-count proxy at fixed straight path is exploratory and supplies no error bound for angular transfer. Physical validation and organizationally independent review are open.

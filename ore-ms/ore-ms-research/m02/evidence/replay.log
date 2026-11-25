@@ -1,0 +1,13 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+run1 run2 pixels.csv byte-identical
+c722e6e3c5a237b7c6c644b7e5e755dbbd285a716ba9fe679e1af152f15f1c4e  run1/pixels.csv
+c722e6e3c5a237b7c6c644b7e5e755dbbd285a716ba9fe679e1af152f15f1c4e  run2/pixels.csv
+run1 run2 metrics.csv byte-identical
+df194aedce328dd24e2942e526c7d7dabaa6294877ee5afc5f07b17a0adc8500  run1/metrics.csv
+df194aedce328dd24e2942e526c7d7dabaa6294877ee5afc5f07b17a0adc8500  run2/metrics.csv
+headroom headroom2 pixels.csv byte-identical
+0af131945cc274ba9df5c768a8387b70dfcec5e15e2bb7990629b3707bf6bff0  headroom/pixels.csv
+0af131945cc274ba9df5c768a8387b70dfcec5e15e2bb7990629b3707bf6bff0  headroom2/pixels.csv
+headroom headroom2 metrics.csv byte-identical
+dcacdf335b283ebef88dc3af84f5563c5a932f0ad13ce84f51db4b293d7a82c0  headroom/metrics.csv
+dcacdf335b283ebef88dc3af84f5563c5a932f0ad13ce84f51db4b293d7a82c0  headroom2/metrics.csv

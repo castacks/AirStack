@@ -1,0 +1,3 @@
+# Supplemental detector-headroom diagnostic
+
+The frozen primary run found 33.06% upper clipping in the clear capture. Retain it and every primary arm. This separate diagnostic changes only full-well capacity from 1800 to 4000 electrons, leaving exposure-conversion gain, 12-bit quantization, scene, arms and seeds fixed. This isolates headroom with the associated change in LSB size. The pre-run checks are that the clear reference has zero upper clipping and that out-scattering, isotropic path and forward path radiance and direct values remain the same as in the primary run. Compare code contrasts across these arms and retain the original saturation trend. The diagnostic does not replace the primary protocol or alter its acceptance tolerances.

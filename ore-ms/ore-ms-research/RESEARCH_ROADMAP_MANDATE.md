@@ -54,9 +54,9 @@ The program retains 25 mathematics, 30 physics, 30 machine learning and 20 syste
 
 ### 5. Milestone authorization policy
 
-**Current authorized milestone: M01.**
+**Current execution authorization: M02 only.**
 
-M02–M13 are pending.
+M03–M13 are pending.
 
 Codex shall not begin implementation of a subsequent milestone without explicit authorization from the Project Director.
 
@@ -99,7 +99,7 @@ The governing research principles are:
 | Milestone | Authorization | Execution status | Requirements | Deliverables | Verification | Open issues | Acceptance decision |
 |---|---|---|---|---|---|---|---|
 | M01 | Authorized | Verification | [R01–R08](02_SYSTEM_REQUIREMENTS.md) | [M01 evidence and mapping](M01_ACCEPTANCE_REPORT.md) | [G0–G6](24_ACCEPTANCE_GATES.md) | External review and physical validation pending | Director review pending |
-| M02 | Pending | Not Started | Visible radiative transfer and sensor degradation | RGB degradation model and controls | Planned: Analytical limits and image-level comparisons | Phase function and response data | Pending authorization |
+| M02 | Authorized | Verification | [M02 requirements](m02/REQUIREMENTS_TRACEABILITY.csv) | [RGB degradation model and evidence](m02/ACCEPTANCE_REPORT.md) | [V01–V06 passed](m02/VERIFICATION_REPORT.md) | Physical spectral response and multiple-scattering validity remain open | Director review pending |
 | M03 | Pending | Not Started | LWIR transfer, materials and contrast | Spectral transfer and thermal sensor model | Planned: Independent spectral integration and calibration contracts | Spectral response and emissivity data | Pending authorization |
 | M04 | Pending | Not Started | Static and dynamic line of sight | Occlusion model and visibility truth | Planned: Analytical edges and trajectory-based masks | Geometry and timing conventions | Pending authorization |
 | M05 | Pending | Not Started | Stochastic medium evolution | Latent field and transition simulator | Planned: Moment, convergence and regime tests | Transition parameter identifiability | Pending authorization |

@@ -1,0 +1,17 @@
+test_analytic_transfer (__main__.Verification.test_analytic_transfer) ... ok
+test_capture_and_trends (__main__.Verification.test_capture_and_trends) ... 18 cases; 26136 channel records
+ok
+test_metrics (__main__.Verification.test_metrics) ... ok
+test_phase_and_admissibility (__main__.Verification.test_phase_and_admissibility) ... HG g=.65 angular integral=0.9999998214
+ok
+test_projection_and_illumination (__main__.Verification.test_projection_and_illumination) ... ok
+test_sensor_and_noise (__main__.Verification.test_sensor_and_noise) ... noise read=12 shot=False sample mean=0.0704078 variance=144.365
+noise read=0 shot=True sample mean=0.131197 variance=501.266
+ok
+test_spatial_convergence (__main__.Verification.test_spatial_convergence) ... RK4 reference=0.0044056844337323; refinement errors=[2.8216274664243784e-07, 7.055356483244568e-08, 1.7639196481060437e-08]; ratios=[3.999269878319158, 3.999817390106203]
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.258s
+
+OK

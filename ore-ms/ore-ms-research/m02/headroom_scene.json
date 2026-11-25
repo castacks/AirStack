@@ -1,0 +1,238 @@
+{
+  "width": 22,
+  "height": 22,
+  "checker_px": 3,
+  "wavelength_min_nm": 400,
+  "wavelength_max_nm": 700,
+  "wavelength_step_nm": 5,
+  "response_nm": {
+    "R": [
+      550,
+      610,
+      700
+    ],
+    "G": [
+      450,
+      540,
+      630
+    ],
+    "B": [
+      400,
+      460,
+      540
+    ]
+  },
+  "illuminance_spectrum_endpoints_W_m2_nm": [
+    0.02,
+    0.028
+  ],
+  "reflectance_dark_endpoints": [
+    0.11,
+    0.17
+  ],
+  "reflectance_light_endpoints": [
+    0.52,
+    0.65
+  ],
+  "extinction_reference_nm": 550,
+  "absorption_power": 0.6,
+  "scattering_power": 1.6,
+  "ambient_radiance_W_m2_sr_nm": 0.006,
+  "incident_solid_angle_sr": 0.8,
+  "scatter_cos_angle": 0.8,
+  "full_well_e": 4000,
+  "gain_e_per_W_m2_sr": 6500,
+  "bits": 12,
+  "seed": 20402,
+  "cases": [
+    {
+      "name": "clear"
+    },
+    {
+      "name": "low_extinction",
+      "layers": [
+        [
+          1,
+          0.02,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "medium_extinction",
+      "layers": [
+        [
+          1,
+          0.05,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "high_extinction",
+      "layers": [
+        [
+          1,
+          0.1,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "short_range",
+      "distance_m": 5,
+      "layers": [
+        [
+          1,
+          0.05,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "long_range",
+      "distance_m": 20,
+      "layers": [
+        [
+          1,
+          0.05,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "out_scattering",
+      "layers": [
+        [
+          1,
+          0.015,
+          0.045,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "isotropic_path",
+      "layers": [
+        [
+          1,
+          0.015,
+          0.045,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "forward_path",
+      "phase_g": 0.65,
+      "layers": [
+        [
+          1,
+          0.015,
+          0.045,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "layered",
+      "layers": [
+        [
+          0.4,
+          0.008,
+          0.045,
+          1.2
+        ],
+        [
+          0.6,
+          0.042,
+          0.018,
+          0.2
+        ]
+      ]
+    },
+    {
+      "name": "layered_reversed",
+      "layers": [
+        [
+          0.6,
+          0.042,
+          0.018,
+          0.2
+        ],
+        [
+          0.4,
+          0.008,
+          0.045,
+          1.2
+        ]
+      ]
+    },
+    {
+      "name": "dim",
+      "illumination_scale": 0.25
+    },
+    {
+      "name": "bright",
+      "illumination_scale": 1.5
+    },
+    {
+      "name": "noise_only",
+      "read_noise_e": 12,
+      "shot_noise": true
+    },
+    {
+      "name": "noise_second_seed",
+      "read_noise_e": 12,
+      "shot_noise": true,
+      "seed": 20403
+    },
+    {
+      "name": "dim_haze_noise",
+      "illumination_scale": 0.25,
+      "read_noise_e": 12,
+      "shot_noise": true,
+      "layers": [
+        [
+          1,
+          0.015,
+          0.045,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "bright_haze_clip",
+      "illumination_scale": 4,
+      "phase_g": 0.65,
+      "read_noise_e": 12,
+      "shot_noise": true,
+      "layers": [
+        [
+          1,
+          0.015,
+          0.045,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "thick_scattering",
+      "distance_m": 30,
+      "phase_g": 0.65,
+      "layers": [
+        [
+          1,
+          0.015,
+          0.08,
+          1
+        ]
+      ]
+    }
+  ]
+}

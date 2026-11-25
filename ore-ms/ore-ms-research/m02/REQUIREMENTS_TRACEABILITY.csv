@@ -1,0 +1,8 @@
+ID,M02 requirement,Authorized task linkage,Implementation or artifact,Verification,Status
+M02-R01,Spectral homogeneous and spatially varying absorption and scattering,MATH-06 and PHY-09,rgb_model.py transfer and spectral_coefficient,V01/V02/V04,PASS
+M02-R02,Absorption out-scattering in-scattering and limits,PHY-13 PHY-14 and PHY-23,rgb_model.py henyey_greenstein and transfer and SCIENTIFIC_MODEL.md,V01/V04/V05,PASS
+M02-R03,Independent Lambertian illumination and reflectance,M02-R1 required implementation item 3,experiment.py model_case and rgb_model.py lambertian,V03/V04,PASS
+M02-R04,RGB response noise and detector limits,M02-R1 required implementation item 4,rgb_model.py integrate_response and Sensor,V03/V05,PASS
+M02-R05,Controlled image and radiometric metrics,M02-R1 required implementation item 5,metrics.py and experiment.py,V04,PASS
+M02-R06,Reproducible experiments and evidence with frozen tolerances,M02-R1 experiments and verification,EXPERIMENT_PLAN.md and verify.py and replay logs,V01–V06,PASS
+M02-R07,M01 preservation and roadmap scope,M02-R1 scope control,provenance log and original M01 Git revision,V06,PASS

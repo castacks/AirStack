@@ -1,0 +1,5 @@
+PASS: all radiance fields identical and clear capture has zero upper clipping.
+clear contrast_G=0.61547912 SSIM=1.00000000 radiance_RMSE_W_m2_sr=0.00003718
+out_scattering contrast_G=0.61520999 SSIM=0.70812507 radiance_RMSE_W_m2_sr=0.11513666
+isotropic_path contrast_G=0.56376887 SSIM=0.73944550 radiance_RMSE_W_m2_sr=0.10641625
+forward_path contrast_G=0.50418605 SSIM=0.77616348 radiance_RMSE_W_m2_sr=0.09446905
