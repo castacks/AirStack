@@ -1,0 +1,8 @@
+ID,Requirement,Task linkage,Artifact,Verification,Disposition
+M08-R01,Exact OU and spatial transport with independent references,MATH-21 and ML-10,dynamics.py and reference.py,V01/V02/V04,PASS
+M08-R02,Conditional full latent initialization from M07 and separate oracle,MATH-21 and INT-14,STATE_SUFFICIENCY.md and predict.py and oracle.py,V02/V03/V09,PASS
+M08-R03,Stationary physics and persistence baselines,ML-08 ML-09 ML-10,SCIENTIFIC_MODEL.md and predict.py,V07,PASS
+M08-R04,Physical bounded burden and two spectral quality targets,MATH-21 and ML-12,dynamics.py and forecast samples,V05,PASS
+M08-R05,Proper scores calibration and held-out baseline comparison,ML-12 and ML-13,scores.py and BASELINE_ANALYSIS.md,V06/V07,PASS matched synthetic
+M08-R06,Assumption rejection and mismatch controls,ML-11 and ML-13,verify.py and BASELINE_ANALYSIS.md,V08,PASS retained failures
+M08-R07,No future-label inputs and earlier milestone stability,INT-14 INT-15,DATA_CONTRACT.md and regression evidence,V09/V10,PASS

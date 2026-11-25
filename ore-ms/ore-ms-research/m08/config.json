@@ -1,0 +1,131 @@
+{
+  "experiment": "ORE-MS-EXP-PER-001-M08-R1",
+  "starting_revision": "42bc02b0b741669c3f3f7dd9d15237fbba768f24",
+  "period_m": 64,
+  "weights": [
+    0.2,
+    0.5,
+    0.3
+  ],
+  "velocity_m_s": 1,
+  "length_m": 10,
+  "segments": 16,
+  "horizons_s": [
+    0,
+    2,
+    6,
+    18,
+    48
+  ],
+  "tau_s": 6,
+  "sigma": 1,
+  "slow_tau_s": 14,
+  "low_sigma": 0.6,
+  "realizations": 192,
+  "development": 64,
+  "bank_seed": 83000,
+  "oracle_seed": 84000,
+  "bank_size": 2048,
+  "marginal_size": 128,
+  "oracle_size": 256,
+  "ess_min": 24,
+  "interval": [
+    0.025,
+    0.975
+  ],
+  "rgb_event_below": 0.55,
+  "lwir_event_below": 0.88,
+  "reliability_bins": 5,
+  "log_bins": 20,
+  "log_pseudocount": 0.5,
+  "cases": {
+    "matched": {
+      "inverse": "matched",
+      "methods": [
+        "climatology",
+        "physics_prior",
+        "persistence",
+        "RGB",
+        "LWIR",
+        "joint",
+        "slow_dynamics",
+        "low_amplitude"
+      ]
+    },
+    "dynamics_mismatch": {
+      "inverse": "matched",
+      "methods": [
+        "climatology",
+        "joint"
+      ]
+    },
+    "air_mismatch": {
+      "inverse": "mismatched_air",
+      "methods": [
+        "RGB",
+        "LWIR",
+        "joint"
+      ]
+    },
+    "missing": {
+      "inverse": "matched",
+      "methods": [
+        "joint"
+      ],
+      "guard": "missing"
+    },
+    "clipped": {
+      "inverse": "saturated",
+      "methods": [
+        "joint"
+      ]
+    },
+    "occluded": {
+      "inverse": "complete",
+      "methods": [
+        "joint"
+      ]
+    },
+    "range_unknown": {
+      "inverse": "uncertain_geometry",
+      "methods": [
+        "joint"
+      ],
+      "guard": "unknown_range"
+    },
+    "material_unknown": {
+      "inverse": "uncertain_material",
+      "methods": [
+        "joint"
+      ],
+      "guard": "unknown_material"
+    },
+    "thermal_unknown": {
+      "inverse": "matched",
+      "methods": [
+        "joint"
+      ],
+      "guard": "thermal_unconstrained"
+    },
+    "weak": {
+      "inverse": "crossover",
+      "methods": [
+        "LWIR"
+      ]
+    },
+    "domain_unknown": {
+      "inverse": "matched",
+      "methods": [
+        "joint"
+      ],
+      "guard": "out_of_domain"
+    },
+    "process_unknown": {
+      "inverse": "matched",
+      "methods": [
+        "joint"
+      ],
+      "guard": "dynamics_unconstrained"
+    }
+  }
+}

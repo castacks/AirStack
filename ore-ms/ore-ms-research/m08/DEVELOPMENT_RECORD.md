@@ -1,0 +1,3 @@
+# Development record
+
+M07's constrained acceptance was recorded before implementation. The sufficiency argument, asset boundaries, tolerances and scenario matrix were frozen before execution. An initial scoring pass exposed rounding errors for constant oracle samples in the coverage routine. Equivalent stable quantile interpolation and gap-based CRPS arithmetic corrected this without changing any issued sample or threshold. The final scorer verifies exact oracle h=0 against the original generated truth. The wrong-air and dynamics-mismatch failures remain in the results. No previous milestone code or evidence was modified.

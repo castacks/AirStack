@@ -54,9 +54,9 @@ The program retains 25 mathematics, 30 physics, 30 machine learning and 20 syste
 
 ### 5. Milestone authorization policy
 
-**Current execution authorization: M07 only.**
+**Current execution authorization: M08 only.**
 
-M08–M13 are pending.
+M09–M13 are pending.
 
 Codex shall not begin implementation of a subsequent milestone without explicit authorization from the Project Director.
 
@@ -104,8 +104,8 @@ The governing research principles are:
 | M04 | Authorized | Accepted | [M04 requirements](m04/REQUIREMENTS_TRACEABILITY.csv) | [Geometry and visibility evidence](m04/ACCEPTANCE_REPORT.md) | [V01–V08 passed](m04/VERIFICATION_REPORT.md) | Physical camera and complex geometry validation pending | Conditionally accepted under M05-R1, recorded 2026-11-25 |
 | M05 | Authorized | Accepted | [M05 requirements](m05/REQUIREMENTS_TRACEABILITY.csv) | [Stochastic evolution evidence](m05/ACCEPTANCE_REPORT.md) | [V01–V09 passed](m05/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Conditionally accepted under M06-R1, recorded 2026-11-25 |
 | M06 | Authorized | Accepted | [M06 requirements](m06/REQUIREMENTS_TRACEABILITY.csv) | [Paired dataset and simulation evidence](m06/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m06/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Conditionally accepted under M07-R1, recorded 2026-11-25 |
-| M07 | Authorized | Verification | [M07 requirements](m07/REQUIREMENTS_TRACEABILITY.csv) | [Conditional estimation evidence](m07/ACCEPTANCE_REPORT.md) | [V01–V07 and V09–V10 passed, V08 not tested](m07/VERIFICATION_REPORT.md) | AC10 open for unconstrained nuisance identification | Director review pending |
-| M08 | Pending | Not Started | Classical probabilistic prediction | Baseline forecasts and scoring protocol | Planned: Proper scores by horizon and condition | Event definitions and split coverage | Pending authorization |
+| M07 | Authorized | Accepted | [M07 requirements](m07/REQUIREMENTS_TRACEABILITY.csv) | [Conditional estimation evidence](m07/ACCEPTANCE_REPORT.md) | [V01–V07 and V09–V10 passed, V08 not tested](m07/VERIFICATION_REPORT.md) | AC10 open for unconstrained nuisance identification | Conditionally accepted under M08-R1, recorded 2026-11-25 |
+| M08 | Authorized | Verification | [M08 requirements](m08/REQUIREMENTS_TRACEABILITY.csv) | [Classical forecast evidence](m08/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m08/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Director review pending |
 | M09 | Pending | Not Started | Physics-informed learning | Matched-input learned and hybrid models | Planned: Ablations, leakage audits and interval coverage | Training data readiness | Pending authorization |
 | M10 | Pending | Not Started | Reliability-adaptive fusion | Fusion policy and sensor baselines | Planned: Matched accuracy, availability and measured cost | Failure correlations and abstention | Pending authorization |
 | M11 | Pending | Not Started | Independent simulator verification | Independent cross-simulator report | Planned: Numerical and physical consistency checks | Reference simulator and models | Pending authorization |

@@ -1,0 +1,22 @@
+# M08 frozen forecast and scoring protocol
+
+M08-R1 authorizes classical prediction only at 42bc02b0b. See the [state sufficiency proof](STATE_SUFFICIENCY.md), [data contract](DATA_CONTRACT.md) and original specification §§3/5–6. MATH-21, ML-08/09/10/12/13 and INT-14/15 cover ensemble propagation, classical references, proper scores and regression. No learning, forecasting on measured weather, or expanded identification is authorized.
+
+Use one 10 m longitudinal reference ray and an advected 64 m periodic M05 Fourier field. Evaluate sixteen midpoints at horizons 0, 2, 6, 18, and 48 s. Use 192 independent stationary starts, split 64/128 by realization. Generate matched current sensor observations through unchanged M07 physics with M02/M03 detectors, uniform known air and the effective integrated burden. Use paired interventions for missing/rail/occluded observations, unconstrained range/material/air, flat LWIR sensitivity, declared domain/parameter faults, hidden current air mismatch, and held-out true dynamics mismatch. Compare climatology, unconditioned physics, persistence holding the entire current bounded posterior, RGB, LWIR and joint conditioning, true-state oracle, slow-timescale and low-process-noise sensitivity controls.
+
+A 2048-member fixed-seed prior bank is evolved with M05 transitions. Conditional forecasts reweight those coherent trajectories by the current M07 likelihood. Evidence below ESS 24 or a rejected M07 estimate falls back to the prior when the reference path remains defined. Material, range, process and domain failures hard abstain. Each serialized distribution contains 128 equally weighted, midpoint inverse-CDF marginal samples. Separate true-state oracle uses 256 generated ensemble trajectories. Report central 95% intervals, spread, point errors, empirical CRPS and a 20-bin burden log score with 0.5 pseudocount per bin. Empirical samples do not support continuous density NLL. RGB/LWIR thresholds are T550<0.55 and T11<0.88 with Brier, five fixed reliability bins and pairwise AUC when both outcomes exist. Report horizon-stratified Wilson coverage intervals and realization-level mean-score uncertainty. Do not pool time steps as independent units. Compare paired scores with uncertainty, without a universal joint-win requirement.
+
+| Gate | Prespecified tolerance |
+|---|---|
+| V01 | Exact OU formula and semigroup mean/variance within 2e−12. Conditional simulation at h=6 on 4096 draws yields mean and variance within 0.07 of analytical targets. |
+| V02 | Equal initial burden within 2e−12 for reflected fields; paired predictive mean difference at h=6 >0.02. Independent midpoint target reference within 2e−12. |
+| V03 | Rebuilt M07 grid posterior mean within 2e−12 of unchanged estimate for matched RGB/LWIR/joint probe. Nonconstant likelihood reduces initial SD for a representative issue-time observation. Exact oracle h=0 identity; no hidden coefficients in deployable interface. |
+| V04 | h=48 decay ≤0.001, conditional variance gap ≤1e−6. Exact transport periodic identity to 2e−12 and independent spatial covariance reference error ≤0.07 on 4096 draws. Matched joint mean interval width at h=48 > h=0. |
+| V05 | All serialized burden samples and transmissions in [0,1], valid clipping/fallback states, independent M02/M03 transmission checks to 2e−12. |
+| V06 | Matched joint holdout burden 95% coverage in [0.83,1] at each horizon. Proper score arithmetic matches elementary independent reference; report all matched modes and misfit without calibration claim outside the matched family. |
+| V07 | Complete method/horizon matrix, persistence repeats its issue distribution, stationary prior/physics comparison reported, no forced superiority. |
+| V08 | Missing/clipped/occluded/flat produce flagged prior fallback; unknown range/material/domain/process abstain. Unknown air excludes LWIR only. Retain and compare quantitative wrong-air and wrong-dynamics control failures. |
+| V09 | Exact schema checks, disjoint split, deployable CLI isolated from labels and oracle, forbidden columns rejected, changing IDs alone has no effect on sample distributions. |
+| V10 | Exact replay of all deterministic serialized outputs. Archived M01–M07 manifests and regression tests pass; roadmap and historical evidence preserved. |
+
+The statistical tolerances apply to frozen synthetic controls, with sampling variation acknowledged at the specified sizes. None requires calibrated forecasting under model mismatch.

@@ -1,0 +1,15 @@
+test_01_exact_ou_spatial_and_transport (__main__.Verify.test_01_exact_ou_spatial_and_transport) ... OU formula error=1.110223025e-16; semigroup=2.220446049e-16; mean/variance MC errors=0.01305694633/0.01722269646; spatial cov error=0.005394980029; long decay=0.0003354626279, variance gap=1.125351746e-07
+ok
+test_02_insufficient_scalar_and_mapping (__main__.Verify.test_02_insufficient_scalar_and_mapping) ... scalar counterexample b0=[0.5, 0.5], predictive mean difference=-0.1637154849; midpoint reference error=1.110223025e-16; kernel mapping error=0
+ok
+test_03_conditioning_and_oracle (__main__.Verify.test_03_conditioning_and_oracle) ... M07 likelihood reconstruction max mean difference=0; initial prior/conditional SD=0.1958964091/0.03343749045; ESS=369.6268831; oracle h=0 exact
+ok
+test_04_population_calibration_and_failure (__main__.Verify.test_04_population_calibration_and_failure) ... 2304 issue rows, 11520 truth rows, 21120 deployable rows, 960 oracle rows; matched coverage=[0.9375, 0.9375, 0.96875, 0.96875, 0.953125]; wrong dynamics=[0.9375, 0.6953125, 0.7890625, 0.8671875, 0.7734375]; wrong-air h0=0.8515625
+ok
+test_05_leakage_and_seed_variability (__main__.Verify.test_05_leakage_and_seed_variability) ... exact whole-realization split; isolated forecasts reproduced without labels, truth config or oracle; ID-only mutation invariant
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.690s
+
+OK
