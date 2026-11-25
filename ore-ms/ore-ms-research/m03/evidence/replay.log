@@ -1,0 +1,10 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+spectra.csv byte-identical
+f657548be457d0ff41f1105b6a2f95f3ec531d2f1a6ad436fce7fdf1d238c910  run1/spectra.csv
+f657548be457d0ff41f1105b6a2f95f3ec531d2f1a6ad436fce7fdf1d238c910  run2/spectra.csv
+detector.csv byte-identical
+00aba6f14b0a4220117a59b2949c9f83f4a454a3cdfc82bce5471758818d61f9  run1/detector.csv
+00aba6f14b0a4220117a59b2949c9f83f4a454a3cdfc82bce5471758818d61f9  run2/detector.csv
+metrics.csv byte-identical
+aa03a2117d239413f7ab691c76ca1171753c9c8d3cedeab46d442652de7ccb5f  run1/metrics.csv
+aa03a2117d239413f7ab691c76ca1171753c9c8d3cedeab46d442652de7ccb5f  run2/metrics.csv

@@ -1,0 +1,42 @@
+0e668832b27443ddc3cee5be97f991e26faffc06e60b5755796104654a5fa1ab  /mnt/data/ORE-MS-EXP-PER-001-M01-R2.tar.gz
+ccf87274539af8090be18792ded070b6375d1e2a9ef148f4545d80711db94cdd  /mnt/data/ORE-MS-EXP-PER-001-M02-R1.tar.gz
+test_band_reference_and_convergence (__main__.Verification.test_band_reference_and_convergence) ... band T=310 extinction=0.025 reference=52.8149145603 errors=[0.0053375196749101406, 0.001334376728657105, 0.00033359397992427375]
+band T=288 extinction=0.025 reference=41.9033363876 errors=[0.004544345939706318, 0.0011360605943480095, 0.0002840135285069323]
+band T=310 extinction=0 reference=56.0793015285 errors=[0.005568094523198397, 0.0013920275063270537, 0.0003480071156687359]
+band T=288 extinction=0 reference=41.7370617718 errors=[0.00453024014392156, 0.0011325338819503372, 0.0002831318339531208]
+ok
+test_noise_stream (__main__.Verification.test_noise_stream) ... ok
+test_paired_capture (__main__.Verification.test_paired_capture) ... ok
+test_planck_units_and_boundaries (__main__.Verification.test_planck_units_and_boundaries) ... ok
+test_rgb_boundaries (__main__.Verification.test_rgb_boundaries) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.551s
+
+OK
+442 observations; per case: {'clear': 221, 'attenuated': 221}; target visible: {'clear': 197, 'attenuated': 197}
+5 passing tests; maximum relative LWIR integration error 0.000678370%
+105 tasks {'MATH': 25, 'PHY': 30, 'ML': 30, 'INT': 20}, 147 acyclic milestone-ordered edges, 13 milestones, 5 phases, 27 numbered deliverables
+test_analytic_transfer (__main__.Verification.test_analytic_transfer) ... ok
+test_capture_and_trends (__main__.Verification.test_capture_and_trends) ... 18 cases; 26136 channel records
+ok
+test_metrics (__main__.Verification.test_metrics) ... ok
+test_phase_and_admissibility (__main__.Verification.test_phase_and_admissibility) ... HG g=.65 angular integral=0.9999998214
+ok
+test_projection_and_illumination (__main__.Verification.test_projection_and_illumination) ... ok
+test_sensor_and_noise (__main__.Verification.test_sensor_and_noise) ... noise read=12 shot=False sample mean=0.0704078 variance=144.365
+noise read=0 shot=True sample mean=0.131197 variance=501.266
+ok
+test_spatial_convergence (__main__.Verification.test_spatial_convergence) ... RK4 reference=0.0044056844337323; refinement errors=[2.8216274664243784e-07, 7.055356483244568e-08, 1.7639196481060437e-08]; ratios=[3.999269878319158, 3.999817390106203]
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.237s
+
+OK
+PASS: all radiance fields identical and clear capture has zero upper clipping.
+clear contrast_G=0.61547912 SSIM=1.00000000 radiance_RMSE_W_m2_sr=0.00003718
+out_scattering contrast_G=0.61520999 SSIM=0.70812507 radiance_RMSE_W_m2_sr=0.11513666
+isotropic_path contrast_G=0.56376887 SSIM=0.73944550 radiance_RMSE_W_m2_sr=0.10641625
+forward_path contrast_G=0.50418605 SSIM=0.77616348 radiance_RMSE_W_m2_sr=0.09446905
+PASS: both frozen milestone manifests, regression suites and captured tables reproduced.

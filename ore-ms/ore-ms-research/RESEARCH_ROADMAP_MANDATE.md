@@ -54,9 +54,9 @@ The program retains 25 mathematics, 30 physics, 30 machine learning and 20 syste
 
 ### 5. Milestone authorization policy
 
-**Current execution authorization: M02 only.**
+**Current execution authorization: M03 only.**
 
-M03–M13 are pending.
+M04–M13 are pending.
 
 Codex shall not begin implementation of a subsequent milestone without explicit authorization from the Project Director.
 
@@ -98,9 +98,9 @@ The governing research principles are:
 
 | Milestone | Authorization | Execution status | Requirements | Deliverables | Verification | Open issues | Acceptance decision |
 |---|---|---|---|---|---|---|---|
-| M01 | Authorized | Verification | [R01–R08](02_SYSTEM_REQUIREMENTS.md) | [M01 evidence and mapping](M01_ACCEPTANCE_REPORT.md) | [G0–G6](24_ACCEPTANCE_GATES.md) | External review and physical validation pending | Director review pending |
-| M02 | Authorized | Verification | [M02 requirements](m02/REQUIREMENTS_TRACEABILITY.csv) | [RGB degradation model and evidence](m02/ACCEPTANCE_REPORT.md) | [V01–V06 passed](m02/VERIFICATION_REPORT.md) | Physical spectral response and multiple-scattering validity remain open | Director review pending |
-| M03 | Pending | Not Started | LWIR transfer, materials and contrast | Spectral transfer and thermal sensor model | Planned: Independent spectral integration and calibration contracts | Spectral response and emissivity data | Pending authorization |
+| M01 | Authorized | Accepted | [R01–R08](02_SYSTEM_REQUIREMENTS.md) | [M01 evidence and mapping](M01_ACCEPTANCE_REPORT.md) | [G0–G6](24_ACCEPTANCE_GATES.md) | External review and physical validation pending | Conditionally accepted under M03-R1, recorded 2026-11-25 |
+| M02 | Authorized | Accepted | [M02 requirements](m02/REQUIREMENTS_TRACEABILITY.csv) | [RGB degradation model and evidence](m02/ACCEPTANCE_REPORT.md) | [V01–V06 passed](m02/VERIFICATION_REPORT.md) | Physical spectral response and multiple-scattering validity remain open | Conditionally accepted under M03-R1, recorded 2026-11-25 |
+| M03 | Authorized | Verification | [M03 requirements](m03/REQUIREMENTS_TRACEABILITY.csv) | [Thermal model and evidence](m03/ACCEPTANCE_REPORT.md) | [V01–V07 passed](m03/VERIFICATION_REPORT.md) | Physical response, atmospheric coefficients and external review open | Director review pending |
 | M04 | Pending | Not Started | Static and dynamic line of sight | Occlusion model and visibility truth | Planned: Analytical edges and trajectory-based masks | Geometry and timing conventions | Pending authorization |
 | M05 | Pending | Not Started | Stochastic medium evolution | Latent field and transition simulator | Planned: Moment, convergence and regime tests | Transition parameter identifiability | Pending authorization |
 | M06 | Pending | Not Started | Combined RGB/LWIR environmental simulation | Paired simulation corpus and provenance schema | Planned: Cross-modal consistency and held-out scenarios | Paired coverage and uncertainty | Pending authorization |

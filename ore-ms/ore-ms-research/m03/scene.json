@@ -1,0 +1,37 @@
+{
+  "wavelength_limits_um": [8, 14], "intervals": 192,
+  "response": [0.65, 1.0, 0.72],
+  "detector": {"low": 0, "high": 100, "bits": 12, "sigma": 0, "seed": 30301, "repeats": 64},
+  "default_target": {"temperature_K": 320, "emissivity": [0.8, 0.8, 0.8]},
+  "default_background": {"temperature_K": 300, "emissivity": [1, 1, 1]},
+  "reflection": {"temperature_K": 285}, "gray_path_temperature_K": 292,
+  "sweeps": {
+    "target_temperature_K": [280, 300, 320, 340],
+    "background_temperature_K": [280, 300, 320, 340],
+    "emissivity": [0.2, 0.5, 0.8, 1],
+    "gray_transmission": [0, 0.25, 0.5, 0.75, 1],
+    "reflection_temperature_K": [270, 300, 330],
+    "path_temperature_K": [275, 295, 325],
+    "crossover_temperature_K": [280, 284, 288, 292, 296, 300, 304, 308, 312, 316, 320, 324, 328, 332, 336, 340]
+  },
+  "layers": [
+    {"length_m": 6, "temperature_K": 310, "absorption_m_inv": [0.025, 0.014, 0.035]},
+    {"length_m": 9, "temperature_K": 279, "absorption_m_inv": [0.014, 0.033, 0.021]}
+  ],
+  "controls": [
+    {"name": "clear_reference"},
+    {"name": "spectral_layered", "layer_order": [0, 1]},
+    {"name": "spectral_layered_reversed", "layer_order": [1, 0]},
+    {"name": "combined", "layer_order": [0, 1], "target_emissivity": [0.36, 0.75, 0.52], "reflected_radiance": [3.2, 6.4, 4.8]},
+    {"name": "explicit_reflection_low", "target_emissivity": [0.5, 0.5, 0.5], "reflected_radiance": [2, 3, 2]},
+    {"name": "explicit_reflection_high", "target_emissivity": [0.5, 0.5, 0.5], "reflected_radiance": [7, 8, 7]},
+    {"name": "top_hat", "response": [1, 1, 1]},
+    {"name": "zero_response", "response": [0, 0, 0]},
+    {"name": "noise", "detector": {"sigma": 0.3}},
+    {"name": "noise_alternate_seed", "detector": {"sigma": 0.3, "seed": 30302}},
+    {"name": "high_saturation", "detector": {"high": 30, "sigma": 0.3}},
+    {"name": "low_saturation", "detector": {"low": 70, "high": 100, "sigma": 0.3}},
+    {"name": "equal_radiance_visible", "target_temperature_K": 300, "target_emissivity": [1, 1, 1]},
+    {"name": "foreground_hidden_target", "foreground": {"temperature_K": 300, "emissivity": [1, 1, 1]}}
+  ]
+}

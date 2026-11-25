@@ -1,0 +1,9 @@
+ID,Requirement,Catalog linkage,Implementation or artifact,Verification,Disposition
+M03-R01,Planck law units stability and total power,PHY-18,thermal_model.py planck_um and reference.py,V01/V02,PASS synthetic references
+M03-R02,Opaque spectral emissivity and reflected environment,PHY-11 and PHY-12,thermal_model.py surface_components and experiment.py spectrum,V03/V06,PASS synthetic surfaces and reflection
+M03-R03,LWIR absorption transmission and atmospheric emission,PHY-15,thermal_model.py Slab and atmosphere and reference.py RK4,V03/V04,PASS synthetic coefficients and temperatures
+M03-R04,Weighted 8–14 µm detector response noise and limits,PHY-10 PHY-16 PHY-17 and PHY-20,thermal_model.py weighted_band and Detector,V05/V06,PASS illustrative detector
+M03-R05,Contrast and crossover separated from geometric occlusion,PHY-21,experiment.py run_case and CROSSOVER_ANALYSIS.md,V06,PASS static controls
+M03-R06,Record controlled uncertainty and error metrics,MATH-08 and PHY-17,experiment.py detector.csv and metrics.csv,V05/V06,PASS seeded noise and error metrics
+M03-R07,Preserve earlier milestones and reproducible evidence,M03-R1 §§5 and 7,provenance and regression logs and manifest,V07,PASS
+M03-R08,Measured calibration and hardware characterization,PHY-10 PHY-11 PHY-15 PHY-16 PHY-17 PHY-18 PHY-19 and PHY-20,SCIENTIFIC_MODEL.md limitations,Physical reference acquisition and qualified comparison,NOT TESTED

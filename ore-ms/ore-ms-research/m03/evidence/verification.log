@@ -1,0 +1,21 @@
+test_captures_and_crossover (__main__.Verification.test_captures_and_crossover) ... 53 cases; 20458 spectra; 6784 detector readings; crossover 316.91729563 K bracketed [316,320] K; contrast at endpoints=-0.37480863, 1.25959849
+ok
+test_detector (__main__.Verification.test_detector) ... noise sample mean=-0.001145584782; variance=0.09036170518
+ok
+test_integration_convergence (__main__.Verification.test_integration_convergence) ... Simpson band reference=44.9797842017; refinement=2.842170943e-14; trapezoid errors=[0.0005901535253016732, 0.0001475367830252594, 3.6884096090261664e-05]; ratios=[4.000043332926912, 4.000010808566699]
+ok
+test_layered_reference (__main__.Verification.test_layered_reference) ... layer RK4 max absolute error=1.776356839e-14; refinement=7.638334409e-14
+ok
+test_planck (__main__.Verification.test_planck) ... maximum pointwise relative error=8.881784197e-16
+ok
+test_stefan_boltzmann (__main__.Verification.test_stefan_boltzmann) ... T=280: Stefan-Boltzmann rel. errors=6.91835278e-09,6.918352669e-09; refinement=1.280932398e-16
+T=300: Stefan-Boltzmann rel. errors=5.619522625e-09,5.619522625e-09; refinement=0
+T=320: Stefan-Boltzmann rel. errors=4.62514238e-09,4.625142491e-09; refinement=1.501718109e-16
+T=340: Stefan-Boltzmann rel. errors=3.850987862e-09,3.850987862e-09; refinement=0
+ok
+test_surface_and_gray_atmosphere (__main__.Verification.test_surface_and_gray_atmosphere) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.514s
+
+OK
