@@ -1,0 +1,17 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+Visualization only: 3.11.2 2.5.5
+pairs.csv byte-identical
+ae455be170dba6fbe2b6d33ac34c21061f58672e835dfd4686e94882bb7649f6  final/pairs.csv
+ae455be170dba6fbe2b6d33ac34c21061f58672e835dfd4686e94882bb7649f6  repeat/pairs.csv
+frames.csv byte-identical
+da6164485f8632ddd6db1a510964d234c04a61dca15bdcbcf64904f7f7bf0b01  final/frames.csv
+da6164485f8632ddd6db1a510964d234c04a61dca15bdcbcf64904f7f7bf0b01  repeat/frames.csv
+segments.csv byte-identical
+ce04b5efc31d65ea055780810ff3668e15ddba06eeac7a0376d366606f66d4f9  final/segments.csv
+ce04b5efc31d65ea055780810ff3668e15ddba06eeac7a0376d366606f66d4f9  repeat/segments.csv
+metadata.json byte-identical
+eafcbb72961cd05ea1a789a92bdf4c49b03fadca98055dc5ad007d0a0dded5b9  final/metadata.json
+eafcbb72961cd05ea1a789a92bdf4c49b03fadca98055dc5ad007d0a0dded5b9  repeat/metadata.json
+statistics.csv byte-identical
+8361d7b35a3444e4fbccd165d1cf1e80050e01c9ada483ea55d97f0ee5ba08c3  final/statistics.csv
+8361d7b35a3444e4fbccd165d1cf1e80050e01c9ada483ea55d97f0ee5ba08c3  repeat/statistics.csv

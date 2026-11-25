@@ -1,0 +1,8 @@
+ID,Requirement,Original task linkage,Implementation,Verification,Disposition
+M06-R01,Shared deterministic first hit and synthetic paired timebase,INT-09 INT-10 INT-11 INT-12,experiment.py and frames.csv and pairs.csv,V01/V02,PASS synthetic
+M06-R02,Unit-checked wavelength-specific M05 to M02 and M03 adapters,PHY-22 INT-09,adapters.py and segments.csv,V03/V04,PASS synthetic
+M06-R03,Foreground replacement and distinct modal degradation,PHY-22 PHY-27,config.json and verify.py,V05/V06,PASS synthetic
+M06-R04,Joint statistics and synthetic ensemble coverage,PHY-22 PHY-27 ML-07,statistics.csv and JOINT_ANALYSIS.md,V07,PASS declared distribution
+M06-R05,Schema and recording-level partitions; complete and missing truth,ML-04 ML-05 ML-06 ML-07,DATASET_SCHEMA.md and verify.py qualify,V08,PASS synthetic
+M06-R06,Seeded replay and previous milestone preservation,Original specification §§5–6 and INT-09,replay and prior regression evidence,V09/V10,PASS
+M06-R07,Window contamination and physical calibration and external cross-simulator parity,PHY-24 and physical aspects of INT-11/INT-12,Acceptance Conditions Register,Later authorized verification,NOT TESTED

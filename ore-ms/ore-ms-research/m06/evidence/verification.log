@@ -1,0 +1,17 @@
+test_01_shared_geometry (__main__.Verification.test_01_shared_geometry) ... 6 layouts, 793 frames, 2343 ray rows; 0 label or timestamp mismatches; max geometry error=3.552713679e-15 m
+ok
+test_02_legacy_probes_and_modal_divergence (__main__.Verification.test_02_legacy_probes_and_modal_divergence) ... max M04 probe difference=0; codes exact; LWIR crossover error=0
+ok
+test_03_midpoints_and_heterogeneous_integration (__main__.Verification.test_03_midpoints_and_heterogeneous_integration) ... all heterogeneous midpoint mappings max absolute difference=5.684341886e-14; depth reference=(0.7900981047104856, 0.7146706256988035, 0.09649175098983812, 0.14236500522618942); errors for 8/16/32 segments=[[0.0001285214810291535, 0.00011625205365672908, 1.4639147497497174e-05, 2.066703176117901e-05], [3.209254542824169e-05, 2.9028799569008612e-05, 3.655478464231754e-06, 5.160675478926846e-06], [8.020781413931033e-06, 7.25506976595458e-06, 9.13601377938722e-07, 1.2897901806030454e-06]]
+ok
+test_04_foreground_replacement (__main__.Verification.test_04_foreground_replacement) ... combined motion visible target counts=[35, 30, 20, 20, 20, 30, 35]; 0 hidden-material differences
+ok
+test_05_joint_statistics (__main__.Verification.test_05_joint_statistics) ... 128 fixed-geometry realizations: r=0.9922168239, covariance=0.005266565455, cyclic comparison=-0.06276057566, max exact log-relation error=1.040834086e-16; low/high populations=52/76
+ok
+test_06_qualification_and_rejections (__main__.Verification.test_06_qualification_and_rejections) ... 2280 valid paired observations, 63 no-hits; 1205 paths, 17000 segments; 3 corruption probes rejected
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.424s
+
+OK

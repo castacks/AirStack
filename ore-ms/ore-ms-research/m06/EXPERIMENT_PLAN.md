@@ -1,0 +1,20 @@
+# Frozen M06 experimental protocol
+
+The [governance alignment](GOVERNANCE.md) and [schema](DATASET_SCHEMA.md) govern this frozen synthetic exercise. Freeze the 9×7 pinhole scene, 15 full-frame cases, and two paired geometry arms sampled at the center for 128 independent seeds and three times. Split 96 development and 32 holdout-designated realizations, with both geometry arms sharing their partition. All are scored by predeclared diagnostics. The holdout marks future recording-level separation and supplies no fitted model.
+
+Trace first hit and target-only support with M04. The field coordinate is world forward z in metres, and a snapshot is sampled along each finite ray at 16 segment midpoints. Propagate layers in surface-to-camera order. Compare homogeneous RGB/LWIR controls, deterministic advection, heterogeneous and moving combined scenes, partial/complete foreground replacement, thermal crossover, noise and clipping, empty support and no hit. Compare center and off-axis path behaviour. Keep outputs from every arm. Compute joint metrics only at 6 s across independent realizations, and a temporal within-realization change from 0 to 12 s. Keep geometry fixed when estimating common environmental dependence. Evaluate foreground depth at matched environment as a separate counterfactual. Use a cyclic LWIR pairing comparator for sensitivity to realization sharing. Split conditional means by the prespecified mean burden cutoff 0.5.
+
+| Check | Frozen acceptance |
+|---|---|
+| V01 | Shared frame/pair IDs, one timestamp and same first hit in both components. Zero index or mask mismatches in all fixtures, with M04-derived analytical support and exact projected denominator. |
+| V02 | Match the archived M04 (row 5, col 5) clear and homogeneous-dual shared probe to calculation at M06 (row 3, col 1). Band error ≤2e−12 absolute and codes exact. |
+| V03 | Map RGB and LWIR coefficients independently. Reconstruct midpoint values from frozen OU coefficients and wavelength laws and compare within 2e−12 in stated units. Varied slant range must produce distinct optical depths under homogeneous extinction. |
+| V04 | On the 6 s stochastic off-axis probe, compare 8/16/32 midpoint optical depths to independent 4096-step Simpson. At 16 segments each reference depth error ≤5e−4 and 32-segment error smaller. Test at 450/550 nm and 8/11 µm. |
+| V05 | Static partial 20/35 and full 0/35. Foreground material and its path replace target. Hidden target perturbation leaves every paired band and code unchanged under heterogeneous degradation. |
+| V06 | Zero-medium LWIR crossover differs by ≤2e−12 W·m⁻²·sr⁻¹ while positive red contrast and target visibility are retained. In RGB-only and LWIR-only arms, corresponding atmospheric transmission is <0.8 while the disabled modality remains one within 2e−12. Noise and rail controls retain masks. |
+| V07 | Fixed geometry log-transmissions satisfy independent affine relation to 2e−12 absolute. Raw paired Pearson r≥0.95, cyclic comparator abs(r)≤0.35. Shared medium shows smaller attenuation at foreground range for every ensemble seed. Conditional low/high burden each have ≥30 members with lower average RGB/LWIR transmission at high burden. Report pointwise normal 95% intervals for conditional means and temporal change and an approximate Fisher interval for raw Pearson r. |
+| V08 | Exact unique IDs, counts, join coverage, finite required columns, band/rail bounds, stable schema, expected regime/split counts and explicit missing/undefined values. Reject mutated duplicates, nonfinite samples and broken synchronization. |
+| V09 | All raw tables, metadata and statistics replay byte for byte. Distinct ensemble seeds yield different fields and transmissions. |
+| V10 | Recheck the archived M01–M05 manifests and executed regression suites, unchanged kernels, original 13 milestones/five phases/105 tasks/147 dependencies, and unchanged historical acceptance evidence. |
+
+Tolerances limit numerical arithmetic or synthetic diagnostics only. The 16/32-segment study is a case-specific quadrature check, and the intervals describe the declared synthetic ensemble rather than a weather population.

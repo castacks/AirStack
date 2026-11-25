@@ -1,0 +1,417 @@
+{
+  "band_radiance_units": "W m^-2 sr^-1",
+  "configuration": {
+    "background": {
+      "center": [
+        0,
+        0,
+        15
+      ],
+      "half": [
+        8,
+        6
+      ],
+      "id": "background",
+      "material": "background"
+    },
+    "camera": {
+      "axes": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "cx": 4,
+      "cy": 3,
+      "fx": 10,
+      "fy": 10,
+      "height": 7,
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "width": 9
+    },
+    "cases": [
+      {
+        "id": "clear",
+        "profile": "vacuum"
+      },
+      {
+        "id": "rgb_dominant",
+        "profile": "rgb"
+      },
+      {
+        "id": "lwir_dominant",
+        "profile": "lwir"
+      },
+      {
+        "id": "homogeneous_dual",
+        "profile": "dual"
+      },
+      {
+        "id": "partial",
+        "obstacle": "partial",
+        "profile": "vacuum"
+      },
+      {
+        "id": "complete",
+        "obstacle": "full",
+        "profile": "vacuum"
+      },
+      {
+        "id": "crossover",
+        "material": "crossover",
+        "profile": "vacuum"
+      },
+      {
+        "id": "noise_and_clip",
+        "profile": "vacuum",
+        "sensor": {
+          "lwir_high": 40,
+          "lwir_sigma": 0.3,
+          "rgb_read_noise_e": 12,
+          "rgb_well": 160
+        }
+      },
+      {
+        "environment_seed": 63002,
+        "id": "heterogeneous",
+        "profile": "stochastic",
+        "times_s": [
+          0,
+          6
+        ]
+      },
+      {
+        "environment_seed": 63003,
+        "id": "advected",
+        "profile": "advected",
+        "times_s": [
+          0,
+          4,
+          8,
+          12
+        ]
+      },
+      {
+        "environment_seed": 63004,
+        "id": "moving_combined",
+        "obstacle": "moving",
+        "profile": "stochastic",
+        "times_s": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      {
+        "environment_seed": 63005,
+        "id": "combined_hidden",
+        "obstacle": "full",
+        "profile": "stochastic"
+      },
+      {
+        "environment_seed": 63005,
+        "id": "combined_hidden_perturbed",
+        "material": "perturbed",
+        "obstacle": "full",
+        "profile": "stochastic"
+      },
+      {
+        "id": "empty_support",
+        "profile": "vacuum",
+        "target_x": 30
+      },
+      {
+        "background_x": 50,
+        "id": "no_hit",
+        "profile": "vacuum",
+        "target_x": 30
+      }
+    ],
+    "ensemble": {
+      "analysis_time_s": 6,
+      "dev_size": 96,
+      "probe": [
+        3,
+        4
+      ],
+      "seed_start": 62000,
+      "size": 128,
+      "times_s": [
+        0,
+        6,
+        12
+      ]
+    },
+    "experiment_id": "ORE-MS-EXP-PER-001-M06-R1",
+    "field": {
+      "burden_sigma": 1,
+      "burden_tau": 6,
+      "optical": {
+        "lwir_floor": [
+          0.001,
+          0.002,
+          0.003
+        ],
+        "lwir_span": [
+          0.017,
+          0.024,
+          0.013
+        ],
+        "rgb_exponent": 0.5,
+        "rgb_floor": 0.003,
+        "rgb_span": 0.135,
+        "scatter_fraction": 0.88
+      },
+      "period_m": 64,
+      "thermal": {
+        "max_K": 330,
+        "min_K": 250,
+        "sigma": 0.6,
+        "tau_s": 18
+      },
+      "velocity_m_s": 1,
+      "weights": [
+        0.2,
+        0.5,
+        0.3
+      ]
+    },
+    "homogeneous": {
+      "air_K": 294,
+      "lwir_absorption": 0.08,
+      "rgb_absorption": 0.06,
+      "rgb_scattering": 0.03
+    },
+    "lwir_intervals": 192,
+    "lwir_response": [
+      0.65,
+      1,
+      0.72
+    ],
+    "materials": {
+      "background": {
+        "emissivity": [
+          1,
+          1,
+          1
+        ],
+        "irradiance": [
+          0.018,
+          0.018,
+          0.018
+        ],
+        "reflected_K": 285,
+        "rho": [
+          0.18,
+          0.18,
+          0.18
+        ],
+        "temperature_K": 300
+      },
+      "crossover": {
+        "emissivity": [
+          1,
+          1,
+          1
+        ],
+        "irradiance": [
+          0.018,
+          0.018,
+          0.018
+        ],
+        "reflected_K": 285,
+        "rho": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "temperature_K": 300
+      },
+      "foreground": {
+        "emissivity": [
+          0.3,
+          0.5,
+          0.7
+        ],
+        "irradiance": [
+          0.011,
+          0.014,
+          0.017
+        ],
+        "reflected_K": 300,
+        "rho": [
+          0.13,
+          0.21,
+          0.37
+        ],
+        "temperature_K": 287
+      },
+      "perturbed": {
+        "emissivity": [
+          0.95,
+          0.95,
+          0.95
+        ],
+        "irradiance": [
+          0.033,
+          0.033,
+          0.033
+        ],
+        "reflected_K": 295,
+        "rho": [
+          0.75,
+          0.75,
+          0.75
+        ],
+        "temperature_K": 360
+      },
+      "target": {
+        "emissivity": [
+          0.8,
+          0.8,
+          0.8
+        ],
+        "irradiance": [
+          0.018,
+          0.018,
+          0.018
+        ],
+        "reflected_K": 285,
+        "rho": [
+          0.4,
+          0.4,
+          0.4
+        ],
+        "temperature_K": 320
+      }
+    },
+    "obstacles": {
+      "full": {
+        "center": [
+          0,
+          0,
+          5
+        ],
+        "half": [
+          1.8,
+          1.2
+        ],
+        "id": "occluder",
+        "material": "foreground"
+      },
+      "moving": {
+        "center": [
+          -3,
+          0,
+          5
+        ],
+        "half": [
+          0.7,
+          1.2
+        ],
+        "id": "occluder",
+        "material": "foreground",
+        "velocity": [
+          1,
+          0,
+          0
+        ]
+      },
+      "partial": {
+        "center": [
+          0,
+          0,
+          5
+        ],
+        "half": [
+          0.7,
+          1.2
+        ],
+        "id": "occluder",
+        "material": "foreground"
+      }
+    },
+    "rgb_ambient": 0.009,
+    "rgb_response": {
+      "B": [
+        400,
+        460,
+        540
+      ],
+      "G": [
+        450,
+        540,
+        630
+      ],
+      "R": [
+        550,
+        610,
+        700
+      ]
+    },
+    "rgb_solid_angle": 0.8,
+    "schema_version": "1.0",
+    "segments": 16,
+    "sensor": {
+      "bits": 12,
+      "lwir_high": 110,
+      "lwir_sigma": 0,
+      "rgb_gain": 6500,
+      "rgb_read_noise_e": 0,
+      "rgb_well": 4000
+    },
+    "sensor_seed": 61000,
+    "starting_revision": "4e88b7b4b05b9a14dbe5959a6f5c76778206d75f",
+    "target": {
+      "center": [
+        0,
+        0,
+        10
+      ],
+      "half": [
+        3.25,
+        2.25
+      ],
+      "id": "target",
+      "material": "target"
+    }
+  },
+  "configuration_sha256": "ca0bc506cd40b2f6826b21ee56d3e303ef7424c726787c631132d5c346cab27e",
+  "experiment_id": "ORE-MS-EXP-PER-001-M06-R1",
+  "kernel_sha256": {
+    "m02/rgb_model.py": "063751a7d50a7943aa8d8df30f505aa23ffc43d2e8124c3992e8796b5f69d026",
+    "m03/thermal_model.py": "5d2183a9b097ad419b5f3aec762327a0e2ba5e166143e27ddf654c872b72fcec",
+    "m04/geometry.py": "3f6409437d1e51ece1aa7882a3c704b6a64a47ac5d3d37a333b1b1673e33e9fc",
+    "m05/environment.py": "39001da88684ed4e77de6e04dee561c3ae4fa7f19969932008408394193cb10f"
+  },
+  "path_count": 1205,
+  "range_units": "m",
+  "schema_version": "1.0",
+  "starting_revision": "4e88b7b4b05b9a14dbe5959a6f5c76778206d75f",
+  "synthetic_co_registration": true,
+  "table_counts": {
+    "frames": 793,
+    "pairs": 2343,
+    "segments": 17000
+  },
+  "time_units": "s"
+}

@@ -1,0 +1,5 @@
+# M06 pre-implementation alignment
+
+M06-R1 conditionally accepts M01–M05 and authorizes only M06 at starting revision `4e88b7b4b05b9a14dbe5959a6f5c76778206d75f`. AC13 was closed in the live [register](../ACCEPTANCE_CONDITIONS_REGISTER.md) before implementation. Prior reports, manifests and results remain historical. None of AC01–AC12 blocks the proposed claims of synthetic internal consistency, controlled divergence, or replay. AC01–AC06, AC10 and AC11 continue to gate external assurance, claims about real sensors, physical regimes, and state recovery. AC07–AC09 and AC12 retain their existing classifications and closure rules. This work does not close independent simulator, calibration, registration or physical validation conditions.
+
+Original specification §§3.1–3.4 and 5–6 and the [roadmap](../RESEARCH_ROADMAP_MANDATE.md) govern scope. PHY-22/27 cover joint evaluation and compound controls, ML-04–07 dataset partitions and coverage without learning, and INT-09–12 scoped reuse, scene schema, ray parity and synthetic synchronization. Window contamination and measured calibration are outside this directive. No M07–M13 capability is authorized.

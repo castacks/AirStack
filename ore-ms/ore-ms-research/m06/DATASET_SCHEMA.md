@@ -1,0 +1,15 @@
+# ORE-MS multispectral dataset schema 1.0
+
+All files are UTF-8. CSVs use headers, decimal points and LF records. IDs are case sensitive. `metadata.json` binds experiment, schema, camera/time conventions, scenes, materials, detector settings, config hash, source kernel identity and declared file populations. The archive contains a SHA-256 manifest. All seeds are recorded explicitly or by the frozen derivation.
+
+| File | Key | Payload and units |
+|---|---|---|
+| `frames.csv` | case, realization, time_s | Scene ID, frame sample mode, partition, environment ID and seed, independent detector seed, model coefficients, temperature coefficients, projected/visible target counts and visible fraction on the sampled ray domain |
+| `pairs.csv` | case, realization, time_s, row, column | Scene ID, shared environment ID, ray world direction, first-hit world coordinates/range and camera depth in m, material ID, target-only and visible masks, status, band radiances and detector observations |
+| `segments.csv` | path_id, segment | Environment ID, layer sequence from surface to camera, segment endpoints in slant m, longitudinal midpoint in world m, physical burden, air K, RGB absorption/scattering at 550 nm in m⁻¹, wavelength exponent and LWIR absorption at 8/11/14 µm in m⁻¹ |
+| `statistics.csv` | metric | Independent realization count, point estimate and applicable approximate pointwise interval or analytic comparison |
+| `metadata.json` | experiment_id | Shared intrinsics, extrinsics, materials and settings, model starting revision and SHA-256 hashes, config hash and case/split definitions |
+
+The normalized frame key plus row/column joins both spectral modalities with one physical state. Times are elapsed seconds. Cameras are coincident with zero synthetic clock and pose offset. World axes are camera-right/down/forward at the specified pose, with distances in m. Directions are dimensionless and unit length. Pixel centers are integer row/column. Band radiance values use W·m⁻²·sr⁻¹. RGB direct, path, code and rail flags are separate per channel. LWIR entries distinguish attenuated emission, reflection, path, code and rails. Relative response functions are synthetic. The analog field is input-equivalent pre-rail radiance. Extinction at 550 nm and absorption at 11 µm identify the reference transmissions. The path burden is a midpoint segment average.
+
+Flags use 0/1. Blank geometry/radiometry denotes no first hit and carries status `no_hit`. Blank visibility fraction means zero projected support, while a fraction of numeric zero means all projected samples are hidden. A foreground hit on projected target support is occluded and has its own measured fields. Clipping retains the observation, analog value, and independent low/high flags. The absent atmospheric path ID in a no-hit row encodes no finite modeled path. Probe-only frames use the same schema and explicitly report support on their one sampled ray, separate from full-frame support. Split assignment is by realization. The paired masked/fixed ensemble counterfactuals share realization IDs and partitions.
