@@ -1,0 +1,31 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+NumPy 2.5.5
+data/issues.csv byte-identical
+data/labels.csv byte-identical
+data/teacher.csv byte-identical
+data/prior.json byte-identical
+train/curves.csv byte-identical
+issued.csv byte-identical
+evaluation/scores.csv byte-identical
+evaluation/reliability.csv byte-identical
+evaluation/paired.csv byte-identical
+evaluation/ood.csv byte-identical
+18 checkpoints byte-identical; timing and RSS excluded.
+7fa907b21e61b132732add1c509a194b2e368f727f83bedbb5c5426290662703  ablation-128-901.json
+817d1d22965ae7daa812c5390fca4330b8ec7daaa7be0d9e69d79cee9ab0c428  ablation-128-902.json
+fe1b13c7b0778658b28da7ff74946b62a39e8a35976f792faad3bfe1c2a9fff3  ablation-128-903.json
+40516ea149074fca7c5795935329e494dca5853c94b39b984f32265352b6ae83  ablation-768-901.json
+ee74359f93220699cf33e5ab9d68906d73172a83f522f8d70af4c2def62f5036  ablation-768-902.json
+d6db06923086f713ac04ee897e4b08c051bcf3aee8be27ef59fa05a559aa31dd  ablation-768-903.json
+81cdeeccf6fa97c1bbda7bc2feb076c3f4359a6d5f5b0ce32505cb43bdf69539  data-128-901.json
+c492e62e46e2155201091e7529894911e5748d53dcad68513206e128312f0687  data-128-902.json
+62d1a7816cc1f20ccbbfe5dccb274b20e81e270b8ab14e3410374f6a15befd21  data-128-903.json
+8b85e6271c0b5e2b8710197bb5ad124db33d28a119b9b9272b4d7a223fc5163d  data-768-901.json
+ff6aa914093a6154ed69bf1431564deb6d2221d62e036b04c62be803060782e5  data-768-902.json
+78234a64fd8ed107355beaeba121396cc6c7e3cffa4408288458ca0c04be5684  data-768-903.json
+f675130408670858a43da4ead2a6c6249e31f646fa2ea40954abcb9f8335d943  physics-128-901.json
+b60e4a4bafea5911488178af03e60ae8083f9e2adf71c00405df8bf01c125700  physics-128-902.json
+839521696a70986c8e3247ca81b76dfda103a476e0fb5624f750d78cc20a9fa0  physics-128-903.json
+f53c60762bfb73371402e399100ea2b9c72dcedae0c28a188ef1236453cd1293  physics-768-901.json
+65e6d5fb578c2d46f51a0600bc8f2a496d9d36fb368e42c8a07b5066263e23c0  physics-768-902.json
+37966da48d7b33fb22162b67706a94cc31eaa66763fb542f7f6ad890b88f0ad5  physics-768-903.json

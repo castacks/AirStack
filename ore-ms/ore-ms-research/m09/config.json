@@ -1,0 +1,14 @@
+{
+  "experiment":"ORE-MS-EXP-PER-001-M09-R1",
+  "starting_revision":"63898c4a838ce8d143f55f98096b3ad03a669187",
+  "train_ids":[10000,10768],"validation_ids":[11000,11256],"test_ids":[64,192],
+  "state_seed_base":91000,"process_seed_base":101000,"detector_seed_base":121000,
+  "train_sizes":[128,768],"seeds":[901,902,903],
+  "hidden":24,"epochs":40,"batch_size":64,"learning_rate":0.012,"decay_epoch":25,
+  "decay_factor":0.3,"min_scale":0.05,"physics_weight":0.5,
+  "max_code":4095,"feature_scale_floor":0.02,"logit_epsilon":0.000001,
+  "novelty_quantile":0.99,"novelty_ridge":0.05,"samples":128,
+  "models":["data","ablation","physics"],"modes":["RGB","LWIR","joint"],
+  "horizons_s":[0,2,6,18,48],
+  "thresholds":[0.55,0.88]
+}

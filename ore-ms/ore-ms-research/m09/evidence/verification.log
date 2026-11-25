@@ -1,0 +1,15 @@
+test_01_gradient_and_training_selection (__main__.Verify.test_01_gradient_and_training_selection) ... 18 fits, exact validation checkpoint selection epochs 12..40; gradient max error=1.01114362e-09
+ok
+test_02_physical_maps_and_scores (__main__.Verify.test_02_physical_maps_and_scores) ... 23040 finite learned distributions; mapping error=0; independent CRPS error=0; archived classical score delta=2.775557562e-17; unconstrained mean quantile-map deviation=0.01044984483
+ok
+test_03_guard_and_novelty_cases (__main__.Verify.test_03_guard_and_novelty_cases) ... all hard guard outcomes verified; dropped/invalid LWIR equals RGB-only; blind process shift has identical issue forecasts and novelty AUC 0.5
+ok
+test_04_split_and_inference_isolation (__main__.Verify.test_04_split_and_inference_isolation) ... 768 train / 256 validation / 128 holdout IDs; isolated deployment has no truth, teachers or prior-milestone assets; ID mutation invariant
+ok
+test_05_paired_independent_comparison (__main__.Verify.test_05_paired_independent_comparison) ... 234 paired cells, 128 independent IDs per cell; independent comparison max difference=4.33680869e-18
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.630s
+
+OK

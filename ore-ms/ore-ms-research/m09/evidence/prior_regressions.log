@@ -1,0 +1,149 @@
+0e668832b27443ddc3cee5be97f991e26faffc06e60b5755796104654a5fa1ab  ORE-MS-EXP-PER-001-M01-R2.tar.gz
+ccf87274539af8090be18792ded070b6375d1e2a9ef148f4545d80711db94cdd  ORE-MS-EXP-PER-001-M02-R1.tar.gz
+194e494495fc942cfd2cdbb64b4989615beb3f37e114925bb2a2eb45f43c77b1  ORE-MS-EXP-PER-001-M03-R1.tar.gz
+9458b6290a68d343047ba844a322a9c32347012603473c8f38bf7a4bfa77aa7e  ORE-MS-EXP-PER-001-M04-R1.tar.gz
+test_band_reference_and_convergence (__main__.Verification.test_band_reference_and_convergence) ... band T=310 extinction=0.025 reference=52.8149145603 errors=[0.0053375196749101406, 0.001334376728657105, 0.00033359397992427375]
+band T=288 extinction=0.025 reference=41.9033363876 errors=[0.004544345939706318, 0.0011360605943480095, 0.0002840135285069323]
+band T=310 extinction=0 reference=56.0793015285 errors=[0.005568094523198397, 0.0013920275063270537, 0.0003480071156687359]
+band T=288 extinction=0 reference=41.7370617718 errors=[0.00453024014392156, 0.0011325338819503372, 0.0002831318339531208]
+ok
+test_noise_stream (__main__.Verification.test_noise_stream) ... ok
+test_paired_capture (__main__.Verification.test_paired_capture) ... ok
+test_planck_units_and_boundaries (__main__.Verification.test_planck_units_and_boundaries) ... ok
+test_rgb_boundaries (__main__.Verification.test_rgb_boundaries) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.523s
+
+OK
+442 observations; per case: {'clear': 221, 'attenuated': 221}; target visible: {'clear': 197, 'attenuated': 197}
+5 passing tests; maximum relative LWIR integration error 0.000678370%
+105 tasks {'MATH': 25, 'PHY': 30, 'ML': 30, 'INT': 20}, 147 acyclic milestone-ordered edges, 13 milestones, 5 phases, 27 numbered deliverables
+test_analytic_transfer (__main__.Verification.test_analytic_transfer) ... ok
+test_capture_and_trends (__main__.Verification.test_capture_and_trends) ... 18 cases; 26136 channel records
+ok
+test_metrics (__main__.Verification.test_metrics) ... ok
+test_phase_and_admissibility (__main__.Verification.test_phase_and_admissibility) ... HG g=.65 angular integral=0.9999998214
+ok
+test_projection_and_illumination (__main__.Verification.test_projection_and_illumination) ... ok
+test_sensor_and_noise (__main__.Verification.test_sensor_and_noise) ... noise read=12 shot=False sample mean=0.0704078 variance=144.365
+noise read=0 shot=True sample mean=0.131197 variance=501.266
+ok
+test_spatial_convergence (__main__.Verification.test_spatial_convergence) ... RK4 reference=0.0044056844337323; refinement errors=[2.8216274664243784e-07, 7.055356483244568e-08, 1.7639196481060437e-08]; ratios=[3.999269878319158, 3.999817390106203]
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.227s
+
+OK
+PASS: all radiance fields identical and clear capture has zero upper clipping.
+clear contrast_G=0.61547912 SSIM=1.00000000 radiance_RMSE_W_m2_sr=0.00003718
+out_scattering contrast_G=0.61520999 SSIM=0.70812507 radiance_RMSE_W_m2_sr=0.11513666
+isotropic_path contrast_G=0.56376887 SSIM=0.73944550 radiance_RMSE_W_m2_sr=0.10641625
+forward_path contrast_G=0.50418605 SSIM=0.77616348 radiance_RMSE_W_m2_sr=0.09446905
+test_captures_and_crossover (__main__.Verification.test_captures_and_crossover) ... 53 cases; 20458 spectra; 6784 detector readings; crossover 316.91729563 K bracketed [316,320] K; contrast at endpoints=-0.37480863, 1.25959849
+ok
+test_detector (__main__.Verification.test_detector) ... noise sample mean=-0.001145584782; variance=0.09036170518
+ok
+test_integration_convergence (__main__.Verification.test_integration_convergence) ... Simpson band reference=44.9797842017; refinement=2.842170943e-14; trapezoid errors=[0.0005901535253016732, 0.0001475367830252594, 3.6884096090261664e-05]; ratios=[4.000043332926912, 4.000010808566699]
+ok
+test_layered_reference (__main__.Verification.test_layered_reference) ... layer RK4 max absolute error=1.776356839e-14; refinement=7.638334409e-14
+ok
+test_planck (__main__.Verification.test_planck) ... maximum pointwise relative error=8.881784197e-16
+ok
+test_stefan_boltzmann (__main__.Verification.test_stefan_boltzmann) ... T=280: Stefan-Boltzmann rel. errors=6.91835278e-09,6.918352669e-09; refinement=1.280932398e-16
+T=300: Stefan-Boltzmann rel. errors=5.619522625e-09,5.619522625e-09; refinement=0
+T=320: Stefan-Boltzmann rel. errors=4.62514238e-09,4.625142491e-09; refinement=1.501718109e-16
+T=340: Stefan-Boltzmann rel. errors=3.850987862e-09,3.850987862e-09; refinement=0
+ok
+test_surface_and_gray_atmosphere (__main__.Verification.test_surface_and_gray_atmosphere) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.452s
+
+OK
+test_boundary_parallel_and_ties (__main__.Verification.test_boundary_parallel_and_ties) ... ok
+test_camera_and_jacobian (__main__.Verification.test_camera_and_jacobian) ... maximum camera Jacobian error=7.571565597e-11 px/m
+ok
+test_masks_ranges_and_timing (__main__.Verification.test_masks_ranges_and_timing) ... 30 frames; 5610 rays; 0 label mismatches; maximum range/depth error=3.552713679e-15 m
+ok
+test_surface_replacement_and_radiometric_invariance (__main__.Verification.test_surface_replacement_and_radiometric_invariance) ... 1148 first-hit observations; RGB max abs error=5.551115123e-17; LWIR clear max component error=0.0001003359194; attenuated LWIR max relative error=2.077100744e-06
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.067s
+
+OK
+PASS: M01–M04 manifest, regression and replay checks.
+test_coupled_refinement_and_deterministic_forcing (__main__.Verification.test_coupled_refinement_and_deterministic_forcing) ... deterministic max error=2.22044605e-15; coupled refinement=8.8817842e-16; forced mean max error=0.0257018011
+ok
+test_interfaces_and_admissibility (__main__.Verification.test_interfaces_and_admissibility) ... isolated 5 m kernel transmissions RGB=0.597373966, LWIR=0.913764378; abs errors=1.11e-16/0; unchanged M04 target hit and equal-depth ambiguity
+ok
+test_stationary_temporal_and_spatial (__main__.Verification.test_stationary_temporal_and_spatial) ... 4096 realizations per arm; max errors={'mean': 0.04014770203859223, 'variance': 0.02892338510577097, 'temporal': 0.025592652446224995, 'spatial': 0.03715566283286409}; coarse/fine=0.0123543349; L_e=9.94857915 m; lag6 baseline/slow=0.355556018/0.612371169; raw variance baseline/low=0.971076615/0.252794812
+ok
+test_transport_and_bounds (__main__.Verification.test_transport_and_bounds) ... 3664 field samples; 131072 stress samples, 0 invalid; peak error=0.0 m; mapping error=3.46944695e-18; clear/driven/recovery=0.01798621/0.907440802/0.0182633541
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.251s
+
+OK
+a47b189bfb594454dc01af7a8c15624fa07e445fa391e4155ad106f918f86b0a  ORE-MS-EXP-PER-001-M05-R1.tar.gz
+PASS: M01–M05 archived manifests, harnesses and capture replays.
+test_01_shared_geometry (__main__.Verification.test_01_shared_geometry) ... 6 layouts, 793 frames, 2343 ray rows; 0 label or timestamp mismatches; max geometry error=3.552713679e-15 m
+ok
+test_02_legacy_probes_and_modal_divergence (__main__.Verification.test_02_legacy_probes_and_modal_divergence) ... max M04 probe difference=0; codes exact; LWIR crossover error=0
+ok
+test_03_midpoints_and_heterogeneous_integration (__main__.Verification.test_03_midpoints_and_heterogeneous_integration) ... all heterogeneous midpoint mappings max absolute difference=5.684341886e-14; depth reference=(0.7900981047104856, 0.7146706256988035, 0.09649175098983812, 0.14236500522618942); errors for 8/16/32 segments=[[0.0001285214810291535, 0.00011625205365672908, 1.4639147497497174e-05, 2.066703176117901e-05], [3.209254542824169e-05, 2.9028799569008612e-05, 3.655478464231754e-06, 5.160675478926846e-06], [8.020781413931033e-06, 7.25506976595458e-06, 9.13601377938722e-07, 1.2897901806030454e-06]]
+ok
+test_04_foreground_replacement (__main__.Verification.test_04_foreground_replacement) ... combined motion visible target counts=[35, 30, 20, 20, 20, 30, 35]; 0 hidden-material differences
+ok
+test_05_joint_statistics (__main__.Verification.test_05_joint_statistics) ... 128 fixed-geometry realizations: r=0.9922168239, covariance=0.005266565455, cyclic comparison=-0.06276057566, max exact log-relation error=1.040834086e-16; low/high populations=52/76
+ok
+test_06_qualification_and_rejections (__main__.Verification.test_06_qualification_and_rejections) ... 2280 valid paired observations, 63 no-hits; 1205 paths, 17000 segments; 3 corruption probes rejected
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.414s
+
+OK
+1ef8d5f23074f07ef156243526d38b1099a51d81d4e331da4ce003becac7dc2c  ORE-MS-EXP-PER-001-M06-R1.tar.gz
+PASS: M01–M06 frozen manifests, regression suites and capture replays.
+test_analytic_inverse_ambiguities_and_information (__main__.Verification.test_analytic_inverse_ambiguities_and_information) ... inverse error=1.38777878e-17; band inverse max=4.4408921e-16; ambiguity output residual=0; Jacobian error=2.71621836e-10; scalar information={'rgb_known': 278.09445846696184, 'lwir_known': 32.38002409674777, 'joint_known': 310.47448256370967, 'unknown_range_one_band': 2416.650246627743, 'unknown_range_two_bands': 2640.111252188836, 'lwir_crossover': 0.0, 'target_occluded': 0.0, 'rail_plateau': 0.0}
+ok
+test_degraded_ambiguity_and_missingness (__main__.Verification.test_degraded_ambiguity_and_missingness) ... severe RGB weak/abstain=256; mismatch joint MAE=0.047516436; coverage=0.8515625; warnings=7/256
+ok
+test_leakage_and_time_partition (__main__.Verification.test_leakage_and_time_partition) ... 6144 feature rows, 24576 mode outputs; 96 M06 holdout fixed frames; isolated inference reproduced without labels
+ok
+test_matched_holdout_calibration_and_modes (__main__.Verification.test_matched_holdout_calibration_and_modes) ... matched holdout (mode, MAE, coverage, width)=[('prior', 0.24026207431972937, 0.9609375, 0.95), ('RGB', 0.033386447956962995, 0.94921875, 0.16666720502191704), ('LWIR', 0.12946508177950705, 0.96484375, 0.6277041914607004), ('joint', 0.03234913396689751, 0.9453125, 0.16264398307051517)]
+M06 frozen-grid warning realization=96 t=6; grid z=5.401319529392977; independent finer local search residual=0.473731 LSB
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.180s
+
+OK
+151042e220aeb125b608f82c0d49bc31896093b2d0c028e21f7d9e66f749c195  ORE-MS-EXP-PER-001-M07-R1.tar.gz
+PASS: M01–M07 frozen manifests, regression suites and capture replays.
+test_01_exact_ou_spatial_and_transport (__main__.Verify.test_01_exact_ou_spatial_and_transport) ... OU formula error=1.110223025e-16; semigroup=2.220446049e-16; mean/variance MC errors=0.01305694633/0.01722269646; spatial cov error=0.005394980029; long decay=0.0003354626279, variance gap=1.125351746e-07
+ok
+test_02_insufficient_scalar_and_mapping (__main__.Verify.test_02_insufficient_scalar_and_mapping) ... scalar counterexample b0=[0.5, 0.5], predictive mean difference=-0.1637154849; midpoint reference error=1.110223025e-16; kernel mapping error=0
+ok
+test_03_conditioning_and_oracle (__main__.Verify.test_03_conditioning_and_oracle) ... M07 likelihood reconstruction max mean difference=0; initial prior/conditional SD=0.1958964091/0.03343749045; ESS=369.6268831; oracle h=0 exact
+ok
+test_04_population_calibration_and_failure (__main__.Verify.test_04_population_calibration_and_failure) ... 2304 issue rows, 11520 truth rows, 21120 deployable rows, 960 oracle rows; matched coverage=[0.9375, 0.9375, 0.96875, 0.96875, 0.953125]; wrong dynamics=[0.9375, 0.6953125, 0.7890625, 0.8671875, 0.7734375]; wrong-air h0=0.8515625
+ok
+test_05_leakage_and_seed_variability (__main__.Verify.test_05_leakage_and_seed_variability) ... exact whole-realization split; isolated forecasts reproduced without labels, truth config or oracle; ID-only mutation invariant
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.646s
+
+OK
+27e617a9addba2aa724dc78a629746376c25c8c6b6b292adfd7c0d7663a06eec  raw/issues.csv
+85af1d43f55e5b42116848cb4a6c5e0eddb934dc06d0abbab9837d9280cba4fe  raw/truth.csv
+5be41d1b972050637b4352a9209ce6bee7e652c36121a1e6911385c85eb0bfe6  raw/forecasts.csv
+8f0784f129878e635077b3427b706f7e1662b9d7cd1ca498014c948b6dd387cd  raw/oracle_forecasts.csv
+dadeca011683615654a45999cdb0dc2352b3f26521728ad4566a6d9c04c3a09a  raw/scores.csv
+e11462cf1264ac4424d01408bb0ca7b4cb1ee4e24872357ed0d98601008625d1  ORE-MS-EXP-PER-001-M08-R1.tar.gz
+PASS: M01–M08 frozen manifests, regressions and exact M08 benchmark replay.

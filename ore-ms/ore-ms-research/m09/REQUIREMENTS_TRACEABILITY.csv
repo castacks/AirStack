@@ -1,0 +1,9 @@
+ID,Requirement,Task linkage,Artifact,Verification,Disposition
+M09-R01,Realization-independent data and no future inputs,PHY-26 and ML-14,DATA_CONTRACT.md and prepare.py and infer.py,V01,PASS
+M09-R02,Matched unchanged M08 classical benchmark,MATH-22,regressions.sh and assess.py,V02,PASS
+M09-R03,Data model physics loss and matched ablation,ML-14 ML-15 ML-16,network.py and train.py,V03/V05,PASS
+M09-R04,Bounded marginals and separate accepted spectral mapping,PHY-26 and ML-15,common.py target_mapping and verify.py,V04,PASS
+M09-R05,Independent score calibration and statistical comparison,MATH-22 and ML-19,assess.py and BASELINE_ANALYSIS.md,V06/V08,PASS synthetic
+M09-R06,Dropout and mismatch and OOD characterization,ML-17 and ML-18,infer.py and ROBUSTNESS.md,V07,PASS with retained failures
+M09-R07,Training seeds data sizes efficiency and exact replay,ML-14 ML-16,curves and checkpoint hashes and COMPUTE.md,V05/V09,PASS
+M09-R08,Historical scope and prior milestone integrity,Original specification §§5–6,provenance and prior regression logs,V10,PASS

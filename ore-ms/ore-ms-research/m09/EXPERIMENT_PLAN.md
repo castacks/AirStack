@@ -1,0 +1,22 @@
+# Frozen M09 experiment, training and acceptance plan
+
+Starting revision 63898c4a8. The original specification §§3 and 5–6 and the [roadmap](../RESEARCH_ROADMAP_MANDATE.md) govern work. MATH-22, PHY-26 and ML-14–19 cover the controlled design. Follow the [data contract](DATA_CONTRACT.md). Freeze preprocessing, optimizer, labels, horizons and selection. Exact M08 holdout reuse avoids comparing distinct populations. No holdout-driven changes are permitted.
+
+Three models use a tanh MLP of width 24 trained on normalized issue codes and masks. **Data** independently emits logistic-normal marginals for burden and two reference transmissions. **Ablation** predicts burden only, with both transmissions calculated by the fixed accepted Beer–Lambert relationships. **Physics** has the exact ablation architecture, mapping, batch order and optimizer, plus a 0.5-weighted distillation penalty from the M08 full-latent conditioned process. The penalty is KL(teacher Gaussian moment projection in burden logit space || student Gaussian). It imposes a conditional statistical prior and does not assume a scalar Markov transition. Physics and ablation differ only in this loss term. Use supervised Gaussian logit-domain NLL, fixed min scale 0.05, Adam (0.9/0.999, epsilon 1e−8), 40 epochs, batch size 64 over view rows, and 0.012 learning rate scaled by 0.3 after 25 epochs. Stop after the fixed budget. Select the minimum validation burden logit-NLL checkpoint, earliest on ties. Report both sizes (128/768) and all three independent initializations (901/902/903).
+
+Use the frozen M08 horizons, quality thresholds and 128 quantile samples. Score holdout by CRPS, MAE, RMSE, bias, spread, nominal 95% coverage/width, Brier, five reliability bins and AUC when supported. Report both horizon-wise and per-realization means over the four strictly future horizons. Paired comparisons average over seeds within each realization, then use pointwise normal 95% intervals across independent realizations. Report seed variability separately. M08 mismatch, nuisance, clipping/occlusion and missing controls are retained unchanged. A regularized training-only Mahalanobis distance per observed mask pattern uses complete training views after mask projection, diagonal ridge 0.05 in standardized feature covariance, and a frozen 0.99 cutoff. Novelty is a warning, with blind dynamics mismatch a negative control. No universal improvement or robust calibration assumption is part of acceptance.
+
+| Gate | Prespecified check |
+|---|---|
+| V01 | Exact disjoint whole-realization groups and strict feature allowlist; isolated inference unaffected by IDs and unable to read truth or teacher assets. |
+| V02 | M08 full regenerated outputs byte-identical and classical scored matched holdout exactly the same keys. |
+| V03 | Compare analytic gradients for all three objectives to centered finite differences ≤2e−6; finite logistic-normal samples and checkpoint selection/loading correctly reproduced. |
+| V04 | All issued values finite in [0,1]; Physics/Ablation same-burden mapping independently verified to 2e−12 and wavelengths remain separate. Document unconstrained model inconsistency. |
+| V05 | 18 trained checkpoints with finite curves and validation selection, fixed budgets, distinct seeds; compare two sizes. Both matched Physics/Ablation initial arrays and training shuffle seeds equal. No minimum skill gain required. |
+| V06 | Independent CRPS/Brier arithmetic ≤2e−12, coverage/reliability, empirical distributions and holdout scores across all horizons. Report undercoverage without retuning. |
+| V07 | Missing/clipped/occluded/flat fall back or masked modes remain eligible as specified. Declared unsupported geometry/domain/process abstain. Compare wrong-air and wrong-dynamics degradation and OOD diagnostics without claiming safe operation. |
+| V08 | All matched comparisons pair exactly 128 realizations and four future horizons; intervals cluster by realization and preserve initialization variation. |
+| V09 | Byte-identical checkpoints, training curves and predictions from fresh training/evaluation with pinned NumPy and one BLAS thread. Timing/RSS are recorded measurements outside equality. |
+| V10 | Prior manifests, full M01–M08 regression replay, roadmap/catalog invariants and historical preservation. |
+
+Continuous logit likelihood is used for training and selection. Proper scoring of supported predictive marginals uses CRPS and Brier. No claim of calibrated multihorizon trajectories follows.

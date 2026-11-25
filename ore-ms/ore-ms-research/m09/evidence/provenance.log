@@ -1,0 +1,13 @@
+Starting revision 63898c4a838ce8d143f55f98096b3ad03a669187 on ore-ms-orb-development
+PASS: 13 milestones, five phases, 105 tasks and 147 edges preserved.
+PASS: M08 conditionally accepted, AC18 closed, AC10/17/19 preserved, AC20/21 registered.
+PASS: M01–M08 historical source and evidence unchanged.
+Model name:                              AMD EPYC-Genoa Processor
+BIOS Model name:                         pc-i440fx-noble  CPU @ 2.0GHz
+BLAS thread count fixed to 1 for all learned numerical runs.
+27e617a9addba2aa724dc78a629746376c25c8c6b6b292adfd7c0d7663a06eec  issues.csv
+85af1d43f55e5b42116848cb4a6c5e0eddb934dc06d0abbab9837d9280cba4fe  truth.csv
+5be41d1b972050637b4352a9209ce6bee7e652c36121a1e6911385c85eb0bfe6  forecasts.csv
+8f0784f129878e635077b3427b706f7e1662b9d7cd1ca498014c948b6dd387cd  oracle_forecasts.csv
+dadeca011683615654a45999cdb0dc2352b3f26521728ad4566a6d9c04c3a09a  scores.csv
+Research documentation checks passed.

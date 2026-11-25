@@ -1,0 +1,7 @@
+# Compute and reproducibility
+
+Recorded host was an AMD EPYC-Genoa CPU with one BLAS thread, CPython 3.12.3 and NumPy 2.5.5. Training uses a NumPy MLP and Adam without GPU training. Training fits took approximately 0.024–0.156 s per checkpoint after data preparation, with 46–48 MiB cumulative peak process RSS. Each of the 18 fits ran 40 epochs. Data generation plus M08 teacher preparation took 9.51 s on the recorded replay. Checkpoints span about 20–40 kB. The full training cost includes teacher generation and the common validation pass.
+
+A warm single-issue benchmark at the frozen first matched test probe measured 52.7 µs median to issue Physics parameters and generate 5×3×128 marginal samples, versus 2.61 ms for unchanged M08 joint samples with a warmed prior bank. This is one synthetic CPU microbenchmark with 60 repeats each. It excludes file I/O, model training and teacher preparation. It does not establish deployment latency. Parameter-only model issue calls across checkpoints took roughly 22–29 µs median. The measured RSS includes interpreter, imported dependencies and process allocations. [Training timings](evidence/training_runtime.csv) · [Issue timings](evidence/inference_runtime.csv) · [Sampling timing](evidence/distribution_runtime.csv) · [Teacher preparation](evidence/prepare_runtime.log)
+
+All selected checkpoint JSON, training curves, inferred distributions, and score CSVs reproduced byte for byte. Timing, RSS and optional plot rendering are outside the byte identity criterion.
