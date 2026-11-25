@@ -1,0 +1,11 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+Visualization only: Matplotlib 3.11.2
+geometry.csv byte-identical
+592731d4ee1ae13de453141119189aa9902494287e9930cc3396b53c69f0df23  first/geometry.csv
+592731d4ee1ae13de453141119189aa9902494287e9930cc3396b53c69f0df23  repeat/geometry.csv
+radiometry.csv byte-identical
+c15b1329e5ac3d1e1396c3407c3217c78ced96cbf2a82ff95517c40afc471842  first/radiometry.csv
+c15b1329e5ac3d1e1396c3407c3217c78ced96cbf2a82ff95517c40afc471842  repeat/radiometry.csv
+frames.csv byte-identical
+6bc8c6ad695a90fa485c49decf973001caf381f5e41a881682f11ffc6608eab2  first/frames.csv
+6bc8c6ad695a90fa485c49decf973001caf381f5e41a881682f11ffc6608eab2  repeat/frames.csv

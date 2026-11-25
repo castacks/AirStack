@@ -1,0 +1,6 @@
+Starting revision e7e0d86d25b26f394f155d32f054c29d99d3dc8e on ore-ms-orb-development
+PASS: 13 milestones, five phases, 105 tasks and 147 dependencies preserved.
+PASS: only live M03/M04 status and the M04 package changed.
+063751a7d50a7943aa8d8df30f505aa23ffc43d2e8124c3992e8796b5f69d026  ore-ms/ore-ms-research/m02/rgb_model.py
+5d2183a9b097ad419b5f3aec762327a0e2ba5e166143e27ddf654c872b72fcec  ore-ms/ore-ms-research/m03/thermal_model.py
+Research documentation checks passed.

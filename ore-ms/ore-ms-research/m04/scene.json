@@ -1,0 +1,42 @@
+{
+  "camera": {"width":17,"height":11,"fx":10,"fy":10,"cx":8,"cy":5,"origin":[0,0,0],"axes":[[1,0,0],[0,1,0],[0,0,1]]},
+  "materials": {
+    "target":{"rgb_reflectance":[0.40,0.40,0.40],"rgb_irradiance":[0.018,0.018,0.018],"temperature_K":320,"emissivity":[0.8,0.8,0.8],"reflected_K":285},
+    "foreground":{"rgb_reflectance":[0.13,0.21,0.37],"rgb_irradiance":[0.011,0.014,0.017],"temperature_K":287,"emissivity":[0.3,0.5,0.7],"reflected_K":300},
+    "distinct":{"rgb_reflectance":[0.63,0.63,0.63],"rgb_irradiance":[0.022,0.022,0.022],"temperature_K":345,"emissivity":[0.9,0.9,0.9],"reflected_K":292},
+    "altered_target":{"rgb_reflectance":[0.75,0.75,0.75],"rgb_irradiance":[0.033,0.033,0.033],"temperature_K":360,"emissivity":[0.95,0.95,0.95],"reflected_K":295}
+  },
+  "target":{"id":"target","center":[0,0,10],"half":[3.25,2.25],"material":"target"},
+  "rgb_response":{"R":[550,610,700],"G":[450,540,630],"B":[400,460,540]},
+  "lwir_response":[0.65,1.0,0.72],
+  "default_detectors":{"rgb_gain":6500,"rgb_full_well":4000,"lwir_high":110,"bits":12},
+  "medium":{"rgb_absorption_m_inv":0.06,"rgb_scattering_m_inv":0.03,"rgb_ambient":0.009,"rgb_solid_angle_sr":0.8,"lwir_absorption_m_inv":0.08,"lwir_air_K":294},
+  "obstacles":{
+    "thin":{"id":"thin","center":[0,0,5],"half":[0.20,1.20],"material":"foreground"},
+    "mid":{"id":"mid","center":[0,0,5],"half":[0.70,1.20],"material":"foreground"},
+    "wide":{"id":"wide","center":[0,0,5],"half":[1.20,1.20],"material":"foreground"},
+    "full":{"id":"full","center":[0,0,5],"half":[1.80,1.20],"material":"distinct"},
+    "far":{"id":"far","center":[0,0,15],"half":[6.0,4.0],"material":"distinct"},
+    "overlap":{"id":"overlap","center":[0.6,0,4],"half":[0.65,0.9],"material":"distinct"},
+    "moving":{"id":"moving","center":[-6,0,5],"velocity":[1.5,0,0],"half":[0.70,1.20],"material":"foreground"},
+    "matched":{"id":"mid","center":[0,0,5],"half":[0.70,1.20],"material":"target"}
+  },
+  "cases":[
+    {"name":"clear"},
+    {"name":"partial_1","obstacles":["thin"]},
+    {"name":"partial_3","obstacles":["mid"]},
+    {"name":"partial_5","obstacles":["wide"]},
+    {"name":"complete_distinct","obstacles":["full"]},
+    {"name":"complete_target_changed","obstacles":["full"],"target_material":"altered_target"},
+    {"name":"far_only","obstacles":["far"]},
+    {"name":"near_far","obstacles":["mid","far"]},
+    {"name":"overlap","obstacles":["mid","far","overlap"]},
+    {"name":"overlap_reordered","obstacles":["overlap","far","mid"]},
+    {"name":"moving_foreground","obstacles":["moving"],"times":[0,1,2,3,4,5,6,7,8]},
+    {"name":"moving_target","obstacles":["mid"],"target_center":[-6,0,10],"target_velocity":[3,0,0],"times":[0,1,2,3,4,5,6]},
+    {"name":"matched_radiance","obstacles":["matched"]},
+    {"name":"attenuated","obstacles":["mid"],"medium":true},
+    {"name":"clipped","obstacles":["mid"],"rgb_full_well":150,"lwir_high":20},
+    {"name":"rotated_camera","camera_origin":[0,1,0],"camera_axes":[[0,1,0],[-1,0,0],[0,0,1]],"obstacles":["mid"]}
+  ]
+}

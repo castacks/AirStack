@@ -1,0 +1,8 @@
+ID,Requirement,Original task linkage,Implementation,Evidence,Status
+M04-R01,Camera convention transforms projection and Jacobian,MATH-07 and INT-08,geometry.py Camera,V01,PASS
+M04-R02,Ray intersection nearest hits and robustness,MATH-10 and INT-08,geometry.py Rectangle and hits and intersect,V02/V03/V07,PASS
+M04-R03,Binary support first hits visible fraction and empty support,MATH-10 and INT-08,experiment.py and analytical.py,V03,PASS
+M04-R04,Prescribed moving foreground and target with sampled support,MATH-10 and INT-08,geometry.py Rectangle.at and scene.json,V04,PASS
+M04-R05,Only first-hit material and path used by existing RGB and LWIR kernels,MATH-10 and INT-08,radiometry.py and experiment.py,V05,PASS
+M04-R06,Contrast attenuation and detector effects local to radiometry,MATH-10,scene.json and verify.py,V06,PASS
+M04-R07,Deterministic replay and M01 through M03 preservation,Original specification §§5–6 and M04-R1 §5,provenance and prior regression logs and manifest,V08,PASS

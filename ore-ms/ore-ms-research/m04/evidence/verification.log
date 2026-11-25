@@ -1,0 +1,12 @@
+test_boundary_parallel_and_ties (__main__.Verification.test_boundary_parallel_and_ties) ... ok
+test_camera_and_jacobian (__main__.Verification.test_camera_and_jacobian) ... maximum camera Jacobian error=7.571565597e-11 px/m
+ok
+test_masks_ranges_and_timing (__main__.Verification.test_masks_ranges_and_timing) ... 30 frames; 5610 rays; 0 label mismatches; maximum range/depth error=3.552713679e-15 m
+ok
+test_surface_replacement_and_radiometric_invariance (__main__.Verification.test_surface_replacement_and_radiometric_invariance) ... 1148 first-hit observations; RGB max abs error=5.551115123e-17; LWIR clear max component error=0.0001003359194; attenuated LWIR max relative error=2.077100744e-06
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.071s
+
+OK
