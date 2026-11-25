@@ -1,0 +1,3 @@
+# Verification results
+
+See the executed test log and master matrix. The four independent LWIR integrals are approximately 52.814915, 41.903336, 56.079302 and 41.737062 W·m⁻²·sr⁻¹, in log order. The 128-interval absolute errors are 0.000334, 0.000284, 0.000348 and 0.000283 W·m⁻²·sr⁻¹, respectively. The worst relative difference is approximately 0.000679%. All four sequences show the expected second-order error reduction. Both captures had 24 geometrically blocked pixels, foreground radiance at the blocked center and positive finite LWIR truth over the scene. Physical sensor measurements are outside the executed verification.

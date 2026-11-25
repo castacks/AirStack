@@ -1,0 +1,5 @@
+Python 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+612b05787f2a14b249d4adb78ad21c3e3a0eda77d0191d8133bd4378331d904d
+612b05787f2a14b249d4adb78ad21c3e3a0eda77d0191d8133bd4378331d904d
+612b05787f2a14b249d4adb78ad21c3e3a0eda77d0191d8133bd4378331d904d
+PASS: two new executions and the historical output are byte-identical.

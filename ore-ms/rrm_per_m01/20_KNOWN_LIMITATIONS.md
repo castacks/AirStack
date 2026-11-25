@@ -1,3 +1,0 @@
-# Known limitations
-
-M01 has synthetic geometry and a single ideal registered camera pair. It omits atmospheric heterogeneity, angular scattering, spatial PSF, temporal dynamics, target texture and calibrated digital response. The box-like 8–14 µm band and ramp are illustrative. The surface model uses diffuse gray emissivity and isotropic blackbody-equivalent reflection. The numerical comparison establishes precision for tested smooth spectra. The same tool session authored implementation and verification. Physical validation and organizationally independent review remain open. The identity and location of F01 and the intermediate historical filename mapping were unavailable. This package uses a provisional mapping for 01–25.

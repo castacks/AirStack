@@ -1,3 +1,0 @@
-# Frozen handoff
-
-This package includes the source, configuration, separate verification plan and code, raw captures and logs, gate results and planning inventory. `PACKAGE_SHA256SUMS.txt` covers every member except itself. The repository implementation lives under `ore-ms/rrm_per_m01` at the branch based on `cecb41fafea60d6d9b5b8f1ba6362ee6d6fa6c93`. The work is ready for review of the executed evidence. Completing G0 requires the authoritative frozen F01 location and expected revision or manifest. The numbering map for documents 01–25 is provisional pending the previously specified list. M02 remains planning only.

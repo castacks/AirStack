@@ -1,0 +1,3 @@
+# IV&V evidence record
+
+Verification uses a separate plan, source file, frozen output and evidence log. The alternate construction uses independent discretization, arithmetic and units. The same Codex session developed the model and executed verification, so organizational independence requires external review. The master matrix gives dispositions for scientific assumptions, numeric correctness, boundary behavior, registration, reproducibility, package checks and scope. Isolation is verified against the initial Git revision and the runnable M01 source is compared to the previous implementation. Calibrated physical validity and cross-runtime reproduction are NOT TESTED.

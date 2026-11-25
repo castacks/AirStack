@@ -2,7 +2,7 @@
 
 | ID | Acceptance requirement |
 |---|---|
-| R01 | Existing tracked assets remain byte-equivalent to the initial Git state. Verify F01 against its identified reference. |
+| R01 | Record the starting revision and source and configuration identity. Demonstrate reproducibility and isolate changes from unrelated AirStack software and research assets. |
 | R02 | Document radiometric units, transport, emission, reflection, visibility, read noise and validity limits. |
 | R03 | RGB handles zero, finite and optically thick paths with independent analytic comparisons. |
 | R04 | LWIR integrates weighted spectral radiance for opaque emitters, reflection and a slab source. Verify against an alternate integral and boundary cases. |

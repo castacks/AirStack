@@ -1,0 +1,14 @@
+test_band_reference_and_convergence (__main__.Verification.test_band_reference_and_convergence) ... band T=310 extinction=0.025 reference=52.8149145603 errors=[0.0053375196749101406, 0.001334376728657105, 0.00033359397992427375]
+band T=288 extinction=0.025 reference=41.9033363876 errors=[0.004544345939706318, 0.0011360605943480095, 0.0002840135285069323]
+band T=310 extinction=0 reference=56.0793015285 errors=[0.005568094523198397, 0.0013920275063270537, 0.0003480071156687359]
+band T=288 extinction=0 reference=41.7370617718 errors=[0.00453024014392156, 0.0011325338819503372, 0.0002831318339531208]
+ok
+test_noise_stream (__main__.Verification.test_noise_stream) ... ok
+test_paired_capture (__main__.Verification.test_paired_capture) ... ok
+test_planck_units_and_boundaries (__main__.Verification.test_planck_units_and_boundaries) ... ok
+test_rgb_boundaries (__main__.Verification.test_rgb_boundaries) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.548s
+
+OK

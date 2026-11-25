@@ -19,3 +19,5 @@ Inspection covered the active AirStack checkout and host Python. The evidence lo
 | ROS 2 | No ros2 on host PATH. Jazzy declared by checkout | [Apache-2.0 core package example](https://github.com/ros2/rclcpp) | Mature CPU middleware with package-specific terms. Candidate synchronized replay and calibrated transform transport. |
 
 Cached Docker tags do not establish installed component versions inside images. No in-container packages or external private baseline inventories were inferred. GPU is available on the host but M01 runs on CPU.
+
+M01 verification exercised CPython and its standard-library arithmetic, JSON, CSV and test modules. The historical environment log in the preserved archive records host and cached-image probes. Candidate tool applicability and licenses were reviewed from the linked sources. Runtime capability, version-specific parity and redistribution terms remain unverified for tools undetected on the host. Cached images were inventoried without starting them.

@@ -1,0 +1,11 @@
+Starting revision cecb41fafea60d6d9b5b8f1ba6362ee6d6fa6c93
+Previous implementation 4eb24007d52f0f1780901b74603b80ed5f6dd7fd
+PASS: all AirStack changes confined to this experiment and its identifier migration.
+d28c424f39cea902f5f7394c16c1587dfa47d919a5d9c95f588977400cc3df0d  ore-ms/ore-ms-research/physics.py
+8b98c7cbf79b58ec605557985fc2308de47a556887f61d208530db60ac51d749  ore-ms/ore-ms-research/scene.json
+2273617659b9b37441cd21e9558ed3c5b6d2814ae20ab1ff4573c350c4bc1bb4  ore-ms/ore-ms-research/simulate.py
+a7367586ad4de2c284572b4bf0a7ba20a793b9b4e2227573a47479b5a37fb262  ore-ms/ore-ms-research/verify.py
+PASS: deterministic implementation, configuration and five-test harness match the original commit.
+PASS: original 105 task IDs, workstreams and descriptions, and all 147 dependency edges preserved.
+/mnt/data/RRM-EXP-PER-001-M01.tar.gz: OK
+PASS: original archive SHA-256 and all original extracted members verified.
