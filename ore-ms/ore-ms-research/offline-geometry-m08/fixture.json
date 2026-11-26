@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "fixture_id": "analytic-ray-10m-r1",
+  "geometry": {
+    "frame": "receiver_origin_x_forward",
+    "receiver_m": [0, 0, 0],
+    "source_m": [10, 0, 0]
+  },
+  "tick_period_ns": 100000000,
+  "future_seed_base": 535000,
+  "issues": [
+    {"realization": "ray10-001", "tick": 0, "initial_seed": 530001, "rgb_seed": 531001, "lwir_seed": 532001},
+    {"realization": "ray10-002", "tick": 37, "initial_seed": 530002, "rgb_seed": 531002, "lwir_seed": 532002},
+    {"realization": "ray10-003", "tick": 91, "initial_seed": 530003, "rgb_seed": 531003, "lwir_seed": 532003},
+    {"realization": "ray10-004", "tick": 148, "initial_seed": 530004, "rgb_seed": 531004, "lwir_seed": 532004}
+  ]
+}

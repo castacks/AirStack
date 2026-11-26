@@ -1,0 +1,209 @@
+{
+  "geometry_and_timing": {
+    "path_m": 10.0,
+    "issue_ticks": [
+      0,
+      37,
+      91,
+      148
+    ],
+    "target_ticks": [
+      20,
+      57,
+      111,
+      168
+    ],
+    "delta_ns": 2000000000,
+    "alternate_period_ns": 250000000
+  },
+  "independent_references": {
+    "vacuum": 1.0,
+    "constant_tau_1": 0.36787944117144233,
+    "piecewise_tau_1": 0.36787944117144233,
+    "double_length": 0.1353352832366127,
+    "reference_rows": 8,
+    "max_vs_frozen_reference_path": 1.1102230246251565e-16
+  },
+  "issue_schema_and_matched_controls": {
+    "issues": 4,
+    "forecast_rows": 24,
+    "evaluations": 12,
+    "output_status_counts": {
+      "conditioned": 12
+    },
+    "crps_mean_by_arm": {
+      "joint": 0.11009636080742267,
+      "RGB": 0.11107744315537137,
+      "persistence": 0.1436945221892788
+    }
+  },
+  "leakage_counterfactual": {
+    "byte_identical": [
+      "issues.csv",
+      "schedule.csv",
+      "forecasts.csv"
+    ],
+    "changed_future_label_rows": 4,
+    "changed_score_rows": 12,
+    "counterfactual_future_seed_base": 536000
+  },
+  "manifest_integrity": {
+    "frozen_hashes_checked": {
+      "m05": 22,
+      "m06": 32,
+      "m07": 34,
+      "m08": 34
+    },
+    "baseline_manifest": {
+      "schema_version": 1,
+      "fixture_id": "analytic-ray-10m-r1",
+      "python": "3.12.3",
+      "geometry": {
+        "frame": "receiver_origin_x_forward",
+        "receiver_m": [
+          0,
+          0,
+          0
+        ],
+        "source_m": [
+          10,
+          0,
+          0
+        ]
+      },
+      "tick_period_ns": 100000000,
+      "horizon_s": 2,
+      "issue_specs": [
+        {
+          "realization": "ray10-001",
+          "tick": 0,
+          "initial_seed": 530001,
+          "rgb_seed": 531001,
+          "lwir_seed": 532001
+        },
+        {
+          "realization": "ray10-002",
+          "tick": 37,
+          "initial_seed": 530002,
+          "rgb_seed": 531002,
+          "lwir_seed": 532002
+        },
+        {
+          "realization": "ray10-003",
+          "tick": 91,
+          "initial_seed": 530003,
+          "rgb_seed": 531003,
+          "lwir_seed": 532003
+        },
+        {
+          "realization": "ray10-004",
+          "tick": 148,
+          "initial_seed": 530004,
+          "rgb_seed": 531004,
+          "lwir_seed": 532004
+        }
+      ],
+      "future_seeds": [
+        535000,
+        535001,
+        535002,
+        535003
+      ],
+      "fixture_sha256": "43c18aa24530a24516d3ab4502d7d51e958b1ce87921aeddd6bbddad0f9ac779",
+      "adapter_sha256": "1cda3c608d6dcc7e4d7000c0a228ff521d9a562648cb4f8b5ecd6bb6c949ca71",
+      "frozen_package_manifest_sha256": {
+        "m05": "cc860970815298c99fcbd2df6b2729ceb1d37f5626f59a5126ca5776ce922470",
+        "m06": "2bd0e21c48d07f47fc4a87e96c0e5ca88c8e169d33d2eda22e6a91e22df75f5a",
+        "m07": "eb002853867d804f4f58533d1c4cc24233bf25ef3f622e527b240b64c1ec7111",
+        "m08": "eb467a7c8b9a902b3b4fe41ea2d828b9373a2e81607e9d10759a4f98d525d101"
+      },
+      "artifacts_sha256": {
+        "evaluation.csv": "dbf9e4dc9cad59a48aafcdd0c2915d68a9270a43d6652df4e2f90be63df064d9",
+        "forecasts.csv": "a03e9403a8d9a5106082f238f8240a799dda9034a8e2bb55f813142fb70a1f0a",
+        "issues.csv": "4e80255ac1dd2e41247df3bda33eae64bb0e136bafa0e15eb61910e4f10de61f",
+        "schedule.csv": "f21d9beab29a4d130cdb3e8678ea65cd5fcfc7da6efe67ad394ffc7753af7a1f",
+        "truth.csv": "af34f370f3d44921751e2b52aaa89af6033defe023c9be053e1fb29eb14f7698"
+      }
+    },
+    "counterfactual_manifest": {
+      "schema_version": 1,
+      "fixture_id": "analytic-ray-10m-r1",
+      "python": "3.12.3",
+      "geometry": {
+        "frame": "receiver_origin_x_forward",
+        "receiver_m": [
+          0,
+          0,
+          0
+        ],
+        "source_m": [
+          10,
+          0,
+          0
+        ]
+      },
+      "tick_period_ns": 100000000,
+      "horizon_s": 2,
+      "issue_specs": [
+        {
+          "realization": "ray10-001",
+          "tick": 0,
+          "initial_seed": 530001,
+          "rgb_seed": 531001,
+          "lwir_seed": 532001
+        },
+        {
+          "realization": "ray10-002",
+          "tick": 37,
+          "initial_seed": 530002,
+          "rgb_seed": 531002,
+          "lwir_seed": 532002
+        },
+        {
+          "realization": "ray10-003",
+          "tick": 91,
+          "initial_seed": 530003,
+          "rgb_seed": 531003,
+          "lwir_seed": 532003
+        },
+        {
+          "realization": "ray10-004",
+          "tick": 148,
+          "initial_seed": 530004,
+          "rgb_seed": 531004,
+          "lwir_seed": 532004
+        }
+      ],
+      "future_seeds": [
+        536000,
+        536001,
+        536002,
+        536003
+      ],
+      "fixture_sha256": "96558fefe58d4e82796172d08397f841612d4d47fc0fa3ac3bbd9a5aff61498b",
+      "adapter_sha256": "1cda3c608d6dcc7e4d7000c0a228ff521d9a562648cb4f8b5ecd6bb6c949ca71",
+      "frozen_package_manifest_sha256": {
+        "m05": "cc860970815298c99fcbd2df6b2729ceb1d37f5626f59a5126ca5776ce922470",
+        "m06": "2bd0e21c48d07f47fc4a87e96c0e5ca88c8e169d33d2eda22e6a91e22df75f5a",
+        "m07": "eb002853867d804f4f58533d1c4cc24233bf25ef3f622e527b240b64c1ec7111",
+        "m08": "eb467a7c8b9a902b3b4fe41ea2d828b9373a2e81607e9d10759a4f98d525d101"
+      },
+      "artifacts_sha256": {
+        "evaluation.csv": "d4a907006cb77436682250fdd68370cccaa2a9482adf73ff8b498d3a06b8ead2",
+        "forecasts.csv": "a03e9403a8d9a5106082f238f8240a799dda9034a8e2bb55f813142fb70a1f0a",
+        "issues.csv": "4e80255ac1dd2e41247df3bda33eae64bb0e136bafa0e15eb61910e4f10de61f",
+        "schedule.csv": "f21d9beab29a4d130cdb3e8678ea65cd5fcfc7da6efe67ad394ffc7753af7a1f",
+        "truth.csv": "8fd821616f29269c050c68d381bf80ea10b97853302f6362c0973ad68f50a38e"
+      }
+    },
+    "repeat_verified": true
+  },
+  "gates": {
+    "geometry_and_exact_timing": "PASS",
+    "issue_schema_and_replay": "PASS",
+    "references": "PASS",
+    "matched_controls_and_scoring": "PASS",
+    "future_leakage": "PASS",
+    "manifest_integrity": "PASS"
+  }
+}
