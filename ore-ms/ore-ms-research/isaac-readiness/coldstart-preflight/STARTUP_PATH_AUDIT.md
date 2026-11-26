@@ -1,0 +1,11 @@
+# Startup path audit
+
+Phase A began on `ore-ms-orb-development` at local and remote HEAD `d25636eec791d4d2951d624541f0705d791a6794`. The existing untracked `robot/ros_ws/core` had SHA-256 `3425b3f3aa5874b73c9866aa95ecc78ff053e27b30ea063299eae6fdf2f2e111`. Reviewed the tracked workflow, top-level and service Compose files, `.env`, workspace image and entrypoint, and the [readiness](../VERIFICATION_REPORT.md) and [remediation](../numpy-remediation/VERIFICATION_REPORT.md) results.
+
+1. The supplied design starts the outer workspace image, initializes rclone, and execs its baked `/usr/local/bin/entrypoint.sh`. The committed counterpart starts SSH and inner Docker, clones with `git clone --recursive --branch "$AIRSTACK_BRANCH"` if `/root/AirStack/.git` is absent, and leaves a pre-existing checkout alone. The baked script in the actual Mac-selected image was not independently verified.
+2. The entrypoint prepares the Nucleus env file and attempts private-registry authentication via the task's credential references. This audit inspected the source only.
+3. Given livestream true and no explicit profile override, the entrypoint exports `desktop,isaac-sim-livestream` then runs the cloned `./airstack.sh up`. The inherited task environment survives this process boundary. A nonzero launch warns and leaves SSH available. A live workspace alone therefore does not establish successful container launch.
+4. The CLI loads the tracked Compose includes and `.env`. Exported values take precedence over interpolation defaults. The simulator inherits its base image selection. The launcher now passes `--no-build` whenever the resolved Isaac image ends with a SHA-256 digest. The robot and GCS references are preserved.
+5. The three services can start concurrently. There is no confirmed cold-start readiness barrier. The earlier runtime showed heartbeat recovery after simulator recreation, but does not prove the order or readiness in a new workflow. Record startup timestamps and application readiness in Phase B.
+
+Only the research-branch CLI was changed. The entrypoint is baked into the outer image, so placing the guard in the cloned CLI makes it available without republishing that image. The legacy preflight's simulator-profile warning can omit the livestream profile. Use the resolved Compose services and runtime logs to judge startup.

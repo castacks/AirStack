@@ -1677,9 +1677,13 @@ function preflight_up {
         docker image inspect "$img" >/dev/null 2>&1 || missing+=("$img")
     done
     if (( ${#missing[@]} > 0 )); then
-        log_warn "Images not present locally — compose will BUILD them from scratch (can take a long time):"
+        if [[ "${AIRSTACK_NO_IMAGE_BUILD:-}" == "1" ]]; then
+            log_info "Images not present locally — Compose must pull them from the registry:"
+        else
+            log_warn "Images not present locally — Compose may build them if a pull fails:"
+            log_warn "Set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds."
+        fi
         printf '  - %s\n' "${missing[@]}" >&2
-        log_warn "To use prebuilt images instead: airstack images pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
     fi
 
     # 8. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
@@ -1722,6 +1726,15 @@ function cmd_up {
     if [[ -n "${AIRSTACK_FLEET_COMPOSE_FILE:-}" ]]; then
         log_info "Fleet overlay active → including ${AIRSTACK_FLEET_COMPOSE_FILE#$PROJECT_ROOT/}"
         global_args+=(-f "$AIRSTACK_FLEET_COMPOSE_FILE")
+    fi
+
+    # A digest selects a published artifact. A failed pull must never fall
+    # back to a local build when the caller has selected that artifact.
+    local isaac_image
+    local AIRSTACK_NO_IMAGE_BUILD="${AIRSTACK_NO_IMAGE_BUILD:-}"
+    isaac_image=$(resolve_launch_var ISAAC_SIM_IMAGE "${global_args[@]}")
+    if [[ "$isaac_image" =~ @sha256:[[:xdigit:]]{64}$ ]]; then
+        AIRSTACK_NO_IMAGE_BUILD=1
     fi
 
     print_launch_config "${global_args[@]}"
