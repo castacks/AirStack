@@ -1,0 +1,267 @@
+{
+  "wire_before": {
+    "started_utc": "2026-11-26T21:02:41.608968+00:00",
+    "endpoint": "ws://127.0.0.1:8766",
+    "handshake": "HTTP/1.1 101 Switching Protocols",
+    "window_seconds": 10,
+    "channels": [
+      {
+        "topic": "/gcs/robot_markers",
+        "schema": "visualization_msgs/msg/MarkerArray",
+        "messages": 98
+      },
+      {
+        "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+        "schema": "visualization_msgs/msg/Marker",
+        "messages": 0
+      },
+      {
+        "topic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+        "schema": "sensor_msgs/msg/Image",
+        "messages": 190
+      },
+      {
+        "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+        "schema": "visualization_msgs/msg/MarkerArray",
+        "messages": 0
+      }
+    ],
+    "depth_frames": [
+      {
+        "stamp_ns": 3266209926994,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432195663452148,
+          "p95": 1.0887365341186523,
+          "max": 10.751495361328125
+        }
+      },
+      {
+        "stamp_ns": 3266629926985,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432147979736328,
+          "p95": 1.0887322425842285,
+          "max": 10.750731468200684
+        }
+      },
+      {
+        "stamp_ns": 3267019926976,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432195663452148,
+          "p95": 1.0887384414672852,
+          "max": 10.750970840454102
+        }
+      },
+      {
+        "stamp_ns": 3267349926969,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432100296020508,
+          "p95": 1.088613510131836,
+          "max": 10.739395141601562
+        }
+      },
+      {
+        "stamp_ns": 3267679926961,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432195663452148,
+          "p95": 1.0887370109558105,
+          "max": 10.751142501831055
+        }
+      }
+    ]
+  },
+  "typed_ros_observation": {
+    "timeout_seconds": 9,
+    "marker_exit": {
+      "robot_domain_1": 0,
+      "gcs_domain_0": 0
+    },
+    "marker_array_exit": {
+      "robot_domain_1": 124,
+      "gcs_domain_0": 124
+    },
+    "shared_marker_stamp_ns": 3287659926515
+  },
+  "bridge": {
+    "domain": 0,
+    "address": "0.0.0.0",
+    "container_port": 8765,
+    "workspace_port": 8766,
+    "use_sim_time": true,
+    "router_version": "3.4.0"
+  },
+  "display": {
+    "before": [
+      0,
+      100
+    ],
+    "after": [
+      0.05,
+      1.2
+    ],
+    "verified_layout_robot_counts": [
+      1,
+      2
+    ],
+    "client_render_tested": false
+  },
+  "readiness_after": {
+    "ready": true,
+    "elapsed_s": 7,
+    "gates": {
+      "px4_ready_robot_1": "ok",
+      "containers": "ok",
+      "px4_connected_robot_1": "ok",
+      "nodes_robot_1": "ok",
+      "sim_clock": "ok"
+    }
+  },
+  "r1_after": {
+    "clock_advances": true,
+    "mavros_state": {
+      "topic": "/robot_1/interface/mavros/state",
+      "samples": 6,
+      "connected": true,
+      "armed": false
+    },
+    "odometry": {
+      "topic": "/robot_1/interface/mavros/local_position/odom",
+      "samples": 195
+    },
+    "latest_tf_from_map": {
+      "base_link": 1,
+      "camera_left": 1,
+      "camera_right": 1,
+      "ouster": 1
+    },
+    "sensors": {
+      "/robot_1/sensors/front_stereo/left/image_rect": {
+        "samples": 238,
+        "frame": "camera_left",
+        "valid_stamps": true,
+        "hz_received": 24.117318273062416,
+        "hz_sim": 32.11382185620334,
+        "checked_stamp_ns": 3320089925790,
+        "checked_frame": "camera_left",
+        "exact_tf": true,
+        "age_ms": 89.999998
+      },
+      "/robot_1/sensors/front_stereo/right/image_rect": {
+        "samples": 238,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 24.20120834390403,
+        "hz_sim": 32.244898683048746,
+        "checked_stamp_ns": 3320119925789,
+        "checked_frame": "camera_right",
+        "exact_tf": true,
+        "age_ms": 59.999999
+      },
+      "/robot_1/sensors/front_stereo/left/camera_info": {
+        "samples": 247,
+        "frame": "camera_left",
+        "valid_stamps": true,
+        "hz_received": 24.991444140690536,
+        "hz_sim": 33.3333340785908
+      },
+      "/robot_1/sensors/front_stereo/right/camera_info": {
+        "samples": 246,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 25.02887388626942,
+        "hz_sim": 33.33333408163267
+      },
+      "/robot_1/sensors/front_stereo/right/depth_ground_truth": {
+        "samples": 230,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 23.405943748907625,
+        "hz_sim": 31.156463284464824,
+        "checked_stamp_ns": 3319999925792,
+        "checked_frame": "camera_right",
+        "exact_tf": true,
+        "age_ms": 59.999998
+      },
+      "/robot_1/sensors/ouster/point_cloud": {
+        "samples": 94,
+        "frame": "ouster",
+        "valid_stamps": true,
+        "hz_received": 7.975444209488813,
+        "hz_sim": 10.580205014075107,
+        "checked_stamp_ns": 3319309925807,
+        "checked_frame": "ouster",
+        "exact_tf": true,
+        "age_ms": 29.999999
+      }
+    },
+    "stereo": {
+      "exact_pairs": 230,
+      "latest_received_delta_s": 0.0
+    },
+    "passed": true
+  }
+}

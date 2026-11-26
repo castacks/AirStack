@@ -542,8 +542,8 @@
         "imageTopic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
         "calibrationTopic": "/robot_1/sensors/front_stereo/right/camera_info",
         "colorMode": "gradient",
-        "minValue": 0,
-        "maxValue": 100
+        "minValue": 0.05,
+        "maxValue": 1.2
       }
     }
   },

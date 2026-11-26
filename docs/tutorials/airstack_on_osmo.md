@@ -462,10 +462,13 @@ step:
 This copies the AirStack Foxglove extensions (Robot Tasks, Waypoint
 Editor, Polygon Editor) into your local Foxglove Desktop user-extensions
 dir (default `~/.foxglove-studio/extensions`; override with
-`OSMO_FOXGLOVE_EXT_DIR`, skip with `OSMO_FOXGLOVE_SKIP_EXTENSIONS=1` for
-`app.foxglove.dev` which doesn't load local extensions), then runs the
+`OSMO_FOXGLOVE_EXT_DIR`, or skip the Desktop file copy with
+`OSMO_FOXGLOVE_SKIP_EXTENSIONS=1`), then runs the
 `localhost:8766 → pod:8766` port-forward in the foreground — leave the
-terminal running.
+terminal running. The web app uses a separate extension workflow. Install a packaged
+`.foxe` in the browser if your seat permits it, or use an extension made available
+by your organization. The helper copies the prebuilt AirStack bundles for Desktop.
+[Foxglove extension installation](https://docs.foxglove.dev/docs/extensions/local-development)
 
 Then in [https://app.foxglove.dev](https://app.foxglove.dev) (or Foxglove
 Desktop):
