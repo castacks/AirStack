@@ -1,0 +1,39 @@
+Observed 2026-11-26 UTC from the workspace for airstack-dev-314.
+Starting local and live remote SHA: ab2673d079af345178c3c0cae61bf619f2bc6ff3
+Starting worktree clean. No credential content retained.
+
+Docker buildx imagetools inspect using existing workspace Docker configuration
+Registry: airlab-docker.andrew.cmu.edu/airstack/airstack
+v0.20.8_robot-x86-64_dev: not found
+v0.20.9_robot-x86-64_dev: not found
+v0.20.10_robot-x86-64_dev: not found
+v0.20.8_gcs: sha256:d25c4ae77de5fd6da43c334220e833dacedd61bceafce389e882b735ae41af9a
+
+Public Harbor GET /api/v2.0/projects/airstack/repositories/airstack/artifacts/<ref>
+v0.20.8_robot-x86-64_dev: HTTP 404, NOT_FOUND, artifact airstack/airstack:v0.20.8_robot-x86-64_dev not found
+v0.20.8_gcs: HTTP 200, same index digest
+Public inventory pages 1 and 2 (page_size=100, with_tag=true): 160 artifacts
+Read-only Buildx --raw lookups of Linux/amd64 manifests for desktop robot-tagged artifacts: zero config IDs equal to previously run sha256:191cbf60c589dac0167518e4d3c0fa3b07807eac4d3d4df0b5d25bc003a9e1
+
+Selected candidates (linux/amd64, ROS_DISTRO=jazzy and MAVROS installation in image history):
+v0.20.7_robot-x86-64_dev
+  index: sha256:bf6a9c210e64615fb45b38ec324b6a1085e1b407c7865d513381e744dc6a49a1
+  manifest: sha256:f2c7bce4797008bff889dbef2881fd015780c972f16b8e344c13a22bba02cbf4
+  config: sha256:3d8fa569dfed6f7249faee9c205bc49eb44b711991db9e7c65d1fa406d46fdda
+cache_robot-x86-64_dev (also v0.21.0-dev.13_robot-x86-64_dev)
+  manifest: sha256:1c1e33e77e5cabce3e84ad6442bb1f27e89c99cd033f130282572cd4ab8a2786
+  config: sha256:36d4ab8c3308c27b01b1d69a42f3a5365f970a76376a442cc1c0b63e1a677b5d
+v0.21.0-dev.15_robot-x86-64_dev
+  manifest: sha256:f3d49e44c47b5c5ee90766c0bfd354a7cb519d8e3cb9d86fc9edc15366df741b
+  config: sha256:71f91e0d228e3b17164f1fe559d70e6624fb682d3fc135a59d3d011886ff7148
+
+GitHub Actions public API:
+GET /repos/castacks/AirStack/actions/workflows/docker-build.yml/runs?head_sha=a6dad8caf54722e5eba3481367e914ce213e6135
+  Total 1. Run 33933686507, main, attempt 1, created 2026-09-05T00:39:18Z, failure.
+GET /repos/castacks/AirStack/actions/runs/33933686507/jobs
+  check-docker-tag-change: success
+  docker-build: failure, job 101217394736, steps=[]
+  notify: failure
+GET /repos/castacks/AirStack/actions/runs/33933686507/logs: HTTP 403
+
+Offline Phase A fixture: 4 cases passed, including digest-pinned no-build, failed launch without build fallback, and unchanged robot and GCS references.
