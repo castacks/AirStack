@@ -1,0 +1,6 @@
+# Next cold-start checklist
+
+1. Resolve the exact robot artifact through the maintainer and verify tag access with the intended workflow credential. Record the approved Linux/amd64 manifest and config ID. If it is newly built, require a separate compatibility result before publication. [Recovery plan](ARTIFACT_RECOVERY_PLAN.md)
+2. Before user-controlled submission, verify the Mac-local workspace task resolves the research branch, robot desktop tag, unchanged GCS tag, and exact Isaac digest `sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697`. Preserve one robot, desktop/livestream profiles and the digest-triggered no-build path. [Phase A setup](../coldstart-preflight/USER_DEPLOYMENT_HANDOFF.md)
+3. On a subsequent separately authorized attempt, retain the earliest task/container logs, resolved references, starts and initial failures. Take one bounded `./airstack.sh ready --json` observation after services start. Record timestamp progression, same-epoch odometry and dynamic TF, MAVROS connectivity, and container start order. A container start timestamp alone cannot determine epoch consistency. [Timing review](ORE_PROJ_STARTUP_TIMING_REVIEW.md)
+4. If any gate fails, preserve the first outcome. Stop before restarting services or changing configuration. A clean launch and phase B runtime qualification are separate decisions.
