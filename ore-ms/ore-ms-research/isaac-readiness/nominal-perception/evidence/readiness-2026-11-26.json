@@ -1,0 +1,1 @@
+{"ready": true, "elapsed_s": 7, "gates": {"px4_ready_robot_1": "ok", "containers": "ok", "px4_connected_robot_1": "ok", "nodes_robot_1": "ok", "sim_clock": "ok"}}

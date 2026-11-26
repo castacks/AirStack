@@ -1,0 +1,2111 @@
+{
+  "schema_version": 1,
+  "started_utc": "2026-11-26T20:55:44.787508+00:00",
+  "configuration": {
+    "robot": "/robot_1",
+    "domain": "1",
+    "source_commit": "bf24a8a2ad7ce2cdbed492e10a70bff1e6ab75c6",
+    "seconds": 30,
+    "warmup_seconds": 4,
+    "drain_seconds": 2,
+    "qos": "sensor_data",
+    "max_messages_per_stream": 4096,
+    "payload_frame_stride": 10,
+    "max_payload_values": 4096
+  },
+  "clock": {
+    "monotonic_advancing": true,
+    "samples": 690,
+    "collector_overflow": 0
+  },
+  "streams": {
+    "left_rgb": {
+      "topic": "/robot_1/sensors/front_stereo/left/image_rect",
+      "required": true,
+      "messages": 668,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_left"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 22.28270094993405,
+          "interval_ms": {
+            "min": 3.834408,
+            "median": 42.638798,
+            "p95": 61.745002,
+            "max": 204.714042
+          },
+          "jitter_ms_population_stddev": 13.500702331095546,
+          "gaps_over_1_5_median": 28
+        },
+        "sim": {
+          "hz": 32.08273280031125,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 30.0,
+            "max": 149.999996
+          },
+          "jitter_ms_population_stddev": 7.436674610647443,
+          "gaps_over_1_5_median": 21
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 30.0,
+        "p95": 59.999999,
+        "max": 89.999998
+      },
+      "clock_age_samples": 668,
+      "collector_overflow": 0,
+      "map_tf": [
+        {
+          "stamp_ns": 2950579934049,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2951929934019,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2953279933989,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2954629933958,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2955979933928,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2957629933891,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2959069933859,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2960509933827,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2961889933796,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2963329933764,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2964709933733,
+          "frame": "camera_left",
+          "available": true
+        },
+        {
+          "stamp_ns": 2966119933702,
+          "frame": "camera_left",
+          "available": true
+        }
+      ]
+    },
+    "right_rgb": {
+      "topic": "/robot_1/sensors/front_stereo/right/image_rect",
+      "required": true,
+      "messages": 677,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_right"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 22.551956481151432,
+          "interval_ms": {
+            "min": 5.284998,
+            "median": 42.994005,
+            "p95": 64.193837,
+            "max": 124.517104
+          },
+          "jitter_ms_population_stddev": 11.406071313806926,
+          "gaps_over_1_5_median": 32
+        },
+        "sim": {
+          "hz": 32.46878074593909,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 30.0,
+            "max": 59.999999
+          },
+          "jitter_ms_population_stddev": 4.829739953085,
+          "gaps_over_1_5_median": 18
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 30.0,
+        "p95": 59.999999,
+        "max": 59.999999
+      },
+      "clock_age_samples": 677,
+      "collector_overflow": 0,
+      "map_tf": [
+        {
+          "stamp_ns": 2950579934049,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2951959934018,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2953339933987,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2954719933956,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2956129933925,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2957719933889,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2959099933858,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2960509933827,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2961919933795,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2963359933763,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2964739933732,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2966119933702,
+          "frame": "camera_right",
+          "available": true
+        }
+      ]
+    },
+    "left_info": {
+      "topic": "/robot_1/sensors/front_stereo/left/camera_info",
+      "required": true,
+      "messages": 694,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_left"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 23.15077750472482,
+          "interval_ms": {
+            "min": 1.232711,
+            "median": 42.71191,
+            "p95": 53.01963,
+            "max": 113.245468
+          },
+          "jitter_ms_population_stddev": 7.830070242592166,
+          "gaps_over_1_5_median": 12
+        },
+        "sim": {
+          "hz": 33.3333340788841,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 30.0,
+            "max": 30.0
+          },
+          "jitter_ms_population_stddev": 4.6985155204022105e-07,
+          "gaps_over_1_5_median": 0
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 29.999999,
+        "p95": 30.0,
+        "max": 59.999999
+      },
+      "clock_age_samples": 694,
+      "collector_overflow": 0
+    },
+    "right_info": {
+      "topic": "/robot_1/sensors/front_stereo/right/camera_info",
+      "required": true,
+      "messages": 693,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_right"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 23.116985885282507,
+          "interval_ms": {
+            "min": 7.023393,
+            "median": 42.719995999999995,
+            "p95": 53.332201,
+            "max": 115.423897
+          },
+          "jitter_ms_population_stddev": 7.1868039699275865,
+          "gaps_over_1_5_median": 12
+        },
+        "sim": {
+          "hz": 33.28523402970822,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 30.0,
+            "max": 59.999999
+          },
+          "jitter_ms_population_stddev": 1.13960456221138,
+          "gaps_over_1_5_median": 1
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 29.999999,
+        "p95": 30.0,
+        "max": 59.999999
+      },
+      "clock_age_samples": 693,
+      "collector_overflow": 0
+    },
+    "right_depth": {
+      "topic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+      "required": true,
+      "messages": 637,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_right"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 21.248268975857517,
+          "interval_ms": {
+            "min": 4.044926,
+            "median": 43.9459665,
+            "p95": 81.012569,
+            "max": 180.814432
+          },
+          "jitter_ms_population_stddev": 16.72919754321237,
+          "gaps_over_1_5_median": 52
+        },
+        "sim": {
+          "hz": 30.591631275858997,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 59.999999,
+            "max": 119.999997
+          },
+          "jitter_ms_population_stddev": 10.225627213239669,
+          "gaps_over_1_5_median": 47
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 30.0,
+        "p95": 59.999999,
+        "max": 89.999998
+      },
+      "clock_age_samples": 637,
+      "collector_overflow": 0,
+      "payload_samples": [
+        {
+          "stamp_ns": 2948509934095,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2948809934088,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2949109934082,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2949409934075,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2949889934064,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2950219934057,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2950519934050,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2950819934044,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2951149934036,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2951449934029,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2951749934023,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2952049934016,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2952349934009,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2952649934003,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2952949933996,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2953309933988,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2953609933981,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2953909933974,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2954209933968,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2954509933961,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2954839933954,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2955139933947,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2955439933940,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2955739933934,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2956219933923,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2956669933913,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2956999933905,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2957359933897,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2957659933891,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2957989933883,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2958289933877,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2958679933868,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2958979933861,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2959339933853,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2959669933846,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2959969933839,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2960329933831,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2960689933823,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2960989933816,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2961289933810,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2961619933802,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2961919933795,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2962279933787,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2962609933780,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2962969933772,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2963299933765,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2963629933757,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2963959933750,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2964319933742,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2964619933735,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2964919933728,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2965249933721,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2965579933714,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2965909933706,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2966209933700,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2966539933692,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2966869933685,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2967169933678,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2967469933671,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2967799933664,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2968129933657,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2968429933650,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2968759933643,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        },
+        {
+          "stamp_ns": 2969119933634,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.46325
+        }
+      ],
+      "payload_errors": [],
+      "valid_fraction": {
+        "min": 0.46325,
+        "median": 0.46325,
+        "p95": 0.46325,
+        "max": 0.46325
+      },
+      "map_tf": [
+        {
+          "stamp_ns": 2950609934048,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2951929934019,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2953279933989,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2954599933959,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2955919933930,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2957599933892,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2959009933860,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2960479933828,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2961829933797,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2963299933765,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2964709933733,
+          "frame": "camera_right",
+          "available": true
+        },
+        {
+          "stamp_ns": 2966089933702,
+          "frame": "camera_right",
+          "available": true
+        }
+      ]
+    },
+    "ouster": {
+      "topic": "/robot_1/sensors/ouster/point_cloud",
+      "required": true,
+      "messages": 212,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "ouster"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 7.06787529349814,
+          "interval_ms": {
+            "min": 90.156973,
+            "median": 130.805396,
+            "p95": 238.659537,
+            "max": 406.505349
+          },
+          "jitter_ms_population_stddev": 49.40271252411196,
+          "gaps_over_1_5_median": 14
+        },
+        "sim": {
+          "hz": 10.178485514357877,
+          "interval_ms": {
+            "min": 59.999999,
+            "median": 89.999998,
+            "p95": 179.999996,
+            "max": 269.999994
+          },
+          "jitter_ms_population_stddev": 34.190099580698295,
+          "gaps_over_1_5_median": 14
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 29.999999,
+        "p95": 59.999999,
+        "max": 59.999999
+      },
+      "clock_age_samples": 212,
+      "collector_overflow": 0,
+      "payload_samples": [
+        {
+          "stamp_ns": 2948539934094,
+          "declared_points": 12165,
+          "sampled_values": 4055,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2949409934075,
+          "declared_points": 12209,
+          "sampled_values": 4070,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2950489934051,
+          "declared_points": 12186,
+          "sampled_values": 4062,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2951389934031,
+          "declared_points": 12204,
+          "sampled_values": 4068,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2952379934009,
+          "declared_points": 12173,
+          "sampled_values": 4058,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2953279933989,
+          "declared_points": 12305,
+          "sampled_values": 3077,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2954179933968,
+          "declared_points": 12151,
+          "sampled_values": 4051,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2955169933946,
+          "declared_points": 12185,
+          "sampled_values": 4062,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2956069933926,
+          "declared_points": 12211,
+          "sampled_values": 4071,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2956969933906,
+          "declared_points": 12196,
+          "sampled_values": 4066,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2957959933884,
+          "declared_points": 12214,
+          "sampled_values": 4072,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2958859933864,
+          "declared_points": 12233,
+          "sampled_values": 4078,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2960299933832,
+          "declared_points": 12173,
+          "sampled_values": 4058,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2961289933810,
+          "declared_points": 12183,
+          "sampled_values": 4061,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2962369933785,
+          "declared_points": 12206,
+          "sampled_values": 4069,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2963449933761,
+          "declared_points": 12222,
+          "sampled_values": 4074,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2964529933737,
+          "declared_points": 12169,
+          "sampled_values": 4057,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2965399933718,
+          "declared_points": 12199,
+          "sampled_values": 4067,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2966299933698,
+          "declared_points": 12479,
+          "sampled_values": 3120,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2967199933677,
+          "declared_points": 12214,
+          "sampled_values": 4072,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2968099933657,
+          "declared_points": 12208,
+          "sampled_values": 4070,
+          "valid_fraction": 1.0
+        },
+        {
+          "stamp_ns": 2969179933633,
+          "declared_points": 12162,
+          "sampled_values": 4054,
+          "valid_fraction": 1.0
+        }
+      ],
+      "payload_errors": [],
+      "valid_fraction": {
+        "min": 1.0,
+        "median": 1.0,
+        "p95": 1.0,
+        "max": 1.0
+      },
+      "declared_points": {
+        "min": 12151,
+        "median": 12201.5,
+        "p95": 12305,
+        "max": 12479
+      },
+      "map_tf": [
+        {
+          "stamp_ns": 2950579934049,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2951929934019,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2953369933987,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2954809933954,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2956159933924,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2957599933892,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2959129933858,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2960929933818,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2962459933783,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2964169933745,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2965489933716,
+          "frame": "ouster",
+          "available": true
+        },
+        {
+          "stamp_ns": 2966839933685,
+          "frame": "ouster",
+          "available": true
+        }
+      ]
+    },
+    "disparity": {
+      "topic": "/robot_1/perception/stereo_image_proc/disparity",
+      "required": false,
+      "messages": 575,
+      "publisher_count_end": 1,
+      "received": true,
+      "frames": [
+        "camera_left"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 19.201559041135035,
+          "interval_ms": {
+            "min": 7.949401,
+            "median": 44.581917000000004,
+            "p95": 92.358046,
+            "max": 223.588014
+          },
+          "jitter_ms_population_stddev": 23.473532703073186,
+          "gaps_over_1_5_median": 100
+        },
+        "sim": {
+          "hz": 27.64932624418533,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 29.999999,
+            "p95": 59.999999,
+            "max": 149.999997
+          },
+          "jitter_ms_population_stddev": 15.726757536215828,
+          "gaps_over_1_5_median": 95
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 59.999999,
+        "p95": 59.999999,
+        "max": 89.999998
+      },
+      "clock_age_samples": 575,
+      "collector_overflow": 0,
+      "payload_samples": [
+        {
+          "stamp_ns": 2948479934096,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2948779934089,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2949199934080,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2949499934073,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2949889934064,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2950219934057,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2950519934050,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2950849934043,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951149934036,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951479934029,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951809934021,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2952109934015,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2952439934007,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2952829933999,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2953159933991,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2953519933983,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2953819933976,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2954119933970,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2954449933962,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2954809933954,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2955169933946,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2955499933939,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2955799933932,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2956159933924,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2956489933917,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2956909933907,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2957269933899,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2957689933890,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2958079933881,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2958409933874,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2958799933865,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959129933858,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959489933850,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959849933842,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2960149933835,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2960599933825,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2960959933817,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2961289933810,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2961649933801,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2961979933794,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2962429933784,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2962819933775,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2963149933768,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2963449933761,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2963779933754,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2964319933742,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2964619933735,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2964949933728,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2965309933720,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2965699933711,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2966089933702,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2966629933690,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2966959933683,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2967319933675,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2967679933667,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2968219933655,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2968639933645,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2969119933634,
+          "encoding": "32FC1",
+          "width": 480,
+          "height": 300,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        }
+      ],
+      "payload_errors": [],
+      "valid_fraction": {
+        "min": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    "stereo_cloud": {
+      "topic": "/robot_1/perception/stereo_image_proc/point_cloud",
+      "required": false,
+      "messages": 404,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "camera_left"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 13.497762863952593,
+          "interval_ms": {
+            "min": 11.04914,
+            "median": 49.295597,
+            "p95": 167.833185,
+            "max": 631.719288
+          },
+          "jitter_ms_population_stddev": 57.74886921793306,
+          "gaps_over_1_5_median": 156
+        },
+        "sim": {
+          "hz": 19.44042493974514,
+          "interval_ms": {
+            "min": 29.999999,
+            "median": 30.0,
+            "p95": 119.999997,
+            "max": 449.99999
+          },
+          "jitter_ms_population_stddev": 39.71252881784558,
+          "gaps_over_1_5_median": 159
+        }
+      },
+      "clock_age_ms": {
+        "min": 29.999999,
+        "median": 59.999999,
+        "p95": 59.999999,
+        "max": 149.999997
+      },
+      "clock_age_samples": 404,
+      "collector_overflow": 0,
+      "payload_samples": [
+        {
+          "stamp_ns": 2948509934095,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2948929934086,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2949529934072,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2949889934064,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2950339934054,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2950819934044,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951239934034,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951629934025,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2951959934018,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2952349934009,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2952829933999,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2953189933991,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2953759933978,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2954209933968,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2954689933957,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2955109933948,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2955649933936,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2956069933926,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2956549933915,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2957029933905,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2957659933891,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2958229933878,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2958649933869,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959099933858,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959489933850,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2959999933838,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2960629933824,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2961109933814,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2961949933795,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2962759933777,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0025
+        },
+        {
+          "stamp_ns": 2963689933756,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2964439933739,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2964829933730,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2965309933720,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2965969933705,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2966419933695,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2966929933683,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2967319933675,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2967769933665,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2968369933651,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        },
+        {
+          "stamp_ns": 2969089933635,
+          "declared_points": 144000,
+          "sampled_values": 4000,
+          "valid_fraction": 0.0
+        }
+      ],
+      "payload_errors": [],
+      "valid_fraction": {
+        "min": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 0.0025
+      },
+      "declared_points": {
+        "min": 144000,
+        "median": 144000,
+        "p95": 144000,
+        "max": 144000
+      }
+    },
+    "odometry": {
+      "topic": "/robot_1/odometry_conversion/odometry",
+      "required": false,
+      "messages": 619,
+      "publisher_count_end": 2,
+      "received": true,
+      "frames": [
+        "map"
+      ],
+      "timing": {
+        "strict_positive_stamps": false,
+        "wall": {
+          "hz": 20.643778675842672,
+          "interval_ms": {
+            "min": 15.936278,
+            "median": 43.722579999999994,
+            "p95": 82.031668,
+            "max": 145.963821
+          },
+          "jitter_ms_population_stddev": 14.233166071299246,
+          "gaps_over_1_5_median": 80
+        },
+        "sim": {
+          "hz": null,
+          "interval_ms": null,
+          "jitter_ms_population_stddev": null,
+          "gaps_over_1_5_median": null
+        }
+      },
+      "clock_age_ms": {
+        "min": -30.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 30.0
+      },
+      "clock_age_samples": 619,
+      "collector_overflow": 0
+    },
+    "vdb_markers": {
+      "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+      "required": false,
+      "messages": 59,
+      "publisher_count_end": 3,
+      "received": true,
+      "frames": [
+        "map"
+      ],
+      "timing": {
+        "strict_positive_stamps": true,
+        "wall": {
+          "hz": 1.9660425696838604,
+          "interval_ms": {
+            "min": 476.749721,
+            "median": 500.18150149999997,
+            "p95": 514.358357,
+            "max": 1001.578627
+          },
+          "jitter_ms_population_stddev": 65.56336179687561,
+          "gaps_over_1_5_median": 1
+        },
+        "sim": {
+          "hz": 2.8306491603922552,
+          "interval_ms": {
+            "min": 299.999993,
+            "median": 359.999992,
+            "p95": 389.999991,
+            "max": 719.999984
+          },
+          "jitter_ms_population_stddev": 51.974393451136656,
+          "gaps_over_1_5_median": 1
+        }
+      },
+      "clock_age_ms": {
+        "min": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "clock_age_samples": 59,
+      "collector_overflow": 0
+    }
+  },
+  "stereo_pairing": {
+    "exact_pairs": 657,
+    "left_unmatched_unique": 11,
+    "right_unmatched_unique": 20,
+    "left_to_nearest_right_abs_ms": {
+      "min": 0.0,
+      "median": 0.0,
+      "p95": 0.0,
+      "max": 29.999999
+    }
+  },
+  "failures": [],
+  "status": "pass"
+}

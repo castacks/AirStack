@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ORE-MS nominal perception observation",
+  "type": "object",
+  "required": ["schema_version", "started_utc", "configuration", "clock", "streams", "stereo_pairing", "failures", "status"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "started_utc": {"type": "string", "format": "date-time"},
+    "configuration": {
+      "type": "object",
+      "required": ["robot", "domain", "source_commit", "seconds", "warmup_seconds", "drain_seconds", "qos", "max_messages_per_stream", "payload_frame_stride", "max_payload_values"],
+      "properties": {
+        "robot": {"const": "/robot_1"},
+        "domain": {"type": ["string", "null"]},
+        "source_commit": {"type": "string"},
+        "seconds": {"type": "integer", "minimum": 5, "maximum": 60},
+        "warmup_seconds": {"const": 4},
+        "drain_seconds": {"const": 2},
+        "qos": {"const": "sensor_data"},
+        "max_messages_per_stream": {"const": 4096},
+        "payload_frame_stride": {"const": 10},
+        "max_payload_values": {"const": 4096}
+      }
+    },
+    "clock": {
+      "type": "object",
+      "required": ["monotonic_advancing", "samples", "collector_overflow"],
+      "properties": {
+        "monotonic_advancing": {"type": "boolean"},
+        "samples": {"$ref": "#/$defs/count"},
+        "collector_overflow": {"$ref": "#/$defs/count"}
+      }
+    },
+    "streams": {
+      "type": "object",
+      "required": ["left_rgb", "right_rgb", "left_info", "right_info", "right_depth", "ouster", "disparity", "stereo_cloud", "odometry", "vdb_markers"],
+      "additionalProperties": {"$ref": "#/$defs/stream"}
+    },
+    "stereo_pairing": {
+      "type": "object",
+      "required": ["exact_pairs", "left_unmatched_unique", "right_unmatched_unique", "left_to_nearest_right_abs_ms"],
+      "properties": {
+        "exact_pairs": {"$ref": "#/$defs/count"},
+        "left_unmatched_unique": {"$ref": "#/$defs/count"},
+        "right_unmatched_unique": {"$ref": "#/$defs/count"},
+        "left_to_nearest_right_abs_ms": {"$ref": "#/$defs/distribution"}
+      }
+    },
+    "failures": {"type": "array", "items": {"type": "string"}},
+    "status": {"enum": ["pass", "fail", "inconclusive"]}
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "distribution": {
+      "type": ["object", "null"],
+      "required": ["min", "median", "p95", "max"],
+      "properties": {
+        "min": {"type": "number"}, "median": {"type": "number"},
+        "p95": {"type": "number"}, "max": {"type": "number"}
+      }
+    },
+    "cadence": {
+      "type": "object",
+      "required": ["hz", "interval_ms", "jitter_ms_population_stddev", "gaps_over_1_5_median"],
+      "properties": {
+        "hz": {"type": ["number", "null"]},
+        "interval_ms": {"$ref": "#/$defs/distribution"},
+        "jitter_ms_population_stddev": {"type": ["number", "null"]},
+        "gaps_over_1_5_median": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "stream": {
+      "type": "object",
+      "required": ["topic", "required", "messages", "received", "publisher_count_end", "frames", "timing", "clock_age_ms", "clock_age_samples", "collector_overflow"],
+      "properties": {
+        "topic": {"type": "string"},
+        "required": {"type": "boolean"},
+        "messages": {"$ref": "#/$defs/count"},
+        "received": {"type": "boolean"},
+        "publisher_count_end": {"$ref": "#/$defs/count"},
+        "frames": {"type": "array", "items": {"type": "string"}},
+        "timing": {
+          "type": "object",
+          "required": ["strict_positive_stamps", "wall", "sim"],
+          "properties": {
+            "strict_positive_stamps": {"type": "boolean"},
+            "wall": {"$ref": "#/$defs/cadence"},
+            "sim": {"$ref": "#/$defs/cadence"}
+          }
+        },
+        "clock_age_ms": {"$ref": "#/$defs/distribution"},
+        "clock_age_samples": {"$ref": "#/$defs/count"},
+        "collector_overflow": {"$ref": "#/$defs/count"},
+        "valid_fraction": {"$ref": "#/$defs/distribution"},
+        "declared_points": {"$ref": "#/$defs/distribution"},
+        "payload_errors": {"type": "array", "items": {"type": "string"}},
+        "payload_samples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["stamp_ns", "sampled_values", "valid_fraction"],
+            "properties": {
+              "stamp_ns": {"type": "integer"},
+              "sampled_values": {"type": "integer", "minimum": 1, "maximum": 4096},
+              "valid_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+              "declared_points": {"$ref": "#/$defs/count"},
+              "encoding": {"type": "string"},
+              "width": {"$ref": "#/$defs/count"},
+              "height": {"$ref": "#/$defs/count"}
+            }
+          }
+        },
+        "map_tf": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["stamp_ns", "frame", "available"],
+            "properties": {
+              "stamp_ns": {"type": ["integer", "null"]},
+              "frame": {"type": ["string", "null"]},
+              "available": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
