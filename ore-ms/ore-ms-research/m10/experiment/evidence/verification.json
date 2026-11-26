@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "scenarios_per_realization": 27,
+  "realizations": 256,
+  "historical_candidate_and_score_integrity": "PASS",
+  "admissible_input_equivalence_sets": 4,
+  "forbidden_fields_rejected": 6,
+  "privileged_store_read_denied": true,
+  "privileged_label_mutation_invariance": true,
+  "math_fixtures": "PASS",
+  "independent_oracle_correct": 4608,
+  "independent_primary_bootstrap_endpoint_error": 4.163336342344337e-17
+}

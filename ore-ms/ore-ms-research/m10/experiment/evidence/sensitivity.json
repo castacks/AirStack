@@ -1,0 +1,13 @@
+{
+  "candidate_reference_and_matched_distractor_count": 512,
+  "label": "post hoc, descriptive, fixed decisions",
+  "omit_registration_hidden": {
+    "delta_correct": 25,
+    "feasible": 4864,
+    "gain": 0.005139802631578948,
+    "paired_interval95": [
+      0.003289473684210526,
+      0.007195723684210526
+    ]
+  }
+}

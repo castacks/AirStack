@@ -1,0 +1,4 @@
+PASS: PF1 archive checksum, internal manifest and all 16 frozen output hashes checked.
+PASS: Replayed the original detector arrays and joined the original labels. No corpus regeneration.
+PASS: Independent label and scoring verifier output byte-identical to the accepted PF1 evidence.
+PASS: B03 comparator, historical cutoffs [0.20,0.20,0.30] and correct counts [4176,3324,4327] reproduced.
