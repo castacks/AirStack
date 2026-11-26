@@ -1,0 +1,245 @@
+{
+  "workspace": "aadb4af61cb54256-f3a1f0333d394b98",
+  "checkout": "d82cfbbd52ea76d1511d2c066564e45a8f6cbc4e",
+  "workstation": {
+    "browser_connection": "unverified",
+    "forward_target": "unverified",
+    "browser_rgb_3d_updates": "unverified",
+    "effective_depth_settings": "unverified",
+    "depth_rendering": "unverified",
+    "organization_extension_permission": "unverified"
+  },
+  "workspace_wire": {
+    "started_utc": "2026-11-26T21:39:47.181043+00:00",
+    "endpoint": "ws://127.0.0.1:8766",
+    "handshake": "HTTP/1.1 101 Switching Protocols",
+    "window_seconds": 10,
+    "channels": [
+      {
+        "topic": "/gcs/robot_markers",
+        "schema": "visualization_msgs/msg/MarkerArray",
+        "messages": 100,
+        "first_header_ns": 1795729187222430756,
+        "last_header_ns": 1795729197122230343,
+        "unique_header_stamps": 100
+      },
+      {
+        "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+        "schema": "visualization_msgs/msg/Marker",
+        "messages": 0,
+        "first_header_ns": null,
+        "last_header_ns": null,
+        "unique_header_stamps": 0
+      },
+      {
+        "topic": "/robot_1/sensors/front_stereo/right/image_rect",
+        "schema": "sensor_msgs/msg/Image",
+        "messages": 218,
+        "first_header_ns": 5021509887760,
+        "last_header_ns": 5029039887592,
+        "unique_header_stamps": 218
+      },
+      {
+        "topic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+        "schema": "sensor_msgs/msg/Image",
+        "messages": 197,
+        "first_header_ns": 5021509887760,
+        "last_header_ns": 5029039887592,
+        "unique_header_stamps": 197
+      },
+      {
+        "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+        "schema": "visualization_msgs/msg/MarkerArray",
+        "messages": 0,
+        "first_header_ns": null,
+        "last_header_ns": null,
+        "unique_header_stamps": 0
+      }
+    ],
+    "depth_frames": [
+      {
+        "stamp_ns": 5021509887760,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432052612304688,
+          "p95": 1.0886096954345703,
+          "max": 10.73974609375
+        }
+      },
+      {
+        "stamp_ns": 5021869887752,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432147979736328,
+          "p95": 1.0887322425842285,
+          "max": 10.750904083251953
+        }
+      },
+      {
+        "stamp_ns": 5022229887744,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432147979736328,
+          "p95": 1.0887322425842285,
+          "max": 10.750905990600586
+        }
+      },
+      {
+        "stamp_ns": 5022619887735,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.054785728454589844,
+          "median": 0.10432195663452148,
+          "p95": 1.088740348815918,
+          "max": 10.750970840454102
+        }
+      },
+      {
+        "stamp_ns": 5023039887726,
+        "frame": "camera_right",
+        "encoding": "32FC1",
+        "width": 480,
+        "height": 300,
+        "step": 1920,
+        "is_bigendian": 0,
+        "finite_positive": 66720,
+        "zero": 0,
+        "negative_finite": 0,
+        "nan": 0,
+        "infinite": 77280,
+        "positive_range": {
+          "min": 0.0524144172668457,
+          "p05": 0.05478525161743164,
+          "median": 0.10432195663452148,
+          "p95": 1.0887384414672852,
+          "max": 10.750970840454102
+        }
+      }
+    ]
+  },
+  "ros_vdb_publishers": [
+    {
+      "domain": 1,
+      "publishers": [
+        {
+          "node": "vdb_mapping",
+          "namespace": "/robot_1",
+          "schema": "visualization_msgs/msg/Marker"
+        },
+        {
+          "node": "_CREATED_BY_BARE_DDS_APP_",
+          "namespace": "_CREATED_BY_BARE_DDS_APP_",
+          "schema": "visualization_msgs/msg/Marker"
+        },
+        {
+          "node": "_CREATED_BY_BARE_DDS_APP_",
+          "namespace": "_CREATED_BY_BARE_DDS_APP_",
+          "schema": "visualization_msgs/msg/MarkerArray"
+        }
+      ]
+    },
+    {
+      "domain": 0,
+      "publishers": [
+        {
+          "node": "_CREATED_BY_BARE_DDS_APP_",
+          "namespace": "_CREATED_BY_BARE_DDS_APP_",
+          "schema": "visualization_msgs/msg/Marker"
+        },
+        {
+          "node": "_CREATED_BY_BARE_DDS_APP_",
+          "namespace": "_CREATED_BY_BARE_DDS_APP_",
+          "schema": "visualization_msgs/msg/MarkerArray"
+        }
+      ]
+    }
+  ],
+  "typed_ros": {
+    "topic": "/robot_1/vdb_mapping/vdb_map_visualization",
+    "timeout_s": 9,
+    "marker_stamp_ns": 5032729887509,
+    "marker_seen_domains": [
+      0,
+      1
+    ],
+    "marker_array_timed_out_domains": [
+      0,
+      1
+    ]
+  },
+  "checked_in_layout": {
+    "depth_topic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+    "color_mode": "gradient",
+    "min": 0.05,
+    "max": 1.2,
+    "synchronize": false,
+    "tested_render_robot_counts": [
+      1,
+      2
+    ]
+  },
+  "robot_tasks": {
+    "name": "robot-commands",
+    "version": "2.0.0",
+    "registered_panel": "Robot Tasks",
+    "foxe_in_checkout": false
+  },
+  "readiness": {
+    "ready": true,
+    "elapsed_s": 7,
+    "gates": {
+      "containers": "ok",
+      "sim_clock": "ok",
+      "nodes_robot_1": "ok",
+      "px4_connected_robot_1": "ok",
+      "px4_ready_robot_1": "ok"
+    }
+  }
+}
