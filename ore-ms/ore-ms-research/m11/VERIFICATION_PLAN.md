@@ -17,3 +17,7 @@ Statistical seeds are M11-local and independent of M01–M10 seeds. No compariso
 ### WP06 executable M09 extension, frozen before outcomes
 
 Execute the unchanged physics-768-901 checkpoint with independently integrated visible and LWIR detector inputs, covering 256 new realization clusters. Use the same independently sampled Gaussian Fourier state and issue-time detector evidence across matched and future-only branches, and supply wrong-air codes separately. Case metadata stays `matched` for every issue. Use the fixed M08 clock and horizons. Use 6 s/1 nominal, 14 s/1 slow, 6 s/0.6 low amplitude, and 2 s/1.7 future-only transitions. Score burden on its original scale using deterministic normal quantile samples, analytic interval endpoints, and report issue/novelty rates. This is a synthetic transfer probe with descriptive shift outcomes. The field projection uses the declared 16 midpoint cells. Fixtures, observation noise and process innovations are sampled independently across realization clusters.
+
+### WP05 supplementary controls
+
+The foreground path binds the explicit foreground material. Compare the independently integrated bands through the declared M06 sensor scales, allowing one code for accumulated integration and quantization. Report separate analytic advected midpoint mapping, an isothermal balance, and a 128-realization shared versus permuted driver dependence probe. The latter is descriptive. It uses an independent synthetic joint sample and illustrates the implications of the prescribed shared burden.
