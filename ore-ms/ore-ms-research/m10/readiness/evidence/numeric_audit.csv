@@ -1,0 +1,40 @@
+control,estimate,units,immutable_source
+fixed_geometry_pearson_r,0.9922168239,dimensionless,m06/evidence/statistics.csv
+different_realization_comparator_r,-0.06276057566,dimensionless,m06/evidence/statistics.csv
+rgb_tau550_matched_geometry_change,0.2028129023,dimensionless,m06/evidence/statistics.csv
+lwir_tau11_matched_geometry_change,0.06503657851,dimensionless,m06/evidence/statistics.csv
+crossover_R_target_minus_background_W_m2_sr,0.0945380362,W m^-2 sr^-1,m06/evidence/statistics.csv
+crossover_lwir_target_minus_background_W_m2_sr,0,W m^-2 sr^-1,m06/evidence/statistics.csv
+joint_known_rank,1,count,m07/evidence/observability.csv
+unknown_range_one_band_rank,1,count,m07/evidence/observability.csv
+unknown_range_two_bands_rank,2,count,m07/evidence/observability.csv
+lwir_crossover_rank,0,count,m07/evidence/observability.csv
+target_occluded_rank,0,count,m07/evidence/observability.csv
+rail_plateau_rank,0,count,m07/evidence/observability.csv
+range_extinction_equal_transmission_residual,0,dimensionless,m07/evidence/oracle.csv
+m07_matched_joint_coverage,0.9453125,fraction,m07/evidence/metrics.csv
+m07_mismatched_air_joint_coverage,0.8515625,fraction,m07/evidence/metrics.csv
+m07_wrong_air_warning_fraction,0.02734375,fraction,m07/evidence/metrics.csv
+m07_mismatched_air_LWIR_coverage,0.32421875,fraction,m07/evidence/metrics.csv
+m07_severe_rgb_weak,256,count,m07/evidence/metrics.csv
+m07_nominal_grid_warning,5.401319529,nominal sigma,m07/evidence/verification.log
+m07_finer_search_residual,0.473731,LSB,m07/evidence/verification.log
+equal_initial_burden_6s_predictive_mean_gap,0.1637154849,fraction,m08/evidence/verification.log
+m08_matched_joint_2s_coverage,0.9375,fraction,m08/evidence/scores.csv
+m08_air_mismatch_joint_0s_coverage,0.8515625,fraction,m08/evidence/scores.csv
+m08_dynamics_mismatch_joint_2s_coverage,0.6953125,fraction,m08/evidence/scores.csv
+m08_matched_slow_dynamics_2s_coverage,0.890625,fraction,m08/evidence/scores.csv
+m08_matched_low_amplitude_48s_coverage,0.734375,fraction,m08/evidence/scores.csv
+m08_matched_persistence_48s_coverage,0.2734375,fraction,m08/evidence/scores.csv
+m09_matched_2s_coverage,0.9348958333,fraction,m09/evidence/scores.csv
+m09_dynamics_mismatch_2s_coverage,0.6640625,fraction,m09/evidence/scores.csv
+m09_air_mismatch_0s_coverage,0.7630208333,fraction,m09/evidence/scores.csv
+m09_dynamics_mismatch_auc,0.5,fraction,m09/evidence/ood.csv
+m09_dynamics_mismatch_matched_flag_rate,0.0078125,fraction,m09/evidence/ood.csv
+m09_dynamics_mismatch_shift_flag_rate,0.0078125,fraction,m09/evidence/ood.csv
+m09_air_mismatch_auc,0.9298706055,fraction,m09/evidence/ood.csv
+m09_air_mismatch_matched_flag_rate,0.0078125,fraction,m09/evidence/ood.csv
+m09_air_mismatch_shift_flag_rate,0.515625,fraction,m09/evidence/ood.csv
+m09_vs_classical_delta_crps,0.0001325923368,burden CRPS,m09/evidence/paired.csv
+m09_vs_classical_lower95,-0.000722437371,burden CRPS,m09/evidence/paired.csv
+m09_vs_classical_upper95,0.0009876220447,burden CRPS,m09/evidence/paired.csv
