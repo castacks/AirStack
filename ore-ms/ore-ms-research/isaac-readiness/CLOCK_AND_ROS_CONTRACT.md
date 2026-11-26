@@ -1,0 +1,5 @@
+# Clock and ROS 2 contract
+
+The robot operates in domain 1. Over a 12 s wall window, its subscriber saw 238 clock messages, 1,233 dynamic TF messages and 256 converted odometry messages. Clock advanced about 7.11 simulated seconds between the first and last samples. Odometry was in `map` with child `base_link`. The dynamic transform was independently resolved after fixing the MAVROS namespace.
+
+Domain 0 received camera data, static TF, odometry and the VDB marker. It received zero clock, dynamic TF, MAVROS state and diagnostics samples in the selected window. The two domains have different visibility. Domain 1 image, CameraInfo, depth, clock and odometry showed no consecutive duplicate or regressing header stamps. Diagnostics had one consecutive duplicate. These are per-topic delivery-order statistics. They do not establish paired acquisition, inter-topic publication order, or a shared wall-clock epoch. Operator pause, controlled reset and startup clock-transition traces remain untested.

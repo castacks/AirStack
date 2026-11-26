@@ -1,0 +1,66 @@
+{
+  "handshake": "HTTP/1.1 101 Switching Protocols",
+  "elapsed_s": 12.001208577072248,
+  "subscribed": [
+    "/gcs/sim_ground",
+    "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+    "/tf_static",
+    "/robot_1/vdb_mapping/vdb_map_visualization",
+    "/robot_1/interface/mavros/global_position/global",
+    "/robot_1/odometry_conversion/odometry",
+    "/robot_1/sensors/front_stereo/left/camera_info",
+    "/robot_1/sensors/front_stereo/left/image_rect",
+    "/clock"
+  ],
+  "streams": {
+    "/tf_static": {
+      "count": 1,
+      "payload_bytes": 105,
+      "max_gap_s": 0,
+      "last_receipt": 1286432.578832716,
+      "observed_hz": 0.08332494128220166
+    },
+    "/robot_1/interface/mavros/global_position/global": {
+      "count": 496,
+      "payload_bytes": 73904,
+      "max_gap_s": 0.0889348320197314,
+      "last_receipt": 1286444.54517654,
+      "observed_hz": 41.329170875972025
+    },
+    "/robot_1/odometry_conversion/odometry": {
+      "count": 186,
+      "payload_bytes": 135594,
+      "max_gap_s": 2.2457649579737335,
+      "last_receipt": 1286441.832265699,
+      "observed_hz": 15.49843907848951
+    },
+    "/robot_1/sensors/front_stereo/left/camera_info": {
+      "count": 285,
+      "payload_bytes": 108585,
+      "max_gap_s": 2.1502486020326614,
+      "last_receipt": 1286444.573312725,
+      "observed_hz": 23.747608265427473
+    },
+    "/robot_1/sensors/front_stereo/left/image_rect": {
+      "count": 292,
+      "payload_bytes": 126164148,
+      "max_gap_s": 0.13516072602942586,
+      "last_receipt": 1286444.552193633,
+      "observed_hz": 24.330882854402883
+    },
+    "/robot_1/sensors/front_stereo/right/depth_ground_truth": {
+      "count": 282,
+      "payload_bytes": 162452586,
+      "max_gap_s": 0.1412856641691178,
+      "last_receipt": 1286444.552117658,
+      "observed_hz": 23.49763344158087
+    },
+    "/robot_1/vdb_mapping/vdb_map_visualization": {
+      "count": 22,
+      "payload_bytes": 764350,
+      "max_gap_s": 1.0103641860187054,
+      "last_receipt": 1286444.367690437,
+      "observed_hz": 1.8331487082084366
+    }
+  }
+}

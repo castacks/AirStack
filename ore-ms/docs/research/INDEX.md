@@ -8,7 +8,7 @@ protocols can contain proposed follow-ups that later findings have already close
 
 | Topic | Entry point |
 |---|---|
-| Simulator verification | [M11 independent numerical verification and Isaac Sim readiness](../../ore-ms-research/m11/VERIFICATION_REPORT.md) |
+| Simulator verification | [M11 independent numerical verification and Isaac Sim readiness](../../ore-ms-research/m11/VERIFICATION_REPORT.md) · [OSMO and Foxglove qualification](../../ore-ms-research/isaac-readiness/VERIFICATION_REPORT.md) |
 | Thesis results | [Accuracy, availability, and input cost by condition](rgb-thermal-thesis-results-2026-11-20.md) · [Chapter draft](rgb-thermal-thesis-chapter-draft-2026-11-20.md) |
 | VINS visual correction health | [Causal correction magnitudes and warning timing](vins-visual-correction-health-2026-11-19.md) |
 | Track survival warning | [SmokeRoom and FlashLight image-only scout](track-survival-warning-scout-2026-11-20.md) |

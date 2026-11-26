@@ -1,0 +1,5 @@
+# Boot verification
+
+The original entrypoint attempt failed during dependency installation and left the pod running without a stack. The PX4 Dockerfile repair subsequently built the livestream image locally. Starting all three containers required a separate Compose invocation. The runtime camera regression then required a NumPy downgrade and an Isaac restart. The robot was restarted with the MAVROS launch fix.
+
+All three containers were running during qualification. On the repaired Isaac restart, Kit reported app ready at 8.911 s and Simulation App Startup Complete at 13.521 s. The livestream server started and PX4 reached its startup readiness log. The ROS observer received clock, TF, odometry, connected/disarmed MAVROS state and sensor messages. GCS served a WebSocket handshake and delivered data. The robot's DROAN planner and GCS's local Foxglove desktop process had failures despite running containers. A separate scene-load duration and a clean, unattended cold boot were not verified.

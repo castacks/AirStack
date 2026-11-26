@@ -1,0 +1,12 @@
+Isaac repaired restart (selected markers, ANSI stripped)
+[8.911s] app ready
+[13.521s] Simulation App Startup Complete
+Streaming server started.
+Ready for takeoff!
+Robot after namespace repair (selected markers)
+Failed to initialize GLAD!
+Received first odometry
+Got HEARTBEAT, connected. FCU: PX4 Autopilot
+Earlier user-provided failure fragments
+ERROR: Cannot uninstall numpy 1.26.4, RECORD file not found.
+websockets.exceptions.ConnectionClosedError: sent 1011 (unexpected error) keepalive ping timeout; no close frame received
