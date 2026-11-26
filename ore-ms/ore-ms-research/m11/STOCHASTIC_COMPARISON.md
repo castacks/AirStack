@@ -1,0 +1,5 @@
+# Stochastic environment
+
+The exact M05 update agreed with the matrix-exponential decay and integrated diffusion variance over 1e-8, 0.1, 2 and 60 s to 2.22e-16 absolute. Among 24,000 independent field trajectories, the stationary variance and spatial and advected space-time covariances were 1.2064, 0.6763 and 0.6384 versus 1.2100, 0.6698 and 0.6334 latent units squared. The conditional mean/variance after 2 s were 0.7089/0.5795 versus 0.7165/0.5888. The errors are inside 0.04 standardized units. An approximate Gaussian standard error for the conditional variance is 0.0054. Covariances use paired observations within each independently sampled field trajectory.
+
+Euler variance bias declined from 0.2179 at 2 s steps to 0.0215 at 0.25 s steps. All 10,000 path steps remained finite and the largest absolute coefficient was 4.588. The prescribed clear/degraded/clear burden was 0.0180/0.8808/0.0180. These checks qualify Gaussian periodic dynamics and the supplied transport law. Empirical atmospheric evolution and unbounded or multidimensional transport remain open. [Stochastic data](evidence/stochastic_checks.json)

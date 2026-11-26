@@ -1,0 +1,5 @@
+# Geometry and visibility
+
+Matrix projection plus a convex polygon raster supplied first-hit labels independently of the M04 ray/rectangle implementation. All 3,300 pixel-centre rays agreed on surface identity or empty space. Maximum range and projection discrepancies were each 3.55e-15 in metres and pixels respectively. Three motion states produced 81, 45 and 81 target pixels. A coplanar obstacle won the explicit tie control, yielding zero visible target pixels. The projection controls included a translated and rotated camera. The check covers opaque planar fixtures with the stated inclusive boundary convention. Physical lens distortion, rolling shutter, scattering occlusion and per-pixel area weighting remain outside these fixtures. [Geometry data](evidence/geometry_checks.json)
+
+The paired registration sweep measures task consequences across magnitudes, directions, target sizes and foreground choices, separately from the exact projection gate. [Fusion generalization](FUSION_GENERALIZATION.md)

@@ -1,0 +1,11 @@
+Work package,Originating requirements or task identifiers,Verification gates,Artifact,Disposition
+Historical integrity,M01 R01 R06 R07 R08 and M02-R07 through M09-R08 preservation requirements,V01 V11 V13,INPUT_SHA256SUMS.txt and package replay,Pass within repository and replay scope
+WP01,M01 R02 R03 and M02-R01 through M02-R04,V02 V03,RGB_COMPARISON.md,Matched numerics pass and physical approximation conditional
+WP02,M01 R02 R04 and M03-R01 through M03-R06,V02 V04,LWIR_COMPARISON.md,Matched numerics pass and physical calibration deferred
+WP03,M04-R01 through M04-R05 and M06-R01,V02 V05,GEOMETRY_COMPARISON.md,Pass planar pixel-center scope
+WP04,M05-R01 through M05-R04 and M08-R01,V02 V06,STOCHASTIC_COMPARISON.md,Pass prescribed periodic Gaussian scope
+WP05,M01 R05 and M05-R05 and M06-R01 through M06-R04,V02 V07,MULTISPECTRAL_COMPARISON.md,Conditional selected matched paths
+WP06,M07-R01 M07-R03 M07-R04 M08-R01 M08-R04 M08-R05 M08-R06 M09-R01 M09-R04 M09-R05 M09-R06 MATH-23,V02 V08 V10,ESTIMATION_FORECAST_COMPARISON.md,Matched numerical agreement with shifted coverage failures
+WP07,ML-20 ML-21 ML-22 ML-23 INT-16,V05 V09 V10,FUSION_GENERALIZATION.md,Conditional fixture-specific effect and inconclusive pooled gain
+Discrepancy accounting,MATH-23 and M03-R06 M05-R06 M08-R05 M09-R05,V10,UNCERTAINTY_BUDGET.md,Pass within declared synthetic budgets
+Compute and Isaac assessment,INT-17 and M06-R01 M06-R02 M06-R05,V11 V12,COMPUTE_AND_TELEMETRY.md and ISAAC_SIM_READINESS.md,CPU qualified and Isaac runtime untested

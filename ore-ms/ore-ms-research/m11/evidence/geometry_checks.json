@@ -1,0 +1,28 @@
+{
+  "first_hit_mismatch": 0,
+  "max_projection_px": 3.552713678800501e-15,
+  "max_range_m": 3.552713678800501e-15,
+  "rays": 3300,
+  "visibility": [
+    {
+      "tied": false,
+      "time": 0,
+      "visible_target": 81
+    },
+    {
+      "tied": false,
+      "time": 2,
+      "visible_target": 45
+    },
+    {
+      "tied": false,
+      "time": 5,
+      "visible_target": 81
+    },
+    {
+      "tied": true,
+      "time": 0,
+      "visible_target": 0
+    }
+  ]
+}

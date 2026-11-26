@@ -1,0 +1,311 @@
+{
+  "advected_burden_mapping_error": 2.220446049250313e-16,
+  "cases": [
+    {
+      "RGB550_LWIR11_transmission": [
+        1.0,
+        1.0
+      ],
+      "actual": [
+        0.17188733853924695,
+        0.20626480624709637,
+        0.1604281826366305,
+        56.70102704177849
+      ],
+      "detector_codes": [
+        1144,
+        1373,
+        1068,
+        2111
+      ],
+      "errors": [
+        0.0,
+        2.7755575615628914e-17,
+        0.0,
+        -9.488504919374918e-05
+      ],
+      "independent_detector_codes": [
+        1144,
+        1373,
+        1068,
+        2111
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.17188733853924695,
+        0.20626480624709634,
+        0.1604281826366305,
+        56.70112192682768
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "vacuum",
+      "segments": 1,
+      "target_center_visible": true
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.40656965974059917,
+        0.44932896411722156
+      ],
+      "actual": [
+        0.07838444022658782,
+        0.09406132827190539,
+        0.07315881087814864,
+        48.77193314425753
+      ],
+      "detector_codes": [
+        522,
+        626,
+        487,
+        1816
+      ],
+      "errors": [
+        0.0,
+        0.0,
+        1.3877787807814457e-17,
+        -8.659991944170997e-05
+      ],
+      "independent_detector_codes": [
+        522,
+        626,
+        487,
+        1816
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.07838444022658782,
+        0.09406132827190539,
+        0.07315881087814863,
+        48.77201974417697
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "dual",
+      "segments": 1,
+      "target_center_visible": true
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.6376281516217733,
+        0.6703200460356393
+      ],
+      "actual": [
+        0.07223276974952549,
+        0.05960434431551127,
+        0.0339792662960427,
+        42.27461904000541
+      ],
+      "detector_codes": [
+        481,
+        397,
+        226,
+        1574
+      ],
+      "errors": [
+        1.3530889624718823e-06,
+        1.1325855759983239e-06,
+        6.314415158178988e-07,
+        -7.77360679933281e-05
+      ],
+      "independent_detector_codes": [
+        481,
+        397,
+        226,
+        1574
+      ],
+      "length_m": 5.0,
+      "material": "foreground",
+      "reference": [
+        0.07223141666056301,
+        0.059603211729935275,
+        0.03397863485452688,
+        42.274696776073405
+      ],
+      "reference_hit_depth_m": 5,
+      "reference_material": "foreground",
+      "regime": "dual",
+      "segments": 1,
+      "target_center_visible": false
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.34932171214990276,
+        0.8173837628333392
+      ],
+      "actual": [
+        0.08757223605228849,
+        0.10097051067204658,
+        0.07520175941564518,
+        54.03781866540475
+      ],
+      "detector_codes": [
+        583,
+        672,
+        500,
+        2012
+      ],
+      "errors": [
+        -1.3500982325165278e-07,
+        -2.0652425987421896e-07,
+        -2.0412975813843826e-07,
+        -9.913103580316829e-05
+      ],
+      "independent_detector_codes": [
+        583,
+        672,
+        500,
+        2012
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.08757237106211174,
+        0.10097071719630646,
+        0.07520196354540332,
+        54.03791779644055
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "advected",
+      "segments": 4,
+      "target_center_visible": true
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.3496645113119341,
+        0.8175263047225572
+      ],
+      "actual": [
+        0.08761823828072635,
+        0.10102559589984338,
+        0.07524429112779771,
+        54.03990058311272
+      ],
+      "detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "errors": [
+        -1.3507135164514406e-07,
+        -2.0664369931866489e-07,
+        -2.0427559381530624e-07,
+        -9.912766909536685e-05
+      ],
+      "independent_detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.08761837335207799,
+        0.1010258025435427,
+        0.07524449540339152,
+        54.039999710781814
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "advected",
+      "segments": 8,
+      "target_center_visible": true
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.3497503053601078,
+        0.8175619614112468
+      ],
+      "actual": [
+        0.08762975108268603,
+        0.10103938244549804,
+        0.07525493631838254,
+        54.040421363702414
+      ],
+      "detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "errors": [
+        -1.3508672275230893e-07,
+        -2.0667354790060433e-07,
+        -2.0431204839077566e-07,
+        -9.91268266403722e-05
+      ],
+      "independent_detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.08762988616940878,
+        0.10103958911904594,
+        0.07525514063043093,
+        54.040520490529055
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "advected",
+      "segments": 16,
+      "target_center_visible": true
+    },
+    {
+      "RGB550_LWIR11_transmission": [
+        0.3497717594293674,
+        0.8175708767689835
+      ],
+      "actual": [
+        0.08763263000362805,
+        0.1010428299806882,
+        0.07525759834107718,
+        54.04055157562041
+      ],
+      "detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "errors": [
+        -1.3509056477623016e-07,
+        -2.0668100922383026e-07,
+        -2.0432116158708435e-07,
+        -9.912661598576733e-05
+      ],
+      "independent_detector_codes": [
+        583,
+        672,
+        501,
+        2012
+      ],
+      "length_m": 10.0,
+      "material": "target",
+      "reference": [
+        0.08763276509419282,
+        0.10104303666169742,
+        0.07525780266223876,
+        54.0406507022364
+      ],
+      "reference_hit_depth_m": 10,
+      "reference_material": "target",
+      "regime": "advected",
+      "segments": 32,
+      "target_center_visible": true
+    }
+  ],
+  "dependence_n": 128,
+  "isothermal_residual": 0.0,
+  "noisy_shared_pearson": 0.7565512952789587,
+  "permuted_pearson": 0.21818729183608607,
+  "shared_pearson": 0.9928626556413667
+}

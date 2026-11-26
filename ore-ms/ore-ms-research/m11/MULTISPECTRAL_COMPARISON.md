@@ -1,0 +1,7 @@
+# Combined multispectral simulation
+
+Seven matched paths cover vacuum, homogeneous dual, a foreground path, and 4/8/16/32-segment advection. The independent spectral reference integrates piecewise transfer with QUADPACK. Advected midpoint burden agrees with a separate cosine/logistic calculation. Detector codes are checked through independent scale, clip and quantize logic. The input materials and spectral coefficients are shared. The comparison probes implementation consistency and integration convergence under the existing assumptions.
+
+The dual-medium ray to the foreground at 5 m has larger RGB/LWIR transmission (0.638/0.670) than the target ray at 10 m (0.407/0.449). It sees foreground material and loses target visibility. This geometry control uses the known opaque foreground layout. The common atmospheric source does not imply identical modal attenuation or contrast.
+
+Across 128 fresh toy realizations the two transmittances had Pearson correlation 0.993 with shared burden, 0.757 with additional independent noise, and 0.218 after permuting the LWIR realization association. This is a dependence illustration for one prescribed burden mapping. M06's full paired corpus and physical sensor dependence remain separate claims. The isothermal LTE balance evaluates emission and attenuation in consistent spectral units and has zero observed residual. [Multispectral data](evidence/multispectral_checks.json)

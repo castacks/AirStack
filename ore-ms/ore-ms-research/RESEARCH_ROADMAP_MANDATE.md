@@ -22,7 +22,7 @@ Amendment A1 governs execution order, milestone authorization, and reporting. Th
 | M08 | Classical Probabilistic Prediction | Predict future environmental conditions and sensor degradation using Bayesian and statistical methods. |
 | M09 | Physics-Informed Machine Learning | Develop learning models that combine physical equations with data-driven prediction. |
 | M10 | Adaptive Multispectral Sensor Fusion | Dynamically combine RGB and thermal observations based on predicted sensor reliability and uncertainty. |
-| M11 | Independent Simulator Verification | Verify mathematical correctness, physical accuracy, numerical stability, and reproducibility through independent simulation comparisons. |
+| M11 | Authorized (R1 only) | Submitted for review | [M11 plan](m11/VERIFICATION_PLAN.md) | [Independent comparison and assessment](m11/ACCEPTANCE_REPORT.md) | [V01–V13 results](m11/VERIFICATION_REPORT.md) | AC02 and physical-model limits remain open. [Pilot readiness](m11/ISAAC_SIM_READINESS.md) | Project Director review pending |
 | M12 | Physical Sensor Verification | Validate simulation predictions against controlled experiments using physical RGB and thermal sensors. |
 | M13 | ORE-MS Predictive World-Model Integration | Integrate environmental observability, sensor-quality prediction, and uncertainty-aware reasoning into the ORE-MS predictive world model. |
 
@@ -38,7 +38,7 @@ Random environmental dynamics and combined multispectral simulation. Phase II is
 
 **Phase III — Predictive Intelligence (M07–M10)**
 
-Environmental state estimation, probabilistic forecasting, physics-informed machine learning, and uncertainty-aware fusion.
+Environmental state estimation, probabilistic forecasting, physics-informed machine learning, and uncertainty-aware fusion. Phase III is conditionally accepted under the M11-R1 prerequisites.
 
 **Phase IV — Verification and Physical Validation (M11–M12)**
 
@@ -54,9 +54,9 @@ The program retains 25 mathematics, 30 physics, 30 machine learning and 20 syste
 
 ### 5. Milestone authorization policy
 
-**Current execution authorization: M09 only.**
+**Current execution authorization: M11-R1 independent verification and non-invasive Isaac Sim readiness assessment only.**
 
-M10–M13 are pending.
+The M11-R1 directive, received 2026-11-26, records M01–M10 as accepted with conditions. An Isaac Sim pilot, M12 and M13 remain pending and require separate Project Director authorization.
 
 Codex shall not begin implementation of a subsequent milestone without explicit authorization from the Project Director.
 
@@ -106,9 +106,9 @@ The governing research principles are:
 | M06 | Authorized | Accepted | [M06 requirements](m06/REQUIREMENTS_TRACEABILITY.csv) | [Paired dataset and simulation evidence](m06/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m06/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Conditionally accepted under M07-R1, recorded 2026-11-25 |
 | M07 | Authorized | Accepted | [M07 requirements](m07/REQUIREMENTS_TRACEABILITY.csv) | [Conditional estimation evidence](m07/ACCEPTANCE_REPORT.md) | [V01–V07 and V09–V10 passed, V08 not tested](m07/VERIFICATION_REPORT.md) | AC10 open for unconstrained nuisance identification | Conditionally accepted under M08-R1, recorded 2026-11-25 |
 | M08 | Authorized | Accepted | [M08 requirements](m08/REQUIREMENTS_TRACEABILITY.csv) | [Classical forecast evidence](m08/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m08/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Conditionally accepted under M09-R1, recorded 2026-11-25 |
-| M09 | Authorized | Verification | [M09 requirements](m09/REQUIREMENTS_TRACEABILITY.csv) | [Learning comparison evidence](m09/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m09/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Director review pending |
-| M10 | Authorized (R1 only) | Verification | [Controlled synthetic fusion protocol](m10/experiment/PROTOCOL.md) | [Held-out adaptive comparison](m10/experiment/RESULTS.md) | [M10-R1 verification](m10/experiment/VERIFICATION_REPORT.md) | [Acceptance recommended with conditions](m10/experiment/ACCEPTANCE_REPORT.md) | Director review pending |
-| M11 | Pending | Not Started | Independent simulator verification | Independent cross-simulator report | Planned: Numerical and physical consistency checks | Reference simulator and models | Pending authorization |
+| M09 | Authorized | Accepted with conditions | [M09 requirements](m09/REQUIREMENTS_TRACEABILITY.csv) | [Learning comparison evidence](m09/ACCEPTANCE_REPORT.md) | [V01–V10 passed](m09/VERIFICATION_REPORT.md) | [Classified acceptance conditions](ACCEPTANCE_CONDITIONS_REGISTER.md) | Conditional acceptance recorded by M11-R1 prerequisite |
+| M10 | Authorized (R1 only) | Accepted with conditions | [Controlled synthetic fusion protocol](m10/experiment/PROTOCOL.md) | [Held-out adaptive comparison](m10/experiment/RESULTS.md) | [M10-R1 verification](m10/experiment/VERIFICATION_REPORT.md) | [Acceptance recommended with conditions](m10/experiment/ACCEPTANCE_REPORT.md) | Conditional acceptance recorded by M11-R1 prerequisite |
+| M11 | Authorized (R1 only) | Submitted for review | [M11 plan](m11/VERIFICATION_PLAN.md) | [Independent comparison and assessment](m11/ACCEPTANCE_REPORT.md) | [V01–V13 results](m11/VERIFICATION_REPORT.md) | AC02 and physical-model limits remain open. [Pilot readiness](m11/ISAAC_SIM_READINESS.md) | Project Director review pending |
 | M12 | Pending | Not Started | Physical sensor verification | Calibrated sensor recordings and transfer report | Planned: Controlled exposures and residual uncertainty | Sensor and physical reference availability | Pending authorization |
 | M13 | Pending | Not Started | Predictive world-model integration | World-model interface and qualification packet | Planned: End-to-end trace and deployment checks | Interface and qualified evidence readiness | Pending authorization |
 
