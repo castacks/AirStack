@@ -162,17 +162,21 @@ RUN sed -i \
 # ca-certificates/launchpadlib chain and fails with dpkg exit 100. Reconfigure
 # ca-certificates first and drop software-properties-common from the script
 # (add-apt-repository is unused on the --no-nuttx/--no-sim-tools path).
+# Keep PX4's build-time Python packages separate from apt-managed ROS packages.
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates python3-venv && \
     update-ca-certificates && \
-    dpkg --configure -a || true && \
+    (dpkg --configure -a || true) && \
+    /usr/bin/python3 -m venv /opt/px4-venv && \
     sed -i '/software-properties-common/d' PX4-Autopilot/Tools/setup/ubuntu.sh && \
     cd PX4-Autopilot && \
+    . /opt/px4-venv/bin/activate && \
     DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # build px4
 RUN cd PX4-Autopilot && \
+    . /opt/px4-venv/bin/activate && \
     make px4_sitl
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
