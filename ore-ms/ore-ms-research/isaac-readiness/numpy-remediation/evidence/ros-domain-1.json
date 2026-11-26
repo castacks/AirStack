@@ -1,0 +1,168 @@
+{
+  "domain": "1",
+  "window_s": 12.014342099195346,
+  "topics": {
+    "/clock": {
+      "count": 283,
+      "first_monotonic_s": 1289239.046870153,
+      "last_monotonic_s": 1289251.000113827,
+      "first_stamp_ns": 6649999851,
+      "last_stamp_ns": 15169999660,
+      "max_gap_s": 0.0923413741402328,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 23.555180771733955
+    },
+    "/tf": {
+      "count": 1192,
+      "first_monotonic_s": 1289239.036092371,
+      "last_monotonic_s": 1289251.001469062,
+      "last_tf_edges": [
+        [
+          "map",
+          "look_ahead_point_stabilized"
+        ]
+      ],
+      "max_gap_s": 0.06673280079849064,
+      "observed_hz": 99.2147543459607
+    },
+    "/tf_static": {
+      "count": 3,
+      "first_monotonic_s": 1289239.104112125,
+      "last_monotonic_s": 1289239.244049548,
+      "last_tf_edges": [
+        [
+          "map",
+          "map_ned"
+        ],
+        [
+          "odom",
+          "odom_ned"
+        ],
+        [
+          "base_link",
+          "base_link_frd"
+        ]
+      ],
+      "max_gap_s": 0.12747884402051568,
+      "observed_hz": 0.24970156295124335
+    },
+    "/robot_1/interface/mavros/state": {
+      "count": 8,
+      "first_monotonic_s": 1289240.324285193,
+      "last_monotonic_s": 1289250.077523345,
+      "frame": "",
+      "first_stamp_ns": 7489999832,
+      "last_stamp_ns": 14479999676,
+      "armed": false,
+      "connected": true,
+      "max_gap_s": 1.4659272169228643,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 0.665870834536649
+    },
+    "/diagnostics": {
+      "count": 11,
+      "first_monotonic_s": 1289239.782161412,
+      "last_monotonic_s": 1289250.972632286,
+      "frame": "",
+      "first_stamp_ns": 7129999840,
+      "last_stamp_ns": 15139999661,
+      "max_gap_s": 1.474237835034728,
+      "duplicates": 2,
+      "regressions": 0,
+      "observed_hz": 0.9155723974878923
+    },
+    "/robot_1/odometry_conversion/odometry": {
+      "count": 256,
+      "first_monotonic_s": 1289239.036967943,
+      "last_monotonic_s": 1289250.997107608,
+      "frame": "map",
+      "first_stamp_ns": 6619999852,
+      "last_stamp_ns": 15139999661,
+      "child_frame_id": "base_link",
+      "max_gap_s": 0.10235192719846964,
+      "duplicates": 1,
+      "regressions": 0,
+      "observed_hz": 21.307866705172767
+    },
+    "/robot_1/vdb_mapping/vdb_map_visualization": {
+      "count": 23,
+      "first_monotonic_s": 1289239.376477874,
+      "last_monotonic_s": 1289250.869708285,
+      "frame": "map",
+      "first_stamp_ns": 6859999846,
+      "last_stamp_ns": 15049999663,
+      "points": 987,
+      "max_gap_s": 0.9927513541188091,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 1.9143786492928658
+    },
+    "/robot_1/sensors/front_stereo/left/image_rect": {
+      "count": 280,
+      "first_monotonic_s": 1289239.1049963,
+      "last_monotonic_s": 1289250.970195487,
+      "frame": "camera_left",
+      "first_stamp_ns": 6649999851,
+      "last_stamp_ns": 15109999662,
+      "width": 480,
+      "height": 300,
+      "encoding": "rgb8",
+      "step": 1440,
+      "max_gap_s": 0.12849710998125374,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 23.305479208782714
+    },
+    "/robot_1/sensors/front_stereo/left/camera_info": {
+      "count": 285,
+      "first_monotonic_s": 1289239.022143732,
+      "last_monotonic_s": 1289251.023809732,
+      "frame": "camera_left",
+      "first_stamp_ns": 6619999852,
+      "last_stamp_ns": 15139999661,
+      "width": 480,
+      "height": 300,
+      "distortion_model": "plumb_bob",
+      "K": [
+        183.99998807907153,
+        0.0,
+        240.0,
+        0.0,
+        183.99998807907153,
+        150.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "D": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "max_gap_s": 0.08139049098826945,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 23.72164848036812
+    },
+    "/robot_1/sensors/front_stereo/right/depth_ground_truth": {
+      "count": 275,
+      "first_monotonic_s": 1289239.099026818,
+      "last_monotonic_s": 1289250.964764738,
+      "frame": "camera_right",
+      "first_stamp_ns": 6649999851,
+      "last_stamp_ns": 15109999662,
+      "width": 480,
+      "height": 300,
+      "encoding": "32FC1",
+      "step": 1920,
+      "max_gap_s": 0.10477254306897521,
+      "duplicates": 0,
+      "regressions": 0,
+      "observed_hz": 22.889309937197307
+    }
+  }
+}

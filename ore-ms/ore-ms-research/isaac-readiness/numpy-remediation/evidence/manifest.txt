@@ -1,0 +1,3 @@
+Name:      airlab-docker.andrew.cmu.edu/airstack/airstack:ore-ms-numpy126-r1-e5436fc3_isaac-sim
+MediaType: application/vnd.docker.distribution.manifest.v2+json
+Digest:    sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697

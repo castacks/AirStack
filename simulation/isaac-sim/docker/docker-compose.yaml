@@ -2,12 +2,12 @@ services:
   isaac-sim:
     profiles:
       - isaac-sim
-    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
+    image: ${ISAAC_SIM_IMAGE:-${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim}
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
-        - *image_tag
+        - &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
         # Floating tag republished by docker-build.yml on main/develop. The
         # versioned tag above never exists yet on a PR (check-version-increment
         # forces VERSION up), so it can only ever be a cache miss.

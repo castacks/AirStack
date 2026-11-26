@@ -1,0 +1,69 @@
+{
+  "handshake": "HTTP/1.1 101 Switching Protocols",
+  "elapsed_s": 12.02261073491536,
+  "subscribed": [
+    "/gcs/sim_ground",
+    "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+    "/tf_static",
+    "/robot_1/vdb_mapping/vdb_map_visualization",
+    "/robot_1/interface/mavros/global_position/global",
+    "/robot_1/odometry_conversion/odometry",
+    "/robot_1/sensors/front_stereo/left/camera_info",
+    "/robot_1/sensors/front_stereo/left/image_rect",
+    "/clock",
+    "/tf",
+    "/robot_1/interface/mavros/state",
+    "/diagnostics"
+  ],
+  "streams": {
+    "/tf_static": {
+      "count": 1,
+      "payload_bytes": 105,
+      "max_gap_s": 0,
+      "last_receipt": 1289238.528562689,
+      "observed_hz": 0.08317660964401506
+    },
+    "/robot_1/sensors/front_stereo/left/camera_info": {
+      "count": 285,
+      "payload_bytes": 108585,
+      "max_gap_s": 0.11091936309821904,
+      "last_receipt": 1289250.544835435,
+      "observed_hz": 23.70533374854429
+    },
+    "/robot_1/interface/mavros/global_position/global": {
+      "count": 420,
+      "payload_bytes": 62580,
+      "max_gap_s": 0.10333285690285265,
+      "last_receipt": 1289250.516051578,
+      "observed_hz": 34.93417605048633
+    },
+    "/robot_1/odometry_conversion/odometry": {
+      "count": 252,
+      "payload_bytes": 183708,
+      "max_gap_s": 0.14192195795476437,
+      "last_receipt": 1289250.51467505,
+      "observed_hz": 20.960505630291795
+    },
+    "/robot_1/sensors/front_stereo/right/depth_ground_truth": {
+      "count": 233,
+      "payload_bytes": 134225009,
+      "max_gap_s": 0.2121039880439639,
+      "last_receipt": 1289250.520876042,
+      "observed_hz": 19.38015004705551
+    },
+    "/robot_1/sensors/front_stereo/left/image_rect": {
+      "count": 247,
+      "payload_bytes": 106721043,
+      "max_gap_s": 0.14637630386278033,
+      "last_receipt": 1289250.514658065,
+      "observed_hz": 20.54462258207172
+    },
+    "/robot_1/vdb_mapping/vdb_map_visualization": {
+      "count": 24,
+      "payload_bytes": 969800,
+      "max_gap_s": 0.5164795238524675,
+      "last_receipt": 1289250.367627694,
+      "observed_hz": 1.9962386314563614
+    }
+  }
+}

@@ -1,0 +1,5 @@
+ERROR: driverInitFileInfo 578 result=11ERROR: init 664 result=11ERROR: init 250 result=11Expected Isaac Sim NumPy 1.26.4
+Isaac Python 3.11.13, NumPy 2.4.6
+There was an error running python
+
+exit_code=1

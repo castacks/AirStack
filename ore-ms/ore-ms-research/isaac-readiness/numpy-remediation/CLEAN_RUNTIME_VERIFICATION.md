@@ -1,0 +1,9 @@
+# Clean runtime verification
+
+Pulled the [published Linux amd64 digest](IMAGE_MANIFEST.md) and verified it in an independent disposable container. Isaac Python 3.11.13 imported NumPy 1.26.4. The image also contains the PX4 venv, imports EmPy and pymavlink in it, and has the executable PX4 SITL binary. An attempt to start Pegasus in a separate probe used a constructor argument unsupported by 5.1. The corrected probe deliberately disabled networking and then reached the ROS import but could not resolve the external Isaac asset root. Neither attempt counts as a Pegasus success.
+
+The regular livestream service was then recreated using the pulled digest on the existing OSMO pod. PX4 was confirmed grounded and disarmed before recreation. The robot and GCS container IDs and image IDs stayed unchanged. The new container's configured image and image ID match the published candidate. No post-create pip install was performed. Isaac Python imported NumPy 1.26.4 and OpenCV 4.11.0 in the running container. An explicit Jazzy import of `rclpy`, Clock, CameraInfo, Image and PointCloud2 succeeded in Isaac Python.
+
+Kit reported app ready at 26.845 s, startup complete at 80.338 s, ROS Python loaded at 86.757 s and Pegasus extension startup at 88.297 s. The application's Pegasus launch path initialized PX4 and emitted RGB, depth and point clouds, which verifies normal Pegasus execution with the workflow's assets available. Neither the old NumPy writer dtype error nor a writer attach failure appeared in the recreated Isaac log. This was a container recreation, not a fresh OSMO submission. The robot briefly lost its heartbeat and cleared TF buffers when the simulator clock restarted, then recovered without a robot restart.
+
+See [container and image identities](evidence/recreated-containers.txt), [runtime excerpts](evidence/runtime-excerpts.txt), [live NumPy readback](evidence/live-numpy.log), and [ROS import output](evidence/ros-import.log).

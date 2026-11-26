@@ -1,0 +1,27 @@
+Isolated import probe (selected lines, both attempts)
+TypeError: SimulationApp.__init__() got an unexpected keyword argument 'extra_args'
+PX4 Python: /opt/px4-venv/bin/python
+PX4 SITL executable present
+[27.439s] rclpy loaded
+Could not find assets root folder: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1
+Could not find assets root folder: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1
+Failed to startup python extension
+Could not find assets root folder: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1
+Recreated service startup and reconnect (selected lines)
+[26.845s] app ready
+[80.338s] Simulation App Startup Complete
+Streaming server started.
+[86.757s] rclpy loaded
+[88.297s] [ext: pegasus.simulator-5.1.0] startup
+Startup script returned successfully
+Ready for takeoff!
+Lost connection, HEARTBEAT timed out.
+Detected jump back in time. Clearing TF buffer.
+Detected jump back in time. Clearing TF buffer.
+Detected jump back in time. Clearing TF buffer.
+Detected jump back in time. Clearing TF buffer.
+Detected jump back in time. Clearing TF buffer.
+Detected jump back in time. Clearing TF buffer.
+Lookup would require extrapolation into the past.
+Got HEARTBEAT, connected. FCU: PX4 Autopilot
+NumPy writer failure matches in recreated Isaac log: 0
