@@ -1,5 +1,7 @@
 [Natural recovery baseline gate](../natural-recovery-baseline-gate-2026-11-23.md) checks KAIST and CMHT release access, inertial provenance and pose references.
 
+[ORE-MS M12 stationary forecast protocol](../../../ore-ms-research/M12_STATIONARY_FORECAST_PROTOCOL.md) draws calibration checks from NISTIR 8098. The targeted review covered radiometric response, drift, nonuniformity, and emissivity. No apparatus reproduction was performed. [NISTIR 8098](https://doi.org/10.6028/NIST.IR.8098)
+
 [CAVERS headlight transition](../cavers-headlight-transition-intake-2026-11-22.md) checks the author's transition report, sensor frames, and released OptiTrack coverage.
 
 [Natural transition reference check](../natural-transition-reference-intake-2026-11-22.md) verifies M2DGR doorway and Brno winter position products, rechecks PARK pose binding, and checks the JPL Mars Yard flight and reference design.

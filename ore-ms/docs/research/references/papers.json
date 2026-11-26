@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-22",
+  "updated": "2026-11-26",
   "scope": "Living working references. Citation presence is not evidence of reading or reproduction. Unresolved historical links remain in citation-index.json; promote to reviewed entries only after checking metadata and relevance.",
   "papers": [
     {
@@ -3339,6 +3339,20 @@
         }
       ],
       "updated": "2026-11-23"
+    },
+    {
+      "id": "lane2016thermalcalibration",
+      "title": "Calibration and Measurement Procedures for a High Magnification Thermal Camera",
+      "venue_or_version": "NISTIR 8098, 2016",
+      "url": "https://doi.org/10.6028/NIST.IR.8098",
+      "reading_history": [
+        {
+          "date": "2026-11-26",
+          "source_note": "ore-ms-research/M12_STATIONARY_FORECAST_PROTOCOL.md",
+          "inspection": "Targeted primary PDF review of the blackbody calibration, nonuniformity, nonlinearity, drift, and emissivity passages. Specific apparatus and example band do not qualify the proposed M12 LWIR rig. No code or apparatus reproduction."
+        }
+      ],
+      "updated": "2026-11-26"
     }
   ]
 }
