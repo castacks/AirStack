@@ -64,8 +64,8 @@ def launch_setup(context, *args, **kwargs):
                 launch_arguments={
                     'fcu_url': fcu_url,
                     'tgt_system': tgt_system,
-                    # MAVROS adds its own mavros prefix to relative topic names.
-                    'namespace': '',
+                    # Preserve the MAVROS namespace expected by AirStack consumers.
+                    'namespace': 'mavros',
                 }.items(),
             ),
         ])

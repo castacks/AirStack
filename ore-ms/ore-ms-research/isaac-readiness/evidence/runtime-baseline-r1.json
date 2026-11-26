@@ -1,0 +1,97 @@
+{
+  "readiness": {
+    "ready": true,
+    "elapsed_s": 8,
+    "gates": {
+      "px4_ready_robot_1": "ok",
+      "containers": "ok",
+      "px4_connected_robot_1": "ok",
+      "nodes_robot_1": "ok",
+      "sim_clock": "ok"
+    }
+  },
+  "probe": {
+    "clock_advances": true,
+    "mavros_state": {
+      "topic": "/robot_1/interface/mavros/state",
+      "samples": 9,
+      "connected": true,
+      "armed": false
+    },
+    "odometry": {
+      "topic": "/robot_1/interface/mavros/local_position/odom",
+      "samples": 262
+    },
+    "latest_tf_from_map": {
+      "base_link": 1,
+      "camera_left": 1,
+      "camera_right": 1,
+      "ouster": 1
+    },
+    "sensors": {
+      "/robot_1/sensors/front_stereo/left/image_rect": {
+        "samples": 285,
+        "frame": "camera_left",
+        "valid_stamps": true,
+        "hz_received": 23.880674037793415,
+        "hz_sim": 31.874299252860332,
+        "checked_stamp_ns": 2490409944334,
+        "checked_frame": "camera_left",
+        "exact_tf": true,
+        "age_ms": 59.999999
+      },
+      "/robot_1/sensors/front_stereo/right/image_rect": {
+        "samples": 284,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 23.782799628345913,
+        "hz_sim": 31.76206580478688,
+        "checked_stamp_ns": 2490379944335,
+        "checked_frame": "camera_right",
+        "exact_tf": true,
+        "age_ms": 29.999999
+      },
+      "/robot_1/sensors/front_stereo/left/camera_info": {
+        "samples": 297,
+        "frame": "camera_left",
+        "valid_stamps": true,
+        "hz_received": 24.87277491212505,
+        "hz_sim": 33.221100629741755
+      },
+      "/robot_1/sensors/front_stereo/right/camera_info": {
+        "samples": 297,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 24.870975845011767,
+        "hz_sim": 33.221100629741755
+      },
+      "/robot_1/sensors/front_stereo/right/depth_ground_truth": {
+        "samples": 277,
+        "frame": "camera_right",
+        "valid_stamps": true,
+        "hz_received": 23.171204836006783,
+        "hz_sim": 30.976431668272717,
+        "checked_stamp_ns": 2490409944334,
+        "checked_frame": "camera_right",
+        "exact_tf": true,
+        "age_ms": 30.0
+      },
+      "/robot_1/sensors/ouster/point_cloud": {
+        "samples": 86,
+        "frame": "ouster",
+        "valid_stamps": true,
+        "hz_received": 7.7872173809051315,
+        "hz_sim": 10.416666898999189,
+        "checked_stamp_ns": 2490769944326,
+        "checked_frame": "ouster",
+        "exact_tf": true,
+        "age_ms": 30.0
+      }
+    },
+    "stereo": {
+      "exact_pairs": 273,
+      "latest_received_delta_s": 0.0
+    },
+    "passed": true
+  }
+}
