@@ -1,0 +1,17 @@
+{
+  "python": "3.12.3",
+  "numpy": "2.5.5",
+  "os": "Linux",
+  "machine": "x86_64",
+  "cpu": "AMD EPYC-Genoa Processor",
+  "openblas_threads": 1,
+  "pipeline_wall_s": 16.5615745219402,
+  "largest_child_peak_rss_mib": 201.7421875,
+  "inference": {
+    "frames": 13824,
+    "elapsed_s": 1.7452433018479496,
+    "p50_ms": 0.11598051059991121,
+    "p95_ms": 0.16817157156765458,
+    "p99_ms": 0.17993640853092074
+  }
+}

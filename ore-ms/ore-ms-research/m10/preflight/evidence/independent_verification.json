@@ -1,0 +1,22 @@
+{
+  "partition_cases": {
+    "development": 3456,
+    "calibration": 3456,
+    "holdout": 6912
+  },
+  "label_mismatches": 0,
+  "centroid_max_px": 0.0,
+  "hidden_foreground_min_T550": 0.5015760690660555,
+  "process_changes": {
+    "blind_future": 512,
+    "shift_tau": 512,
+    "shift_innovation": 512
+  },
+  "prediction_rows": 41472,
+  "identical_pairs_per_control": 512,
+  "forbidden_fields_rejected": 7,
+  "radiance_probes": 36,
+  "max_scalar_radiance_difference": 1.4210854715202004e-14,
+  "max_bootstrap_endpoint_difference": 0.0,
+  "independent_scoring": "PASS"
+}

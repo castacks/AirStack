@@ -1,0 +1,7522 @@
+{
+  "arms": {
+    "B01": {
+      "cases": {
+        "absent": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "absent": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "blind_future": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_four_below": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.6777466271645117,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 72,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 14,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 87,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 72,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 6,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "boundary_four_quarter": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.03309496018210228,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 71,
+              "n": 71,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 10,
+              "n": 10,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 91,
+              "n": 91,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 71,
+              "n": 71,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_three_quarter": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "clipped": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "contrast_without_support": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.6831129886475004,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 7,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 70,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 26,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 75,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 2,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 6,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "crossover": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "distractor": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.7056257075690595,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "empty_support": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "empty_support": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "hidden": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "hidden": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "lwir_attenuated": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "missing_both": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "missing_lwir": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "missing_rgb": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": null
+        },
+        "noisy": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.013590926336778336,
+          "candidates": 256,
+          "correct": 255,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.01102718484066383,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 3,
+              "n": 4,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 35,
+              "n": 35,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 46,
+              "n": 46,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 28,
+              "n": 28,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 78,
+              "n": 78,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.00390625
+        },
+        "partial": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.029840640077071844,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0004951555617225967,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 50,
+              "n": 50,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 30,
+              "n": 30,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 93,
+              "n": 93,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 71,
+              "n": 71,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "reference": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "registration_hidden": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "registration_known": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "rgb_attenuated": {
+          "abstained": 141,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.03334644058989455,
+          "candidates": 115,
+          "correct": 81,
+          "coverage": 0.44921875,
+          "feasible": 256,
+          "feasible_coverage": 0.44921875,
+          "issued": 115,
+          "issued_reasons": {
+            "candidate": 115
+          },
+          "mean_error_px": 0.724165550939824,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 115,
+            "no_component": 141
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 3,
+              "n": 37,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 72,
+              "n": 72,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.2956521739130435
+        },
+        "shift_innovation": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02771731345572773,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 22,
+              "n": 22,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 35,
+              "n": 35,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 68,
+              "n": 68,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 77,
+              "n": 77,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 17,
+              "n": 17,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "shift_tau": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.027996251793513633,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 37,
+              "n": 37,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 39,
+              "n": 39,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 89,
+              "n": 89,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 76,
+              "n": 76,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "timing_offset": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "unknown_material": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "unknown_range": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "wrong_air": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02740111971742826,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.10526315789473684
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.8166666666666667
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.7643504531722054
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8801955990220048
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8474025974025974
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.975609756097561
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8291873963515755
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9380530973451328
+            }
+          ],
+          "selective_risk": 0.0
+        }
+      },
+      "cutoff": 0.2,
+      "operating_point_qualified": true,
+      "overall": {
+        "abstained": 1933,
+        "available_lwir": 5632,
+        "available_rgb": 6144,
+        "brier_candidate": 0.12931715205664587,
+        "candidates": 4979,
+        "correct": 4176,
+        "coverage": 0.7203414351851852,
+        "feasible": 5120,
+        "feasible_coverage": 0.8224609375,
+        "issued": 4979,
+        "issued_reasons": {
+          "candidate": 4979
+        },
+        "mean_error_px": 0.020759544237165268,
+        "n": 6912,
+        "negative": {
+          "absent": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "distractor": {
+            "false_supported": 512,
+            "n": 512,
+            "rate": 1.0,
+            "upper95": 1.0
+          },
+          "empty_support": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "hidden": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "insufficient_partial": {
+            "false_supported": 256,
+            "n": 512,
+            "rate": 0.5,
+            "upper95": 0.5431487177447416
+          }
+        },
+        "reasons": {
+          "candidate": 4979,
+          "no_component": 1165,
+          "unavailable": 768
+        },
+        "reliability": [
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 3,
+            "n": 37,
+            "p": 0.10526315789473684
+          },
+          {
+            "correct": 94,
+            "n": 111,
+            "p": 0.8166666666666667
+          },
+          {
+            "correct": 592,
+            "n": 771,
+            "p": 0.7643504531722054
+          },
+          {
+            "correct": 706,
+            "n": 790,
+            "p": 0.8801955990220048
+          },
+          {
+            "correct": 1399,
+            "n": 1653,
+            "p": 0.8474025974025974
+          },
+          {
+            "correct": 79,
+            "n": 82,
+            "p": 0.975609756097561
+          },
+          {
+            "correct": 1093,
+            "n": 1305,
+            "p": 0.8291873963515755
+          },
+          {
+            "correct": 210,
+            "n": 230,
+            "p": 0.9380530973451328
+          }
+        ],
+        "selective_risk": 0.1612773649327174
+      }
+    },
+    "B02": {
+      "cases": {
+        "absent": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "absent": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "blind_future": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_four_below": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.5467792989333323,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 200,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 56,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "boundary_four_quarter": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.0691016380180894,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 199,
+              "n": 199,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 57,
+              "n": 57,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_three_quarter": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "clipped": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "contrast_without_support": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.5454145255096107,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 203,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 53,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "crossover": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "distractor": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.5608819576451229,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "empty_support": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "empty_support": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "hidden": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "hidden": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_component": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "lwir_attenuated": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.027911661944786042,
+          "candidates": 256,
+          "correct": 252,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.04693045533424767,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 1,
+              "n": 5,
+              "p": 0.5
+            },
+            {
+              "correct": 172,
+              "n": 172,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 73,
+              "n": 73,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.015625
+        },
+        "missing_both": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "missing_lwir": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "missing_rgb": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 0,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "noisy": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.038710648456793444,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 237,
+              "n": 237,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 19,
+              "n": 19,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "partial": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06522934396248654,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 172,
+              "n": 172,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 84,
+              "n": 84,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "reference": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "registration_hidden": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.560427033170549,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 3.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 170,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 86,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "registration_known": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "rgb_attenuated": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "shift_innovation": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06293465118879596,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 156,
+              "n": 156,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 100,
+              "n": 100,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "shift_tau": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06408199757564124,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 164,
+              "n": 164,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "timing_offset": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "unavailable": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": null
+        },
+        "unknown_material": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "unknown_range": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.06479908906741956,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "wrong_air": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.05228675471356069,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "candidate": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 80,
+              "n": 80,
+              "p": 0.9920634920634921
+            },
+            {
+              "correct": 170,
+              "n": 170,
+              "p": 0.7220135236664162
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.7986013986013986
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.875
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            }
+          ],
+          "selective_risk": 0.0
+        }
+      },
+      "cutoff": 0.2,
+      "operating_point_qualified": true,
+      "overall": {
+        "abstained": 2560,
+        "available_lwir": 5632,
+        "available_rgb": 6144,
+        "brier_candidate": 0.1754443556190168,
+        "candidates": 4352,
+        "correct": 3324,
+        "coverage": 0.6296296296296297,
+        "feasible": 5120,
+        "feasible_coverage": 0.7,
+        "issued": 4352,
+        "issued_reasons": {
+          "candidate": 4352
+        },
+        "mean_error_px": 0.21763788966673198,
+        "n": 6912,
+        "negative": {
+          "absent": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "distractor": {
+            "false_supported": 512,
+            "n": 512,
+            "rate": 1.0,
+            "upper95": 1.0
+          },
+          "empty_support": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "hidden": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "insufficient_partial": {
+            "false_supported": 256,
+            "n": 512,
+            "rate": 0.5,
+            "upper95": 0.5431487177447416
+          }
+        },
+        "reasons": {
+          "candidate": 4352,
+          "no_component": 1280,
+          "unavailable": 1280
+        },
+        "reliability": [
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 1,
+            "n": 5,
+            "p": 0.5
+          },
+          {
+            "correct": 252,
+            "n": 252,
+            "p": 0.9920634920634921
+          },
+          {
+            "correct": 1948,
+            "n": 2690,
+            "p": 0.7220135236664162
+          },
+          {
+            "correct": 1104,
+            "n": 1386,
+            "p": 0.7986013986013986
+          },
+          {
+            "correct": 19,
+            "n": 19,
+            "p": 0.875
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          }
+        ],
+        "selective_risk": 0.23621323529411764
+      }
+    },
+    "B03": {
+      "cases": {
+        "absent": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "absent": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "blind_future": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026424539894128376,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 84,
+              "n": 84,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 94,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_four_below": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.7055603025410765,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 3,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 82,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 93,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 70,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 2,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "boundary_four_quarter": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026644845844005952,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 3,
+              "n": 3,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 82,
+              "n": 82,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 93,
+              "n": 93,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 72,
+              "n": 72,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "boundary_three_quarter": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "insufficient_partial": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "clipped": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "contrast_without_support": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.7049129413048155,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 2,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 82,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 70,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 2,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "crossover": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.01761964778653808,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "fallback_rgb": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "fallback_rgb": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "distractor": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.7066527356385165,
+          "candidates": 256,
+          "correct": 0,
+          "coverage": 1.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "distractor": {
+              "false_supported": 256,
+              "n": 256,
+              "rate": 1.0,
+              "upper95": 1.0
+            }
+          },
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 84,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 65,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 7,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 1.0
+        },
+        "empty_support": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "empty_support": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "hidden": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 0,
+          "feasible_coverage": null,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {
+            "hidden": {
+              "false_supported": 0,
+              "n": 256,
+              "rate": 0.0,
+              "upper95": 0.014784391721725852
+            }
+          },
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "lwir_attenuated": {
+          "abstained": 3,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02505987682408242,
+          "candidates": 253,
+          "correct": 253,
+          "coverage": 0.98828125,
+          "feasible": 256,
+          "feasible_coverage": 0.98828125,
+          "issued": 253,
+          "issued_reasons": {
+            "equal": 253
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "conflict": 3,
+            "equal": 253
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 22,
+              "n": 22,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 88,
+              "n": 88,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 72,
+              "n": 72,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "missing_both": {
+          "abstained": 256,
+          "available_lwir": 0,
+          "available_rgb": 0,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "no_candidate": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "missing_lwir": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.01761964778653808,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "fallback_rgb": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "fallback_rgb": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "missing_rgb": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 0,
+          "brier_candidate": 0.028775105093939567,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "fallback_lwir": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "fallback_lwir": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 169,
+              "n": 169,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 87,
+              "n": 87,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "noisy": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.019958456172148347,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 81,
+              "n": 81,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 91,
+              "n": 91,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 72,
+              "n": 72,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 4,
+              "n": 4,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 2,
+              "n": 2,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "partial": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026518815805802558,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 2,
+              "n": 2,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 83,
+              "n": 83,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 93,
+              "n": 93,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 69,
+              "n": 69,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 3,
+              "n": 3,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "reference": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026424539894128376,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 84,
+              "n": 84,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 94,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "registration_hidden": {
+          "abstained": 256,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": null,
+          "candidates": 0,
+          "correct": 0,
+          "coverage": 0.0,
+          "feasible": 256,
+          "feasible_coverage": 0.0,
+          "issued": 0,
+          "issued_reasons": {},
+          "mean_error_px": null,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "conflict": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": null
+        },
+        "registration_known": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.01761964778653808,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "fallback_rgb": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "fallback_rgb": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "rgb_attenuated": {
+          "abstained": 22,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026789766241238293,
+          "candidates": 234,
+          "correct": 234,
+          "coverage": 0.9140625,
+          "feasible": 256,
+          "feasible_coverage": 0.9140625,
+          "issued": 234,
+          "issued_reasons": {
+            "equal": 93,
+            "fallback_lwir": 141
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "conflict": 22,
+            "equal": 93,
+            "fallback_lwir": 141
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 15,
+              "n": 15,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 136,
+              "n": 136,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 77,
+              "n": 77,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "shift_innovation": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.024669303943602113,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 16,
+              "n": 16,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "shift_tau": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026286306550373145,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 82,
+              "n": 82,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 91,
+              "n": 91,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 9,
+              "n": 9,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 4,
+              "n": 4,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "timing_offset": {
+          "abstained": 0,
+          "available_lwir": 0,
+          "available_rgb": 256,
+          "brier_candidate": 0.01761964778653808,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "fallback_rgb": 256
+          },
+          "mean_error_px": 0.00035747694759984014,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "fallback_rgb": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 36,
+              "n": 36,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 44,
+              "n": 44,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 92,
+              "n": 92,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 1,
+              "n": 1,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 70,
+              "n": 70,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 8,
+              "n": 8,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "unknown_material": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026424539894128376,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 84,
+              "n": 84,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 94,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "unknown_range": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.026424539894128376,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 84,
+              "n": 84,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 94,
+              "n": 94,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 65,
+              "n": 65,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 7,
+              "n": 7,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        },
+        "wrong_air": {
+          "abstained": 0,
+          "available_lwir": 256,
+          "available_rgb": 256,
+          "brier_candidate": 0.02649217383840718,
+          "candidates": 256,
+          "correct": 256,
+          "coverage": 1.0,
+          "feasible": 256,
+          "feasible_coverage": 1.0,
+          "issued": 256,
+          "issued_reasons": {
+            "equal": 256
+          },
+          "mean_error_px": 0.0,
+          "n": 256,
+          "negative": {},
+          "reasons": {
+            "equal": 256
+          },
+          "reliability": [
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.5
+            },
+            {
+              "correct": 5,
+              "n": 5,
+              "p": 0.9148936170212766
+            },
+            {
+              "correct": 80,
+              "n": 80,
+              "p": 0.8363384188626907
+            },
+            {
+              "correct": 93,
+              "n": 93,
+              "p": 0.8193325661680092
+            },
+            {
+              "correct": 72,
+              "n": 72,
+              "p": 0.8526466380543634
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9333333333333333
+            },
+            {
+              "correct": 6,
+              "n": 6,
+              "p": 0.974025974025974
+            },
+            {
+              "correct": 0,
+              "n": 0,
+              "p": 0.9444444444444444
+            }
+          ],
+          "selective_risk": 0.0
+        }
+      },
+      "cutoff": 0.3,
+      "operating_point_qualified": true,
+      "overall": {
+        "abstained": 1817,
+        "available_lwir": 5632,
+        "available_rgb": 6144,
+        "brier_candidate": 0.12671379291962964,
+        "candidates": 5095,
+        "correct": 4327,
+        "coverage": 0.7371238425925926,
+        "feasible": 5120,
+        "feasible_coverage": 0.8451171875,
+        "issued": 5095,
+        "issued_reasons": {
+          "equal": 3674,
+          "fallback_lwir": 397,
+          "fallback_rgb": 1024
+        },
+        "mean_error_px": 8.459819605783137e-05,
+        "n": 6912,
+        "negative": {
+          "absent": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "distractor": {
+            "false_supported": 512,
+            "n": 512,
+            "rate": 1.0,
+            "upper95": 1.0
+          },
+          "empty_support": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "hidden": {
+            "false_supported": 0,
+            "n": 256,
+            "rate": 0.0,
+            "upper95": 0.014784391721725852
+          },
+          "insufficient_partial": {
+            "false_supported": 256,
+            "n": 512,
+            "rate": 0.5,
+            "upper95": 0.5431487177447416
+          }
+        },
+        "reasons": {
+          "conflict": 281,
+          "equal": 3674,
+          "fallback_lwir": 397,
+          "fallback_rgb": 1024,
+          "no_candidate": 1536
+        },
+        "reliability": [
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 0,
+            "n": 0,
+            "p": 0.5
+          },
+          {
+            "correct": 67,
+            "n": 72,
+            "p": 0.9148936170212766
+          },
+          {
+            "correct": 1275,
+            "n": 1523,
+            "p": 0.8363384188626907
+          },
+          {
+            "correct": 1325,
+            "n": 1606,
+            "p": 0.8193325661680092
+          },
+          {
+            "correct": 1144,
+            "n": 1349,
+            "p": 0.8526466380543634
+          },
+          {
+            "correct": 124,
+            "n": 135,
+            "p": 0.9333333333333333
+          },
+          {
+            "correct": 358,
+            "n": 376,
+            "p": 0.974025974025974
+          },
+          {
+            "correct": 34,
+            "n": 34,
+            "p": 0.9444444444444444
+          }
+        ],
+        "selective_risk": 0.1507360157016683
+      }
+    }
+  },
+  "bootstrap": {
+    "B01": {
+      "correct_per_feasible_ci95": [
+        0.812890625,
+        0.8185546875
+      ],
+      "gain_vs_development_comparator_ci95": [
+        -0.032421875000000044,
+        -0.026562499999999933
+      ]
+    },
+    "B02": {
+      "correct_per_feasible_ci95": [
+        0.6484375,
+        0.6498046875
+      ],
+      "gain_vs_development_comparator_ci95": [
+        -0.19765624999999998,
+        -0.19414062499999996
+      ]
+    },
+    "B03": {
+      "correct_per_feasible_ci95": [
+        0.8431640625,
+        0.846875
+      ],
+      "gain_vs_development_comparator_ci95": [
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "calibration_sha256": "039ffdb13dca0c0ced1df8665d51e4123434fa86d582a94df48429b55c98740a",
+  "conditional_dependence": {
+    "absent": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "blind_future": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "boundary_four_below": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "boundary_four_quarter": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "boundary_three_quarter": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "clipped": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "contrast_without_support": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "crossover": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          256,
+          0
+        ]
+      ]
+    },
+    "distractor": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "empty_support": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "hidden": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "lwir_attenuated": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          4,
+          252
+        ]
+      ]
+    },
+    "missing_both": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "missing_lwir": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "missing_rgb": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "noisy": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          255
+        ]
+      ]
+    },
+    "overall": {
+      "n": 3584,
+      "phi": -0.09319738226613096,
+      "table": [
+        [
+          0,
+          176
+        ],
+        [
+          516,
+          2892
+        ]
+      ]
+    },
+    "partial": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "reference": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "registration_hidden": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          256,
+          0
+        ]
+      ]
+    },
+    "registration_known": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "rgb_attenuated": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          175
+        ],
+        [
+          0,
+          81
+        ]
+      ]
+    },
+    "shift_innovation": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "shift_tau": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "timing_offset": {
+      "n": 0,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "unknown_material": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "unknown_range": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    },
+    "wrong_air": {
+      "n": 256,
+      "phi": null,
+      "table": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          256
+        ]
+      ]
+    }
+  },
+  "development_comparator": "B03",
+  "stratum_bootstrap": {
+    "absent": null,
+    "blind_future": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "boundary_four_below": null,
+    "boundary_four_quarter": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "boundary_three_quarter": null,
+    "clipped": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "contrast_without_support": null,
+    "crossover": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -1.0,
+          -1.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "distractor": null,
+    "empty_support": null,
+    "hidden": null,
+    "lwir_attenuated": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.02734375
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.96875,
+          0.99609375
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -0.01171875,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          0.97265625,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "missing_both": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "missing_lwir": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -1.0,
+          -1.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "missing_rgb": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -1.0,
+          -1.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "noisy": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          0.98828125,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -0.01171875,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "partial": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "reference": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "registration_hidden": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "registration_known": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -1.0,
+          -1.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "rgb_attenuated": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          0.26171875,
+          0.375
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -0.65625,
+          -0.5390625
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0546875,
+          0.12109375
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          0.87890625,
+          0.9453125
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "shift_innovation": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "shift_tau": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "timing_offset": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          0.0,
+          0.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          -1.0,
+          -1.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "unknown_material": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "unknown_range": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "wrong_air": {
+      "B01": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B02": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "B03": {
+        "correct_per_feasible_ci95": [
+          1.0,
+          1.0
+        ],
+        "gain_vs_development_comparator_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  }
+}

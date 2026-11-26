@@ -1,0 +1,16 @@
+{
+  "experiment":"ORE-MS-EXP-PER-001-M10-PF1","start":"86709781f1f1f50c127f8c0975b157145b821f41",
+  "grid":[33,25],"focal_px":20,"decision_ms":2000,
+  "split_bounds":{"development":[0,128],"calibration":[128,256],"holdout":[256,512]},
+  "seed":100010,"bootstrap_seed":10091,"bootstrap_draws":10000,
+  "risk_limit":0.05,"wilson_z":1.96,"score_bins":10,
+  "thresholds":[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,0.95,1,1.01],
+  "frontends":{"rgb_min_delta":0.035,"lwir_min_delta":0.045,"minimum_component":4,"candidate_agreement_px":2,"max_age_ms":20},
+  "cases":[
+    "reference","rgb_attenuated","lwir_attenuated","noisy","clipped","missing_rgb","missing_lwir","missing_both",
+    "crossover","contrast_without_support","partial","hidden","absent","distractor","empty_support",
+    "boundary_four_quarter","boundary_three_quarter","boundary_four_below",
+    "unknown_range","unknown_material","registration_known","registration_hidden","timing_offset",
+    "shift_tau","shift_innovation","wrong_air","blind_future"
+  ]
+}

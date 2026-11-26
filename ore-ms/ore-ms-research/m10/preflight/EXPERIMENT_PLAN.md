@@ -1,0 +1,18 @@
+# M10 PF1 frozen experiment
+
+M10-PF1 authorizes only preflight from 86709781f. Preserve the [accepted readiness task](../readiness/M10_EXPERIMENT_REQUIREMENTS.md), 33×25 centers, t=2 s decision, visible-support centroid, minimum four pixels and 25% of projected support, and correctness within 1 px. Freeze the configuration, case names, split IDs and seeds before rendering. Use 512 independent M05 initial states and detector-noise seeds. The 27 interventions per realization stay together. The acquisition file is separate from truth. The archived holdout is released to scoring only after frontend definitions and calibration receipts are frozen.
+
+Scenes use supported M04 front-parallel opaque patches, target at 10 m, foreground at 5 m, backdrop at 15 m and matched distractors at 10 m. Horizontal/vertical target translations vary across realizations. The 4/16, 3/12 and 4/20 fixtures check both threshold boundaries exactly. M05 states evolve with its exact transition. An effective homogeneous layer uses a quantized representative burden in 0.25 increments, with wavelength-specific RGB absorption/scattering and LWIR absorption. This is a declared controlled simplification, not a heterogeneous or measured weather field. Independent time-constant and innovation interventions alter the 0→2 s process separately. Blind future shift changes only 2→6 s dynamics with identical current observations and inference metadata. Use separate sensors and per-pixel slant range.
+
+Freeze direct nonadaptive contrast frontends and equal fusion in [baseline methods](BASELINE_METHODS.md). Development ranks comparator choices using the prespecified screening rule as diagnostic only. Calibration separately fits smoothed confidence-bin frequencies and selects one operating cutoff candidate per arm. The lockstep audit completes before holdout scoring. Primary safety screens absent and fully hidden strata separately using Wilson upper 95% bounds ≤0.05, with no holdout threshold changes. When a point fails, withhold its claim and retain results. Group uncertainty by realization using 10,000 paired bootstrap resamples with seed 10091. All 27 opportunities are retained. Fixed-model supported locations on matched distractors are a potential experimental failure, not an automatic absence inference.
+
+| Gate | Frozen preflight criterion |
+|---|---|
+| PF01/PF11 | Prior frozen manifests and regressions, exact corpus/code/label and replay bytes, unchanged RG1 and prior files. Runtime measurements excluded from equality. |
+| PF02/PF03 | Exact 128/128/256 realization groups and 27 opportunities each, unique joins, no split leakage. |
+| PF04 | Zero support, first-hit, negative-label or feasibility discrepancies versus an independent rectangle projection oracle. Centroid agreement ≤1e−12 pixels. |
+| PF05/PF06 | Exact dimensions/time/metadata, explicit registration/timing controls, zero output differences under identical current inputs, extra fields rejected, isolated inference has no label files. |
+| PF07/PF08 | All three frozen baselines run on every opportunity. Candidate/range conventions exact; known stale/unregistered joint exclusions and fixed equal-contribution, association and fallback controls verified. |
+| PF09 | Calibration-only fits and frozen cutoffs; independently checked false-supported denominators and Wilson endpoints within 1e−12. Screen absent and hidden separately. No acceptance assumption about baseline safety or usefulness. |
+| PF10 | Nonadaptive/negative controls, independent scorer and paired bootstrap agreement. Preserve unsupported cases and benchmark observational equivalences. |
+| PF12 | No adaptive scorer, weighting policy, training or downstream milestone work. |

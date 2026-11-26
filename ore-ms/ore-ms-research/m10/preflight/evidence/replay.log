@@ -1,0 +1,2 @@
+PASS: 16 serialized outputs byte-identical across two clean runs.
+PASS: join-ID isolation refactor preserved all candidate output bytes.
