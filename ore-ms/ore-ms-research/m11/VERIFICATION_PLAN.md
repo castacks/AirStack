@@ -21,3 +21,7 @@ Execute the unchanged physics-768-901 checkpoint with independently integrated v
 ### WP05 supplementary controls
 
 The foreground path binds the explicit foreground material. Compare the independently integrated bands through the declared M06 sensor scales, allowing one code for accumulated integration and quantization. Report separate analytic advected midpoint mapping, an isothermal balance, and a 128-realization shared versus permuted driver dependence probe. The latter is descriptive. It uses an independent synthetic joint sample and illustrates the implications of the prescribed shared burden.
+
+### Direct M01 legacy controls
+
+Apply a separate direct subject comparison at extinction 0, 0.1 and 2 m⁻¹ and range 10 m, with fixed boundary 0.3 and slab source 0.1 in subject units. Require absolute error below 1e-11. Compare the 96-interval legacy linear-response band at target/reflected/air 310/290/300 K, emissivity 0.8 and optical depth 0.4 against QUADPACK, with absolute tolerance 0.005 W m⁻² sr⁻¹.
