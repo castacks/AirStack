@@ -1,0 +1,31 @@
+26 November 2026 UTC, bounded read-only diagnostics
+OSMO login metadata refresh_url field matched workflow airstack-dev-314 and task workspace. No field value retained.
+git rev-parse --abbrev-ref HEAD: ore-ms-orb-development
+git rev-parse HEAD: 19d1cb0d2bb4633abc1e102b6ad6b248236294b7
+git ls-remote origin refs/heads/ore-ms-orb-development: same SHA before delivery
+git status --porcelain: empty before delivery
+git reflog --date=iso: 18:24:20 UTC, clone from https://github.com/castacks/AirStack.git
+docker compose config --no-env-resolution --images isaac-sim-livestream robot-desktop gcs
+  With allowlisted task launch settings and desktop,isaac-sim-livestream profiles:
+  airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev
+  airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697
+  airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_gcs
+/var/log/dockerd.log (selected fields)
+  18:21:51.836782669Z Daemon has completed initialization
+  18:21:51.836861299Z API listen on /var/run/docker.sock
+  18:24:28.109705070Z Not continuing with pull after error
+  unknown: artifact airstack/airstack:v0.20.8_robot-x86-64_dev not found
+docker events, retained window 18:21–18:37 UTC (selected fields)
+  18:25:42Z image pull airlab-docker.andrew.cmu.edu/airstack/airstack
+  18:29:10Z image pull airlab-docker.andrew.cmu.edu/airstack/airstack
+  18:29:11Z network create airstack_airstack_network
+  18:29:14Z container create airstack-gcs-1
+  18:29:14Z container create isaac-sim-livestream
+docker inspect (selected fields)
+  isaac-sim-livestream  CreatedAt=18:29:11.418299462Z Status=created StartedAt=0001-01-01T00:00:00Z RestartCount=0
+  airstack-gcs-1       CreatedAt=18:29:11.418035023Z Status=created StartedAt=0001-01-01T00:00:00Z RestartCount=0
+docker logs --timestamps --tail 10: zero lines from each container
+docker ps: no running inner containers
+ss -lnt '( sport = :8766 )': no listeners
+curl --max-time 2 --silent --show-error --output /dev/null http://127.0.0.1:8766: connection refused
+nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu --format=csv: NVIDIA RTX PRO 5000 Blackwell, 48935 MiB, 1 MiB, 0%
