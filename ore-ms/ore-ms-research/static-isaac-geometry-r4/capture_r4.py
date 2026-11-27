@@ -6,6 +6,7 @@ import struct
 import time
 
 from capture_one_r3 import attach_writers
+from clock_probe_r4 import create_graph, subscribe
 from readiness import acquire, DEPTH, INSTANCE, writer_packet
 from recorder import CAMERA, HEIGHT, TARGET, WIDTH, append_record, checkpoint, phase, write_artifact, write_json
 from supervise_r3 import complete_acquisition
@@ -204,28 +205,17 @@ def capture(app):
         enable_extension("isaacsim.ros2.bridge")
         app.update()
         import omni.graph.core as og
+        import omni.timeline
         import rclpy
         from geometry_msgs.msg import TransformStamped
         from rclpy.time import Time
         from rosgraph_msgs.msg import Clock
         from tf2_ros import Buffer, TransformBroadcaster, TransformListener
-        keys = og.Controller.Keys
-        og.Controller.edit(
-            {"graph_path": "/World/ReceiptClock", "evaluator_name": "execution"},
-            {keys.CREATE_NODES: [("Tick", "omni.graph.action.OnPlaybackTick"),
-                                ("Time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
-                                ("Publish", "isaacsim.ros2.bridge.ROS2PublishClock")],
-             keys.CONNECT: [("Tick.outputs:tick", "Publish.inputs:execIn"),
-                            ("Time.outputs:simulationTime", "Publish.inputs:timeStamp")]})
+        create_graph(og)
         rclpy.init()
         node = rclpy.create_node("ore_r4_isolated_receipt")
-        clock_messages = []
-
-        def record_clock(msg):
-            clock_messages.append(msg.clock.sec * NS + msg.clock.nanosec)
-            append_record(OUTPUT / "clock-raw.jsonl", {"sec": msg.clock.sec, "nanosec": msg.clock.nanosec})
-
-        subscription = node.create_subscription(Clock, "/clock", record_clock, 10)
+        probe = subscribe(OUTPUT, og, omni.timeline.get_timeline_interface(), rclpy, node, Clock)
+        clock_messages = probe.samples
         broadcaster = TransformBroadcaster(node)
         buffer = Buffer()
         listener = TransformListener(buffer, node)
@@ -238,13 +228,7 @@ def capture(app):
             raise RuntimeError(f"timed out waiting for {what}")
 
     def clock_step():
-        before = len(clock_messages)
-        packets = step()
-        wait_for(lambda: len(clock_messages) > before, "Isaac /clock")
-        rclpy.spin_once(node, timeout_sec=0.0)
-        if len(clock_messages) != before + 1:
-            raise RuntimeError("ambiguous /clock messages for a step")
-        return packets
+        return probe.step(step)
 
     def tf(folder, measured, source_stamp):
         axis = [list(measured.TransformDir(Gf.Vec3d(*xyz))) for xyz in
