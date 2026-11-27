@@ -1,0 +1,83 @@
+{
+  "status": "INCONCLUSIVE",
+  "checkout": "e1815a98f46407beff207290fa99eab816c0b98d",
+  "pegasus_commit": "8c7a664095396bc9c4f4609531445d4cf6390fe4",
+  "isaac_image_manifest": "sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+  "isaac_image_config": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+  "capture_container_id": "24e6ca0a1e90bc1ae904ce0524201b940258b24b8e2fbf4a9ff4f4ffd7e2d09c",
+  "attempts": 1,
+  "capture_command_exit_code": 0,
+  "geometry_capture_files": [],
+  "receipt": null,
+  "raw_evidence_directory": "/root/ore-ms-artifacts/static-isaac-geometry-capture-r1-2026-11-27",
+  "manifest_sha256": "8e90857458e8db182e17b3b2e32e0c53d3675dafe982d19c5cd232b54f814226",
+  "artifact_hashes": {
+    "capture-container.txt": "a1dc65bd0ac683c2bb8239cab98e09d9379152bef91c3d00f48bceb2dfcdc39b",
+    "command.sh": "11a00d824276ccee949b19c8795f5f83ea41cafbbc753e1cf89141f0821daf57",
+    "input.sha256": "3916ec48fa0aa1c25fa5657eae4103c667d4b86f4f3ea4c00db900ab49d0fbdf",
+    "input/capture.py": "9d6b33970a5a3aa6c59032e725c4919c826391469a19796c9d522c0939e1e034",
+    "input/fixture.json": "156257ded54d3cef83626eb3178ec9fb032843ffc0cb24f4a708e95a5e16506e",
+    "input/run.sh": "9c9a7ec4e5e9c23c5ace8f14beaaefd13abdb4592cffbc001fcb4329d7605d2d",
+    "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+    "operational-after.txt": "5aaa0061e048d1a461c46ac2d8bc62589947d0ef95358055557f1ec450d637bd",
+    "operational-before.txt": "5aaa0061e048d1a461c46ac2d8bc62589947d0ef95358055557f1ec450d637bd",
+    "output/capture.log": "a198198719c8666d826ec2a2c09eea4cd28a031aeca8ef8d82f030a0e1313f9c",
+    "pinned-app-close.txt": "99eb3a03bece3e177f44c013161e54cbc320e2a75bea65a8e25c8a4866b60c7f",
+    "preflight.log": "f193c8bd303ba90845ca1d90115080cc13134d55d062f840abbb2e705a19f13a",
+    "process-result.txt": "503386f8803a593d719e8d3c049879aed19f2b173c7ab1706526702076533c12"
+  },
+  "gates": {
+    "image_and_source_pins": {
+      "status": "PASS",
+      "evidence": "Local digest resolves to the R1 image config. Input digests checked before and after."
+    },
+    "container_isolation": {
+      "status": "PASS",
+      "evidence": "Network none, private IPC and dedicated read-only input and writable output mounts. Operational container identities, image IDs, startup times and restart counts match before and after."
+    },
+    "frozen_artifact_integrity": {
+      "status": "PASS",
+      "evidence": "M05-M08 package and experiment-plan manifests pass after execution. Existing verifier and runtime baseline files have no diff."
+    },
+    "control_5m": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No readable depth or instance-ID artifact."
+    },
+    "control_15m": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No readable depth or instance-ID artifact."
+    },
+    "issue_10m_center_and_off_axis": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No frame artifacts."
+    },
+    "target_10m_center_and_off_axis": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No frame artifacts."
+    },
+    "receipt_schema_and_verifier": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No real receipt could be extracted. The verifier was not run on synthetic substitutes."
+    },
+    "independent_analytic_rendered_agreement": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No measured depth and instance IDs to compare with the analytic fixture."
+    },
+    "two_simulation_seconds": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No captured clock trace."
+    },
+    "exact_time_tf": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No captured transform or query stamp."
+    },
+    "issue_future_separation_and_m08_compatibility": {
+      "status": "INCONCLUSIVE",
+      "evidence": "No receipt or issue binding from this capture."
+    },
+    "independent_raw_evidence_review": {
+      "status": "INCONCLUSIVE",
+      "evidence": "Only the process log and absence of outputs could be verified."
+    }
+  }
+}

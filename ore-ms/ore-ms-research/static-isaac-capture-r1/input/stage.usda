@@ -1,0 +1,30 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+def Xform "World"
+{
+    def Camera "ReceiptCamera"
+    {
+        float2 clippingRange = (0.1, 16)
+        float focalLength = 20
+        float horizontalAperture = 33
+        float verticalAperture = 25
+        token projection = "perspective"
+        double3 xformOp:translate = (0, 0, 1)
+        double xformOp:rotateX = 90
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateX"]
+    }
+    def Mesh "ReceiptTarget"
+    {
+        uniform bool doubleSided = false
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        point3f[] points = [(-2, 10, -1), (2, 10, -1), (2, 10, 3), (-2, 10, 3)]
+        uniform token subdivisionScheme = "none"
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
