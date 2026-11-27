@@ -1,0 +1,19 @@
+{
+  "attempts": [
+    {
+      "check": "E1 exact-file-set successor compatibility probe",
+      "result": "EXPECTED_NOT_APPLICABLE",
+      "detail": "E1 full validator passed before E1A writes. A later compatibility probe after repository-before.json creation rejected new E1A files at its deliberate exact-package horizon. It is not reused as a successor acceptance validator; sealed E1 checksums and new E1A validation cover continuity. Probe stderr was not retained; this limitation is explicit."
+    },
+    {
+      "check": "Initial E1A offline tests",
+      "result": "PASS_WITH_WARNING",
+      "detail": "All12 passed; two unclosed test-reader file handles emitted ResourceWarning. Original output retained as offline-tests-first.txt; changed test readers to context managers and reran. No runtime APIs involved."
+    }
+  ],
+  "search_limitations": [
+    "Three guessed source directories/files were absent; rg --files located actual sources.",
+    "No OSMO workflow ID in allowlisted environment or /root/.airstack/osmo-state (absent); no authenticated control-plane query or infrastructure provisioning performed."
+  ],
+  "note": "All actual E1A test/check failures, skips and corrections are retained here or in command-results.json; no active verification."
+}

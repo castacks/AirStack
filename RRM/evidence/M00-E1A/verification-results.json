@@ -1,0 +1,65 @@
+{
+  "milestone": "M00-E1A",
+  "result": "PASS",
+  "recommendation": "NOT READY \u2014 TECHNICAL",
+  "execution_authorized": false,
+  "trials_executed": 0,
+  "checks": [
+    {
+      "check": "repository_start_and_branch",
+      "result": "PASS",
+      "detail": "Pinned clean E1 parent and ore_proj; no reset or branch change"
+    },
+    {
+      "check": "protected_repository_and_inputs",
+      "result": "PASS",
+      "detail": "2027 prior tracked entries unchanged except authorized status; symlinks/submodules/modes, sources and full controlled input preserved"
+    },
+    {
+      "check": "historical_evidence_integrity",
+      "result": "PASS",
+      "detail": "122 sealed manifest entries pass at pinned milestone Git commits including historical status snapshots"
+    },
+    {
+      "check": "prerequisite_and_configuration_dispositions",
+      "result": "PASS",
+      "detail": "28 configuration items with scope/source/expected/observed/action;20 prerequisites, counts {\"UNSATISFIED\": 8, \"UNVERIFIED\": 9, \"SATISFIED\": 3}; only document checks satisfied"
+    },
+    {
+      "check": "instrumentation_and_independent_timing",
+      "result": "PASS",
+      "detail": "Nine measurement contracts map to all six instruments/eight hypotheses; independent raw Decimal replay agrees exactly; no live acquisition/clock/overhead proof inferred"
+    },
+    {
+      "check": "trial_matrix_continuity",
+      "result": "PASS",
+      "detail": "Every original field in24 E1 rows preserved;2x2x6 and order unchanged; added per-trial configuration/control/start-stop/abort/artifact/limit fields; first pair proposed checkpoint only"
+    },
+    {
+      "check": "safety_and_pd_decision",
+      "result": "PASS",
+      "detail": "UNVERIFIED target isolation with explicit physical-path blockers; eight abort conditions/owners/recovery; one NOT READY technical recommendation plus external blockers, blank PD fields and separate narrow future authority requests"
+    },
+    {
+      "check": "g0_roadmap_and_status",
+      "result": "PASS",
+      "detail": "All ten original blockers and fields remain open; RA01 pending; WP01 unauthorized; coverage unchanged29/28/1; immediate next proposal is prerequisite closure; roadmap unchanged"
+    },
+    {
+      "check": "passive_only_scope",
+      "result": "PASS",
+      "detail": "Reference lifecycle/config/image/network metadata unchanged before/after; inspect command exit codes0; operator audit no active operations. Does not prove absence of unobserved external activity or certify isolation"
+    },
+    {
+      "check": "package_hashes_file_set_and_staging",
+      "result": "PASS",
+      "detail": "37 exact RRM-only changes; prior status sole mutation; explicit manifests/hashes/file sets and whitespace checks pass; result digest excluded to avoid recursion, final Git protects bytes"
+    }
+  ],
+  "limitations": [
+    "Passive reference metadata is not an assigned target, complete physical/network/mission isolation proof or evidence of unobserved external actions.",
+    "Offline parser/schema/design validation does not establish live acquisition, clock mapping, overhead, supervisor/stop survival or qualification.",
+    "Active simulator/service/ROS/network/isolation/fault/start-stop checks not run because this directive authorizes none; see command-results.json for skipped checks.",
+    "Original frozen records/approval chains and exact future configuration/operator/limits remain external dependencies; no push or remote verification."
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "captured_utc": "2026-11-27T22:08:46.975900+00:00",
+  "scope": "Enclosing workspace cgroup ancestors, not assigned Tier B target or exclusive whole-host allocation",
+  "membership": "0::/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640/45b73065bf664be5f2027b458076230e030d10cecb5214f79011832751570a70",
+  "ancestors": [
+    {
+      "path": "/sys/fs/cgroup/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640/45b73065bf664be5f2027b458076230e030d10cecb5214f79011832751570a70",
+      "values": {
+        "cpu.max": "1000000 100000",
+        "memory.max": "51539607552",
+        "memory.swap.max": "0",
+        "cpuset.cpus.effective": "0-47",
+        "pids.max": "max"
+      }
+    },
+    {
+      "path": "/sys/fs/cgroup/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640",
+      "values": {
+        "cpu.max": "2000000 100000",
+        "memory.max": "max",
+        "memory.swap.max": "max",
+        "cpuset.cpus.effective": "0-47",
+        "pids.max": "max"
+      }
+    },
+    {
+      "path": "/sys/fs/cgroup/kubepods/burstable",
+      "values": {
+        "cpu.max": "max 100000",
+        "memory.max": "max",
+        "memory.swap.max": "max",
+        "cpuset.cpus.effective": "0-47",
+        "pids.max": "max"
+      }
+    },
+    {
+      "path": "/sys/fs/cgroup/kubepods",
+      "values": {
+        "cpu.max": "max 100000",
+        "memory.max": "232195321856",
+        "memory.swap.max": "max",
+        "cpuset.cpus.effective": "0-47",
+        "pids.max": "1771132"
+      }
+    },
+    {
+      "path": "/sys/fs/cgroup",
+      "values": {
+        "cpu.max": "UNAVAILABLE",
+        "memory.max": "UNAVAILABLE",
+        "memory.swap.max": "UNAVAILABLE",
+        "cpuset.cpus.effective": "0-47",
+        "pids.max": "UNAVAILABLE"
+      }
+    }
+  ]
+}

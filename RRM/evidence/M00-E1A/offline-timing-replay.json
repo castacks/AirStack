@@ -1,0 +1,56 @@
+{
+  "source": "RRM/evidence/M00-C/startup-source-records.json",
+  "startup_episodes": 1,
+  "heartbeat_messages_in_retained_log": 4,
+  "later_reconnections_are_trials": false,
+  "measurements": [
+    {
+      "measurement_id": "L11",
+      "seconds": "19.276162179",
+      "domain": "ROS_PRODUCER_EPOCH",
+      "start": {
+        "domain": "ROS_PRODUCER_EPOCH",
+        "time": "1795805000.934741647",
+        "episode": "20261127_STARTUP_01",
+        "boot": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+        "source": "#/original_ros_logs/logs/0/text:line1",
+        "raw_line": "[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE"
+      },
+      "stop": {
+        "domain": "ROS_PRODUCER_EPOCH",
+        "time": "1795805020.210903826",
+        "episode": "20261127_STARTUP_01",
+        "boot": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+        "source": "#/original_ros_logs/logs/1/text:line158",
+        "raw_line": "[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot"
+      },
+      "interpretation_limit": "First recorded MAVROS connection minus deadline error, not total PX4 startup; historical n=1, clock calibration/buffering uncertainty unmeasured; not an acceptance threshold"
+    },
+    {
+      "measurement_id": "L03",
+      "seconds": "74.228771713",
+      "domain": "DOCKER_RECEIPT_UTC",
+      "start": {
+        "domain": "DOCKER_RECEIPT_UTC",
+        "time": "1795804929.695796205",
+        "episode": "20261127_STARTUP_01",
+        "boot": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+        "source": "#/filtered_logs/0/records/341/text",
+        "raw_line": "2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete"
+      },
+      "stop": {
+        "domain": "DOCKER_RECEIPT_UTC",
+        "time": "1795805003.924567918",
+        "episode": "20261127_STARTUP_01",
+        "boot": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+        "source": "#/filtered_logs/0/records/357/text",
+        "raw_line": "2026-11-27T18:43:23.924567918Z \u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph."
+      },
+      "interpretation_limit": "Broad application-complete to graph receipt interval, not exclusive scene latency; historical n=1, clock calibration/buffering uncertainty unmeasured; not an acceptance threshold"
+    }
+  ],
+  "new_startup_trials": 0,
+  "execution_authorized": false,
+  "acquisition_readiness_verified": false,
+  "requirement_verdict": "NOT_ASSESSED"
+}

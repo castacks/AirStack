@@ -1,0 +1,16 @@
+{
+  "package_state": "PREPARED \u2014 NOT AUTHORIZED FOR EXECUTION",
+  "recommendation": "NOT READY \u2014 TECHNICAL",
+  "external_blockers_present": true,
+  "execution_authorized": false,
+  "pd_decision": null,
+  "pd_scope": null,
+  "pd_conditions": null,
+  "pd_name": null,
+  "pd_signature": null,
+  "pd_date": null,
+  "approved_target": null,
+  "approved_command_manifest": null,
+  "initial_checkpoint_startups_proposed": 2,
+  "full_schedule_startups_proposed": 24
+}

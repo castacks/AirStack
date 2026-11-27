@@ -1,0 +1,62 @@
+{
+  "offline_tests": {
+    "command": "python3 -B -m unittest discover -s RRM/tests -p test_m00e1a_analyze.py -v",
+    "tests": 12,
+    "result": "PASS",
+    "first_run": "offline-tests-first.txt;PASS with ResourceWarning, corrected reader lifetime",
+    "final_run": "offline-tests.txt;PASS no warnings"
+  },
+  "timing_replay": {
+    "command": "python3 -B RRM/scripts/m00e1a_analyze.py",
+    "result": "PASS",
+    "artifact": "offline-timing-replay.json"
+  },
+  "prior_replay": {
+    "command": "python3 -B RRM/scripts/m00d_characterize.py --check",
+    "result": "PASS",
+    "artifact": "starting-integrity.json"
+  },
+  "passive_capture": {
+    "command": "python3 -B RRM/scripts/m00e1a_inspect.py [--after]",
+    "result": "PASS",
+    "artifacts": [
+      "passive-before.json",
+      "passive-after.json",
+      "host-limits.json"
+    ]
+  },
+  "skipped_checks": [
+    {
+      "check": "Assigned target/deployed OSMO control-plane attestation",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "No target assignment or authenticated records supplied; source YAML is not deployed identity"
+    },
+    {
+      "check": "Physical/network/mission containment functional testing",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "Passive directive only; no target safety attestation, no scans/packets/ROS probes permitted"
+    },
+    {
+      "check": "Live I01-I06 completeness/clock/overhead validation",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "Hooks and target candidate not supplied; active attachment/testing requires separate narrow authority"
+    },
+    {
+      "check": "Recorder/process-kill/stop/restart/interruption behavior",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "Active runtime/fault/start-stop scope not authorized; inert separate preparation plan proposed"
+    },
+    {
+      "check": "Full24 or minimal2 Tier B startups",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "No execution authority; safety and technical prerequisites unresolved"
+    },
+    {
+      "check": "Requirement qualification/equivalence",
+      "status": "NOT_RUN_NOT_AUTHORIZED_OR_TARGET_UNAVAILABLE",
+      "reason": "Frozen originals/approved exact candidate and authorized trial evidence unavailable"
+    }
+  ],
+  "compatibility_probe": "E1 full validator intentional exact-file horizon does not support E1A additions; expected non-applicability retained in validation-attempts.json",
+  "push": "NOT_PERFORMED"
+}

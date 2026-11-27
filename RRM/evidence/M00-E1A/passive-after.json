@@ -1,0 +1,910 @@
+{
+  "captured_utc": "2026-11-27T22:14:11.473491+00:00",
+  "scope": "Existing reference only; target unassigned; no safety certification",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "isaac-sim-livestream",
+        "airstack-robot-desktop-1",
+        "airstack-gcs-1"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "network",
+        "inspect",
+        "airstack_airstack_network"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "nvidia-smi",
+        "--query-gpu=name,uuid,driver_version,memory.total",
+        "--format=csv,noheader"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "containers": [
+    {
+      "id": "9f2da7b82b6bf4b22d2a2cbed2f680d11755a31abc0d409fae4fb3b96efb36aa",
+      "name": "/isaac-sim-livestream",
+      "image_config_id": "sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf",
+      "requested_image": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d",
+      "started": "2026-11-27T18:41:25.413772267Z",
+      "restart_count": 0,
+      "running": true,
+      "privileged": true,
+      "network_mode": "airstack_airstack_network",
+      "pid_mode": "",
+      "ipc_mode": "host",
+      "cap_add": null,
+      "cap_drop": null,
+      "devices": null,
+      "device_requests": [
+        {
+          "Driver": "nvidia",
+          "Count": 1,
+          "DeviceIDs": null,
+          "Capabilities": [
+            [
+              "gpu"
+            ]
+          ],
+          "Options": null
+        }
+      ],
+      "binds": [
+        "/root/AirStack:/isaac-sim/AirStack:rw",
+        "/root/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw",
+        "/root/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw",
+        "/root/AirStack/simulation/isaac-sim/docker/.dev:/isaac-sim/.dev:rw",
+        "/root/AirStack/common/.tmux.conf:/isaac-sim/.tmux.conf:rw",
+        "/root/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw",
+        "/root/AirStack/simulation/isaac-sim/docker/.bashrc:/isaac-sim/.bashrc:rw",
+        "/root/AirStack/.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw",
+        "/root/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw",
+        "/root/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw",
+        "/root/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator:rw",
+        "/root/AirStack/simulation/isaac-sim/docker/omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw",
+        "/root/AirStack/simulation/isaac-sim/docker/user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw",
+        "/root/AirStack/common/inputrc:/etc/inputrc:rw",
+        "/root/AirStack/.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw",
+        "/root/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw"
+      ],
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/inputrc",
+          "Destination": "/etc/inputrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/simulation/isaac-sim/docker/.bashrc",
+          "Destination": "/isaac-sim/.bashrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/cache/main",
+          "Destination": "/isaac-sim/.cache",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/simulation/isaac-sim/docker/.dev",
+          "Destination": "/isaac-sim/.dev",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/.tmux.conf",
+          "Destination": "/isaac-sim/.tmux.conf",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack",
+          "Destination": "/isaac-sim/AirStack",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/cache/computecache",
+          "Destination": "/isaac-sim/.nv/ComputeCache",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/config",
+          "Destination": "/isaac-sim/.nvidia-omniverse/config",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/logs",
+          "Destination": "/isaac-sim/.nvidia-omniverse/logs",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/simulation/isaac-sim/docker/omniverse.toml",
+          "Destination": "/isaac-sim/.nvidia-omniverse/config/omniverse.toml",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/isaac-sim/launch.json",
+          "Destination": "/isaac-sim/AirStack/.vscode/launch.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/isaac-sim/tasks.json",
+          "Destination": "/isaac-sim/AirStack/.vscode/tasks.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/data",
+          "Destination": "/isaac-sim/.local/share/ov/data",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/docker/isaac-sim/pkg",
+          "Destination": "/isaac-sim/.local/share/ov/pkg",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/simulation/isaac-sim/docker/user.config.json",
+          "Destination": "/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator",
+          "Destination": "/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        }
+      ],
+      "security_opt": [
+        "label=disable"
+      ],
+      "restart_policy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "memory_limit_bytes": 0,
+      "memory_swap": 0,
+      "nano_cpus": 0,
+      "cpu_quota": 0,
+      "cpu_period": 0,
+      "cpuset": "",
+      "pids_limit": null,
+      "environment": {
+        "ISAAC_SIM_HEADLESS": "true",
+        "NUM_ROBOTS": "1",
+        "ISAAC_SIM_SCENE": "",
+        "ISAAC_SIM_STAGE_SCALE": "",
+        "ROS_DISTRO": "jazzy",
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "FASTRTPS_DEFAULT_PROFILES_FILE": "/isaac-sim/.ros/fastdds.xml"
+      },
+      "labels": {
+        "com.docker.compose.config-hash": "3463d53f371853ea3121ca482bc02e01480d4daad8401c70043e55f1be95c1e9",
+        "com.docker.compose.project": "airstack",
+        "com.docker.compose.project.config_files": "/root/AirStack/docker-compose.yaml",
+        "com.docker.compose.project.working_dir": "/root/AirStack",
+        "com.docker.compose.service": "isaac-sim-livestream",
+        "com.docker.compose.version": "5.6.0"
+      },
+      "entrypoint": [],
+      "command_sha256": "5980d03715f024c61a3ef42847cd03389e8a257f21c3ed427a334807eec3503f",
+      "command_note": "Opaque Cmd identity only; reviewed exact effective launcher remains unresolved",
+      "working_dir": "/isaac-sim",
+      "published_ports": {
+        "47998/udp": null,
+        "49099/udp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "49099"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "49099"
+          }
+        ],
+        "49100/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "49100"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "49100"
+          }
+        ]
+      },
+      "networks": {
+        "airstack_airstack_network": {
+          "NetworkID": "8cfc80c429e615ee63cdaafea4d3d76de9532ca1f351983faafa8c3173f5ee02",
+          "IPAddress": "172.31.0.200",
+          "Gateway": "172.31.0.1",
+          "Aliases": [
+            "isaac-sim-livestream",
+            "isaac-sim-livestream"
+          ]
+        }
+      }
+    },
+    {
+      "id": "9f7f06a9bed31ab952291823512f563cac36e0e42efa1799a9277d20e0b8d269",
+      "name": "/airstack-robot-desktop-1",
+      "image_config_id": "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290",
+      "requested_image": "airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev",
+      "started": "2026-11-27T18:41:26.092998749Z",
+      "restart_count": 0,
+      "running": true,
+      "privileged": true,
+      "network_mode": "airstack_airstack_network",
+      "pid_mode": "",
+      "ipc_mode": "private",
+      "cap_add": null,
+      "cap_drop": null,
+      "devices": null,
+      "device_requests": [
+        {
+          "Driver": "nvidia",
+          "Count": 1,
+          "DeviceIDs": null,
+          "Capabilities": [
+            [
+              "gpu"
+            ]
+          ],
+          "Options": null
+        }
+      ],
+      "binds": [
+        "/root/AirStack/common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml:rw",
+        "/root/AirStack/robot/ros_ws:/root/AirStack/robot/ros_ws:rw",
+        "/root/AirStack/.airstack/generated:/root/AirStack/.airstack/generated:ro",
+        "/root/AirStack/common/inputrc:/etc/inputrc:rw",
+        "/root/AirStack/stacks:/root/AirStack/stacks:rw",
+        "/root/AirStack/robot/docker/robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw",
+        "/root/AirStack/config:/root/AirStack/config:ro",
+        "/root/AirStack/robot/bags:/bags:rw",
+        "/root/.Xauthority:/root/.Xauthority:rw",
+        "/root/AirStack/common/.bash_profile:/root/.bash_profile:rw",
+        "/root/AirStack/robot/docker/.bashrc:/root/.bashrc:rw",
+        "/root/AirStack/common/.tmux.conf:/root/.tmux.conf:rw",
+        "/root/AirStack/.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw",
+        "/root/AirStack/tools/fleet:/root/AirStack/tools/fleet:ro",
+        "/tmp/.X11-unix:/tmp/.X11-unix:rw",
+        "/root/AirStack/robot/docker/.dev:/root/.dev:rw",
+        "/root/AirStack/.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw",
+        "/root/AirStack/common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw"
+      ],
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/robot/bags",
+          "Destination": "/bags",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/inputrc",
+          "Destination": "/etc/inputrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/.Xauthority",
+          "Destination": "/root/.Xauthority",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/.bash_profile",
+          "Destination": "/root/.bash_profile",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/robot/docker/.bashrc",
+          "Destination": "/root/.bashrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/robot/docker/.dev",
+          "Destination": "/root/.dev",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/.tmux.conf",
+          "Destination": "/root/.tmux.conf",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/tmp/.X11-unix",
+          "Destination": "/tmp/.X11-unix",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/config",
+          "Destination": "/root/AirStack/config",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/stacks",
+          "Destination": "/root/AirStack/stacks",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.airstack/generated",
+          "Destination": "/root/AirStack/.airstack/generated",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/robot/launch.json",
+          "Destination": "/root/AirStack/.vscode/launch.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/robot/tasks.json",
+          "Destination": "/root/AirStack/.vscode/tasks.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/robot/ros_ws",
+          "Destination": "/root/AirStack/robot/ros_ws",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/tools/fleet",
+          "Destination": "/root/AirStack/tools/fleet",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/robot/docker/robot_name_map",
+          "Destination": "/root/AirStack/robot/docker/robot_name_map",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/ros_packages",
+          "Destination": "/root/AirStack/robot/ros_ws/src/common",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/fastdds.xml",
+          "Destination": "/root/AirStack/robot/ros_ws/src/fastdds.xml",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        }
+      ],
+      "security_opt": [
+        "label=disable"
+      ],
+      "restart_policy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "memory_limit_bytes": 0,
+      "memory_swap": 0,
+      "nano_cpus": 0,
+      "cpu_quota": 0,
+      "cpu_period": 0,
+      "cpuset": "",
+      "pids_limit": null,
+      "environment": {
+        "ROS_DISTRO": "jazzy"
+      },
+      "labels": {
+        "com.docker.compose.config-hash": "c52c6f77a1b03d9c97f534d6275afd40ec02d43a483e42ba9d3d41d3602d310a",
+        "com.docker.compose.project": "airstack",
+        "com.docker.compose.project.config_files": "/root/AirStack/docker-compose.yaml",
+        "com.docker.compose.project.working_dir": "/root/AirStack",
+        "com.docker.compose.service": "robot-desktop",
+        "com.docker.compose.version": "5.6.0"
+      },
+      "entrypoint": null,
+      "command_sha256": "227692bc89bf2232e117b07066f2a86ce68492a6265f60112ac5e8d18197cb1b",
+      "command_note": "Opaque Cmd identity only; reviewed exact effective launcher remains unresolved",
+      "working_dir": "/root/AirStack/robot/ros_ws",
+      "published_ports": {
+        "22/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "2223"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "2223"
+          }
+        ]
+      },
+      "networks": {
+        "airstack_airstack_network": {
+          "NetworkID": "8cfc80c429e615ee63cdaafea4d3d76de9532ca1f351983faafa8c3173f5ee02",
+          "IPAddress": "172.31.0.3",
+          "Gateway": "172.31.0.1",
+          "Aliases": [
+            "airstack-robot-desktop-1",
+            "robot-desktop"
+          ]
+        }
+      }
+    },
+    {
+      "id": "7d1f67fa7010da3991d92a0a7a8c0383f0d23528648550df7507dfbb58ae181c",
+      "name": "/airstack-gcs-1",
+      "image_config_id": "sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e",
+      "requested_image": "airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_gcs",
+      "started": "2026-11-27T18:41:24.673861086Z",
+      "restart_count": 0,
+      "running": true,
+      "privileged": true,
+      "network_mode": "airstack_airstack_network",
+      "pid_mode": "",
+      "ipc_mode": "private",
+      "cap_add": null,
+      "cap_drop": null,
+      "devices": null,
+      "device_requests": [
+        {
+          "Driver": "nvidia",
+          "Count": 1,
+          "DeviceIDs": null,
+          "Capabilities": [
+            [
+              "gpu"
+            ]
+          ],
+          "Options": null
+        }
+      ],
+      "binds": [
+        "/root/AirStack/gcs/bags:/bags:rw",
+        "/root/.Xauthority:/root/.Xauthority:rw",
+        "/root/AirStack/.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw",
+        "/root/AirStack/gcs/docker/Foxglove:/root/.config/Foxglove:rw",
+        "/root/AirStack/common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml:rw",
+        "/root/AirStack/tools/fleet:/root/AirStack/tools/fleet:ro",
+        "/tmp/.X11-unix:/tmp/.X11-unix:rw",
+        "/root/AirStack/common/.bash_profile:/root/.bash_profile:rw",
+        "/root/AirStack/gcs/docker/.bashrc:/root/.bashrc:rw",
+        "/root/AirStack/common/inputrc:/etc/inputrc:rw",
+        "/root/AirStack/common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw",
+        "/root/AirStack/gcs/ros_ws:/root/AirStack/gcs/ros_ws:rw",
+        "/root/AirStack/config:/root/AirStack/config:ro",
+        "/root/AirStack/common/.tmux.conf:/root/.tmux.conf:rw",
+        "/root/AirStack/.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw",
+        "/root/AirStack/gcs/saves:/root/.airstack:rw",
+        "/root/AirStack/gcs/foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw"
+      ],
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/bags",
+          "Destination": "/bags",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/inputrc",
+          "Destination": "/etc/inputrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/.Xauthority",
+          "Destination": "/root/.Xauthority",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/saves",
+          "Destination": "/root/.airstack",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/.bash_profile",
+          "Destination": "/root/.bash_profile",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/docker/.bashrc",
+          "Destination": "/root/.bashrc",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/.tmux.conf",
+          "Destination": "/root/.tmux.conf",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/tmp/.X11-unix",
+          "Destination": "/tmp/.X11-unix",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/docker/Foxglove",
+          "Destination": "/root/.config/Foxglove",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/config",
+          "Destination": "/root/AirStack/config",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/gcs/launch.json",
+          "Destination": "/root/AirStack/.vscode/launch.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/.devcontainer/gcs/tasks.json",
+          "Destination": "/root/AirStack/.vscode/tasks.json",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/foxglove_extensions",
+          "Destination": "/root/AirStack/gcs/foxglove_extensions",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/gcs/ros_ws",
+          "Destination": "/root/AirStack/gcs/ros_ws",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/tools/fleet",
+          "Destination": "/root/AirStack/tools/fleet",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/ros_packages",
+          "Destination": "/root/AirStack/gcs/ros_ws/src/common",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/root/AirStack/common/fastdds.xml",
+          "Destination": "/root/AirStack/gcs/ros_ws/src/fastdds.xml",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        }
+      ],
+      "security_opt": [
+        "label=disable"
+      ],
+      "restart_policy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "memory_limit_bytes": 0,
+      "memory_swap": 0,
+      "nano_cpus": 0,
+      "cpu_quota": 0,
+      "cpu_period": 0,
+      "cpuset": "",
+      "pids_limit": null,
+      "environment": {
+        "NUM_ROBOTS": "1",
+        "ROS_DISTRO": "jazzy"
+      },
+      "labels": {
+        "com.docker.compose.config-hash": "80d2bd555e8b13e8bea8ca95de6f24a7f00788fcbc9444f07f884a5d5b86a668",
+        "com.docker.compose.project": "airstack",
+        "com.docker.compose.project.config_files": "/root/AirStack/docker-compose.yaml",
+        "com.docker.compose.project.working_dir": "/root/AirStack",
+        "com.docker.compose.service": "gcs",
+        "com.docker.compose.version": "5.6.0"
+      },
+      "entrypoint": [],
+      "command_sha256": "659f4922f64b9e1967b9bd8993b1bd59a6391125c57126cec9fe9aea5f63eb59",
+      "command_note": "Opaque Cmd identity only; reviewed exact effective launcher remains unresolved",
+      "working_dir": "/root/AirStack/gcs/ros_ws",
+      "published_ports": {
+        "22/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "2222"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "2222"
+          }
+        ],
+        "8765/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8766"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "8766"
+          }
+        ]
+      },
+      "networks": {
+        "airstack_airstack_network": {
+          "NetworkID": "8cfc80c429e615ee63cdaafea4d3d76de9532ca1f351983faafa8c3173f5ee02",
+          "IPAddress": "172.31.0.2",
+          "Gateway": "172.31.0.1",
+          "Aliases": [
+            "airstack-gcs-1",
+            "gcs"
+          ]
+        }
+      }
+    }
+  ],
+  "images": [
+    {
+      "Id": "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290",
+      "RepoDigests": [],
+      "RepoTags": [
+        "airlab-docker.andrew.cmu.edu/airstack/airstack:cache_robot-x86-64_dev",
+        "airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev"
+      ],
+      "Created": "2026-11-27T18:41:13.189787485Z",
+      "Architecture": "amd64",
+      "Os": "linux"
+    },
+    {
+      "Id": "sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e",
+      "RepoDigests": [
+        "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:d25c4ae77de5fd6da43c334220e833dacedd61bceafce389e882b735ae41af9a"
+      ],
+      "RepoTags": [
+        "airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_gcs"
+      ],
+      "Created": "2026-08-24T23:25:54.43243389-07:00",
+      "Architecture": "amd64",
+      "Os": "linux"
+    },
+    {
+      "Id": "sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf",
+      "RepoDigests": [
+        "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d"
+      ],
+      "RepoTags": [],
+      "Created": "2026-10-03T23:59:49.104285411Z",
+      "Architecture": "amd64",
+      "Os": "linux"
+    }
+  ],
+  "networks": [
+    {
+      "Id": "8cfc80c429e615ee63cdaafea4d3d76de9532ca1f351983faafa8c3173f5ee02",
+      "Name": "airstack_airstack_network",
+      "Driver": "bridge",
+      "Scope": "local",
+      "Internal": false,
+      "Attachable": false,
+      "EnableIPv6": false,
+      "IPAM": {
+        "Driver": "default",
+        "Options": null,
+        "Config": [
+          {
+            "Subnet": "172.31.0.0/24",
+            "Gateway": "172.31.0.1"
+          }
+        ]
+      },
+      "Options": {},
+      "Containers": {
+        "7d1f67fa7010da3991d92a0a7a8c0383f0d23528648550df7507dfbb58ae181c": {
+          "Name": "airstack-gcs-1",
+          "EndpointID": "73d5ae0b5969928d6d28665a90956ad4acb2781729b354bfe954c8c3b4860f8c",
+          "MacAddress": "66:cf:04:7f:7b:5e",
+          "IPv4Address": "172.31.0.2/24",
+          "IPv6Address": ""
+        },
+        "9f2da7b82b6bf4b22d2a2cbed2f680d11755a31abc0d409fae4fb3b96efb36aa": {
+          "Name": "isaac-sim-livestream",
+          "EndpointID": "849f270409bace1ebb68230d134274acffc2b45ef2e042d09c6f7f10d92f3f90",
+          "MacAddress": "7a:ad:4f:06:6f:7f",
+          "IPv4Address": "172.31.0.200/24",
+          "IPv6Address": ""
+        },
+        "9f7f06a9bed31ab952291823512f563cac36e0e42efa1799a9277d20e0b8d269": {
+          "Name": "airstack-robot-desktop-1",
+          "EndpointID": "96c2c29e5c4d81b745fa88223b097ab2da887d9104eebb06d5eb9feb5eda2ba8",
+          "MacAddress": "6e:d7:7e:59:d9:46",
+          "IPv4Address": "172.31.0.3/24",
+          "IPv6Address": ""
+        }
+      }
+    }
+  ],
+  "host": {
+    "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.39",
+    "os_release": {
+      "PRETTY_NAME": "Ubuntu 24.04.5 LTS",
+      "VERSION_ID": "24.04",
+      "ID": "ubuntu"
+    },
+    "boot_id": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+    "visible_cpu_count": 48,
+    "memtotal": [
+      "MemTotal:       226753244 kB"
+    ],
+    "cgroup_membership": "0::/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640/45b73065bf664be5f2027b458076230e030d10cecb5214f79011832751570a70\n",
+    "cgroup_visible_root": {
+      "/sys/fs/cgroup/cpuset.cpus.effective": "0-47"
+    },
+    "workflow_environment": {}
+  },
+  "gpu_identity": "NVIDIA RTX PRO 5000 Blackwell, GPU-2fe37a0b-749f-77ec-b3a5-66454f4e41c6, 580.126.20, 48935 MiB",
+  "limits": "Visible enclosing cgroup and Docker configuration only; no OSMO scheduler allotment/host exclusivity proof; shared resources and physical/network isolation remain unverified."
+}

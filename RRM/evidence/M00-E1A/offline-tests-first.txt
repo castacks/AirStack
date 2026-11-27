@@ -1,0 +1,23 @@
+test_all_original_trials_and_fields_preserved (test_m00e1a_analyze.GovernanceTests.test_all_original_trials_and_fields_preserved) ... /root/AirStack/RRM/tests/test_m00e1a_analyze.py:51: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/AirStack/RRM/verification/reports/M00-E1/M00E1_TRIAL_MATRIX.csv' mode='r' encoding='UTF-8'>
+  def read(p):return list(csv.DictReader((ROOT/p).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/AirStack/RRM/tests/test_m00e1a_analyze.py:51: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/AirStack/RRM/verification/reports/M00-E1A/M00E1A_FINAL_TRIAL_MATRIX.csv' mode='r' encoding='UTF-8'>
+  def read(p):return list(csv.DictReader((ROOT/p).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_decision_blank_no_authority (test_m00e1a_analyze.GovernanceTests.test_decision_blank_no_authority) ... ok
+test_unresolved_prerequisites_have_owners_and_closure (test_m00e1a_analyze.GovernanceTests.test_unresolved_prerequisites_have_owners_and_closure) ... ok
+test_cross_boot_rejected (test_m00e1a_analyze.ReplayTests.test_cross_boot_rejected) ... ok
+test_cross_domain_episode_boot_and_negative_rejected (test_m00e1a_analyze.ReplayTests.test_cross_domain_episode_boot_and_negative_rejected) ... ok
+test_duplicate_deadline_rejected (test_m00e1a_analyze.ReplayTests.test_duplicate_deadline_rejected) ... ok
+test_exact_retained_timing (test_m00e1a_analyze.ReplayTests.test_exact_retained_timing) ... ok
+test_malformed_native_timestamps_rejected (test_m00e1a_analyze.ReplayTests.test_malformed_native_timestamps_rejected) ... ok
+test_missing_deadline_rejected (test_m00e1a_analyze.ReplayTests.test_missing_deadline_rejected) ... ok
+test_missing_graph_rejected (test_m00e1a_analyze.ReplayTests.test_missing_graph_rejected) ... ok
+test_no_false_acquisition_or_authorization (test_m00e1a_analyze.ReplayTests.test_no_false_acquisition_or_authorization) ... ok
+test_reconnections_are_not_trials (test_m00e1a_analyze.ReplayTests.test_reconnections_are_not_trials) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.009s
+
+OK

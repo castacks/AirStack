@@ -1,0 +1,25 @@
+{
+  "milestone": "M00-E1A",
+  "basis": "Codex action record plus retained passive command artifacts, not an independent audit of external users/processes",
+  "passive_operations": [
+    "docker inspect of three existing reference containers",
+    "docker image inspect of the three attached local image IDs",
+    "docker network inspect of their existing shared bridge",
+    "GPU identity query via nvidia-smi",
+    "Read local sources/records, os-release, boot identity, cgroup membership/ancestor limit files and MemTotal; no writes to those resources"
+  ],
+  "offline_operations": [
+    "Retained JSON/Decimal replay and offline unittest",
+    "Git identity/hash/diff/status checks",
+    "RRM-only deliverables, authorized PROJECT_STATUS update, explicit local staging/commit"
+  ],
+  "active_operations_performed": [],
+  "tier_b_starts": 0,
+  "tier_c_operations": 0,
+  "ros_commands_or_publications": 0,
+  "service_requests_or_parameter_writes": 0,
+  "workflows_provisioned": 0,
+  "protected_source_changes": 0,
+  "push_performed": false,
+  "limitation": "Before/after continuity supports the lifecycle claim but cannot prove no transient external actions or certify hardware isolation."
+}

@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "sha256sum",
+        "-c",
+        "RRM/evidence/M00-E1/SHA256SUMS"
+      ],
+      "exit_code": 0,
+      "stdout": "RRM/PROJECT_STATUS.md: OK\nRRM/evidence/M00-E1/.gitignore: OK\nRRM/evidence/M00-E1/EXECUTION_DIRECTIVE.md: OK\nRRM/evidence/M00-E1/M00E1_BLOCKER_DISPOSITION.csv: OK\nRRM/evidence/M00-E1/M00E1_CHANGED_FILES.txt: OK\nRRM/evidence/M00-E1/M00E1_EVIDENCE_MANIFEST.json: OK\nRRM/evidence/M00-E1/M00E1_PENDING_DECISION.json: OK\nRRM/evidence/M00-E1/M00E1_READINESS_CHECKLIST.csv: OK\nRRM/evidence/M00-E1/input-inventory.json: OK\nRRM/evidence/M00-E1/offline-tests.txt: OK\nRRM/evidence/M00-E1/passive-environment-after.json: OK\nRRM/evidence/M00-E1/passive-environment.json: OK\nRRM/evidence/M00-E1/repository-before.json: OK\nRRM/evidence/M00-E1/scope-audit.json: OK\nRRM/evidence/M00-E1/source-manifest.json: OK\nRRM/evidence/M00-E1/starting-integrity.json: OK\nRRM/evidence/M00-E1/validation-attempts.json: OK\nRRM/handoffs/M00E1_HANDOFF.md: OK\nRRM/scripts/m00e1_plan.py: OK\nRRM/scripts/validate_m00e1.py: OK\nRRM/tests/test_m00e1_plan.py: OK\nRRM/verification/procedures/M00E1_TIER_B_EXECUTION_PROCEDURE.md: OK\nRRM/verification/reports/M00-E1/M00E1_ACTIVE_OPERATIONS.csv: OK\nRRM/verification/reports/M00-E1/M00E1_AUTHORIZATION_REQUEST.md: OK\nRRM/verification/reports/M00-E1/M00E1_CONFIGURATION_REGISTER.csv: OK\nRRM/verification/reports/M00-E1/M00E1_G0_CONTINUITY.md: OK\nRRM/verification/reports/M00-E1/M00E1_INSTRUMENTATION_SPEC.md: OK\nRRM/verification/reports/M00-E1/M00E1_SAFETY_ISOLATION_REVIEW.md: OK\nRRM/verification/reports/M00-E1/M00E1_TRIAL_MATRIX.csv: OK\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00d_characterize.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"startup_episode_count\": 1,\n  \"new_startup_trials\": 0,\n  \"measured_characterization_intervals\": 12,\n  \"missing_measurements\": 7,\n  \"independent_deadline_interval_s\": \"19.276162179\",\n  \"startup_variability\": \"NOT_ESTIMABLE_N1; no standard deviation, p95 or confidence interval reported\",\n  \"tier_executed\": \"A_OFFLINE_AND_READ_ONLY_METADATA_ONLY\",\n  \"acceptance_thresholds_created\": false\n}\n",
+      "stderr": ""
+    }
+  ],
+  "starting_discrepancies": [],
+  "note": "Clean pinned E1 parent verified before any status change. E1 full validator has an intentional exact-package horizon and cannot accept new E1A untracked evidence; E1 hashes and prior replay checked here. Successor validator checks sealed manifests at pinned Git bytes."
+}
