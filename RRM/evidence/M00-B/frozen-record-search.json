@@ -1,0 +1,40 @@
+{
+  "captured_utc": "2026-11-27T19:43:15.856051+00:00",
+  "roots": [
+    "/root",
+    "/mnt",
+    "/opt",
+    "/workspace",
+    "/workspaces",
+    "/media",
+    "/home"
+  ],
+  "pruned_directory_names": [
+    ".cache",
+    ".codex",
+    ".copilot",
+    ".git",
+    ".venv",
+    ".vscode-server",
+    "__pycache__",
+    "build",
+    "install",
+    "log",
+    "node_modules"
+  ],
+  "name_patterns": [
+    "RRM-C001-F00",
+    "RRM-C001-BOUNDARY",
+    "RRM-SRS-001_v1.md",
+    "F00_FINAL_QUALIFICATION_MATRIX.csv",
+    "F00_FINAL_CLOSURE_FREEZE_RECEIPT.json",
+    "F00_KIRO_QUALIFICATION_DECISION_REGISTER.csv",
+    "RRM_C001_F00_OPEN_FINDINGS.md",
+    "RRM-DEC-F00-AMEND-A3_PENDING.md"
+  ],
+  "matches": [
+    "/root/AirStack/RRM/RRM-C001-F00-EXT"
+  ],
+  "errors": [],
+  "limitations": "Local accessible named records only; pruned caches, build/install/log trees not searched for records. Runtime container roots and local Git history investigated separately. No unavailable personal machine/cloud copy inferred absent globally."
+}

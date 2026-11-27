@@ -1,0 +1,14 @@
+{
+  "diagnosis": "STARTUP_DEADLINE latched; first recorded FCU connection later; no full callback receipt history",
+  "deadline_log_seconds": 1795805000.9347417,
+  "first_recorded_heartbeat_seconds": 1795805020.210904,
+  "heartbeat_after_deadline_s": 19.276162147521973,
+  "same_kernel_boot_id_verified": true,
+  "px4_process_start_after_interface_s": 21.62,
+  "readiness_samples": 60,
+  "all_sampled_readiness_false": true,
+  "status_values": [
+    "STARTUP_DEADLINE"
+  ],
+  "limits": "Wall-log separation is characterization, not acquisition latency or a requirement result. Process start comparison uses shared boot ID and100Hz kernel ticks. No live repair authorized or performed."
+}

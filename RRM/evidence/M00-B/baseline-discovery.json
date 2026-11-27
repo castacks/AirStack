@@ -1,0 +1,68 @@
+{
+  "captured_utc": "2026-11-27T19:43:15.987554+00:00",
+  "results": [
+    {
+      "argv": [
+        "docker",
+        "ps",
+        "--format",
+        "{{.Names}}\t{{.Image}}\t{{.Status}}"
+      ],
+      "exit_code": 0,
+      "stdout": "airstack-gcs-1\tairlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_gcs\tUp About an hour\nairstack-robot-desktop-1\tairlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev\tUp About an hour\nisaac-sim-livestream\tairlab-docker.andrew.cmu.edu/airstack/airstack\tUp About an hour\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "--format",
+        "{{.Name}} image={{.Image}} started={{.State.StartedAt}} mounts={{range .Mounts}}{{.Source}}:{{.Destination}};{{end}}",
+        "isaac-sim-livestream",
+        "airstack-robot-desktop-1"
+      ],
+      "exit_code": 0,
+      "stdout": "/isaac-sim-livestream image=sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf started=2026-11-27T18:41:25.413772267Z mounts=/root/AirStack/common/inputrc:/etc/inputrc;/root/AirStack/simulation/isaac-sim/docker/.bashrc:/isaac-sim/.bashrc;/root/docker/isaac-sim/cache/main:/isaac-sim/.cache;/root/AirStack/simulation/isaac-sim/docker/.dev:/isaac-sim/.dev;/root/AirStack/common/.tmux.conf:/isaac-sim/.tmux.conf;/root/AirStack:/isaac-sim/AirStack;/root/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache;/root/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config;/root/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs;/root/AirStack/simulation/isaac-sim/docker/omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml;/root/AirStack/.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json;/root/AirStack/.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json;/root/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data;/root/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg;/root/AirStack/simulation/isaac-sim/docker/user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json;/root/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator;\n/airstack-robot-desktop-1 image=sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290 started=2026-11-27T18:41:26.092998749Z mounts=/root/AirStack/robot/bags:/bags;/root/AirStack/common/inputrc:/etc/inputrc;/root/.Xauthority:/root/.Xauthority;/root/AirStack/common/.bash_profile:/root/.bash_profile;/root/AirStack/robot/docker/.bashrc:/root/.bashrc;/root/AirStack/robot/docker/.dev:/root/.dev;/root/AirStack/common/.tmux.conf:/root/.tmux.conf;/tmp/.X11-unix:/tmp/.X11-unix;/root/AirStack/config:/root/AirStack/config;/root/AirStack/stacks:/root/AirStack/stacks;/root/AirStack/.airstack/generated:/root/AirStack/.airstack/generated;/root/AirStack/.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json;/root/AirStack/.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json;/root/AirStack/robot/ros_ws:/root/AirStack/robot/ros_ws;/root/AirStack/tools/fleet:/root/AirStack/tools/fleet;/root/AirStack/robot/docker/robot_name_map:/root/AirStack/robot/docker/robot_name_map;/root/AirStack/common/ros_packages:/root/AirStack/robot/ros_ws/src/common;/root/AirStack/common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml;\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "image",
+        "inspect",
+        "--format",
+        "{{.Id}} {{json .RepoDigests}}",
+        "sha256:6bdb5e2f0fe077500c89fda5c1f447a92362bbd3cc924916a82ca0f1187aa246",
+        "sha256:48f82de86ece4d455a6ee22fe9dcbec0bb358edfd67cd26f056cc413edd9f7af"
+      ],
+      "exit_code": 1,
+      "stdout": "\n",
+      "stderr": "Error response from daemon: No such image: sha256:6bdb5e2f0fe077500c89fda5c1f447a92362bbd3cc924916a82ca0f1187aa246\nError response from daemon: No such image: sha256:48f82de86ece4d455a6ee22fe9dcbec0bb358edfd67cd26f056cc413edd9f7af\n"
+    },
+    {
+      "argv": [
+        "git",
+        "cat-file",
+        "-t",
+        "a6dad8caf54722e5eba3481367e914ce213e6135"
+      ],
+      "exit_code": 0,
+      "stdout": "commit\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "log",
+        "--all",
+        "--format=%H",
+        "--",
+        "RRM-C001-F00",
+        "RRM-C001-BOUNDARY"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "container": "airstack-robot-desktop-1",
+  "exit_code": 0,
+  "result": {
+    "captured_utc": "2026-11-27T19:44:24.572235+00:00",
+    "processes": [
+      {
+        "pid": 20295,
+        "exe": "/root/AirStack/robot/ros_ws/build/robot_interface/robot_interface_node",
+        "exe_sha256": "5badb2bb1c660e64012d88e09f695181e8ec7132fee91b9bdd9e85a7d34e52ab",
+        "proc_start_ticks": "137885338",
+        "args": [
+          "/root/AirStack/robot/ros_ws/install/robot_interface/lib/robot_interface/robot_interface_node",
+          "--ros-args",
+          "-r",
+          "__ns:=/robot_1/interface",
+          "-p",
+          "use_sim_time:=True",
+          "--params-file",
+          "/tmp/launch_params_zxe3mlcg",
+          "-r",
+          "ardupilot_takeoff:=/robot_1/takeoff_landing_planner/ardupilot_takeoff",
+          "-r",
+          "reset_integrators:=/robot_1/control/reset_integrators",
+          ""
+        ],
+        "actuation_libraries": [
+          {
+            "path": "/root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+            "sha256": "5173ece556bed1d09911c17c690f3702d42d4bcb1b95c9322a8d8d01e45e667b"
+          }
+        ]
+      }
+    ],
+    "files": [
+      {
+        "path": "/etc/os-release",
+        "exists": true,
+        "sha256": "3e5851448bae5b36f351becde037a8b13b77307279f484eda808f8177d9a4293",
+        "bytes": 400,
+        "resolved": "/usr/lib/os-release",
+        "text": "PRETTY_NAME=\"Ubuntu 24.04.3 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.3 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n"
+      },
+      {
+        "path": "/isaac-sim/VERSION",
+        "exists": false
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/config/px4_config.yaml",
+        "exists": true,
+        "sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c",
+        "bytes": 8837,
+        "resolved": "/root/AirStack/robot/ros_ws/src/interface/interface_bringup/config/px4_config.yaml",
+        "profile_lines": [
+          "# setpoint_raw",
+          "/**/setpoint_raw:",
+          "    thrust_scaling: 1.0       # used in setpoint_raw attitude callback."
+        ]
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "exists": true,
+        "sha256": "5173ece556bed1d09911c17c690f3702d42d4bcb1b95c9322a8d8d01e45e667b",
+        "bytes": 41140792,
+        "resolved": "/root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "diagnostic_strings": [
+          "STARTUP_DEADLINE",
+          "Actuation NOT_READY: %s",
+          "PX4 actuation startup: %s",
+          "actuation_ready",
+          "actuation_status"
+        ]
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+        "exists": true,
+        "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+        "bytes": 9493,
+        "resolved": "/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp"
+      },
+      {
+        "path": "/root/PX4-Autopilot/build/px4_sitl_default/bin/px4",
+        "exists": false
+      },
+      {
+        "path": "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+        "exists": false
+      }
+    ],
+    "commands": [
+      {
+        "argv": [
+          "dpkg-query",
+          "-W",
+          "-f=${Package} ${Version}\n",
+          "ros-jazzy-mavros",
+          "ros-jazzy-rmw-fastrtps-cpp"
+        ],
+        "exit_code": 0,
+        "stdout": "ros-jazzy-mavros 2.16.0-1noble.20261105.153218\nros-jazzy-rmw-fastrtps-cpp 8.4.5-1noble.20261105.065411\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/root/PX4-Autopilot",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit_code": 128,
+        "stdout": "",
+        "stderr": "fatal: cannot change to '/root/PX4-Autopilot': No such file or directory\n"
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit_code": 128,
+        "stdout": "",
+        "stderr": "fatal: cannot change to '/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator': No such file or directory\n"
+      }
+    ]
+  },
+  "stderr": ""
+}

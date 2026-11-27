@@ -1,0 +1,148 @@
+{
+  "all_passed": true,
+  "scope": "M00-B integrity/reconciliation checks; no functional requirement or independent IVV qualification",
+  "checks": [
+    {
+      "check": "authorized_repository_and_branch",
+      "passed": true,
+      "detail": "Origin/branch checked; no branch switch"
+    },
+    {
+      "check": "authorized_start_and_history",
+      "passed": true,
+      "detail": "Clean required starting commit or one direct M00-B successor"
+    },
+    {
+      "check": "all_preexisting_tracked_files_preserved",
+      "passed": true,
+      "detail": {
+        "entries": 1900,
+        "changed": []
+      }
+    },
+    {
+      "check": "complete_reference_tree_preserved",
+      "passed": true,
+      "detail": {
+        "entries": 648
+      }
+    },
+    {
+      "check": "outside_workspace_status",
+      "passed": true,
+      "detail": {
+        "outside": []
+      }
+    },
+    {
+      "check": "controlled_input_unchanged",
+      "passed": true,
+      "detail": {
+        "files": 48
+      }
+    },
+    {
+      "check": "package_SHA256SUMS",
+      "passed": true,
+      "detail": {
+        "ok_entries": 26,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "package_RELEASE_MANIFEST.sha256",
+      "passed": true,
+      "detail": {
+        "ok_entries": 20,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "investigated_source_integrity",
+      "passed": true,
+      "detail": {
+        "changed": []
+      }
+    },
+    {
+      "check": "all_29_requirements_preserved",
+      "passed": true,
+      "detail": "MAP/KPI/IVV IDs and every exact D2 criterion retained"
+    },
+    {
+      "check": "no_false_requirement_acceptance",
+      "passed": true,
+      "detail": "28 untested in-scope rows; one excluded scope trace; no diagnostic-as-pass"
+    },
+    {
+      "check": "original_blocker_continuity",
+      "passed": true,
+      "detail": "Original ten IDs, explicit authorities/evidence/closure; none falsely closed"
+    },
+    {
+      "check": "configuration_classification",
+      "passed": true,
+      "detail": {
+        "VERIFIED_EQUIVALENT": 6,
+        "NON_EQUIVALENT": 6,
+        "UNRESOLVED": 8,
+        "NOT_APPLICABLE": 2
+      }
+    },
+    {
+      "check": "unavailable_records_not_reconstructed",
+      "passed": true,
+      "detail": "20 named records/sets retain access limits"
+    },
+    {
+      "check": "readiness_diagnosis_consistency",
+      "passed": true,
+      "detail": "Actual guard rejection and correct child readback retained; timing characterized only"
+    },
+    {
+      "check": "diagnostic_failure_and_corrected_attempt_retained",
+      "passed": true,
+      "detail": "Failed dual-type collection retained; corrected map summaries do not qualify map accuracy"
+    },
+    {
+      "check": "no_container_or_key_process_restart_observed",
+      "passed": true,
+      "detail": "Container starts/images, interface/PX4/Isaac process identities and plugin file unchanged"
+    },
+    {
+      "check": "document_links_and_python_syntax",
+      "passed": true,
+      "detail": {
+        "broken_links": []
+      }
+    },
+    {
+      "check": "artifact_manifest_integrity_and_coverage",
+      "passed": true,
+      "detail": {
+        "artifacts": 32,
+        "failed": []
+      }
+    },
+    {
+      "check": "detached_checksums",
+      "passed": true,
+      "detail": {
+        "ok_entries": 33,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "explicit_staged_scope",
+      "passed": true,
+      "detail": {
+        "staged_files": 35
+      }
+    },
+    {
+      "check": "staged_whitespace",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

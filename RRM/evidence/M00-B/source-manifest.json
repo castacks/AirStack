@@ -1,0 +1,185 @@
+{
+  "algorithm": "SHA-256",
+  "sources": [
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/README.md",
+      "sha256": "ea829a6ed7c839f409620f2f0b9a4d052b5295e1a0dc5d6f56fc7a0a43e4dce0",
+      "bytes": 5434
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+      "bytes": 9493
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/src/mavros_interface.cpp",
+      "sha256": "b582c618a030bd2c6ae75c94c447c3863c5d46c77e5a4cd9d04e964c256ff79b",
+      "bytes": 35957
+    },
+    {
+      "path": "robot/ros_ws/src/interface/interface_bringup/config/px4_config.yaml",
+      "sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c",
+      "bytes": 8837
+    },
+    {
+      "path": ".airstack/modules/ready.sh",
+      "sha256": "86ee455655d0fc34c5e51194cb468d2169f471f015ed8d8fa1223c57f7067238",
+      "bytes": 12887
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/HANDOFF.md",
+      "sha256": "f415c24748047664a3f83218be39efdae9ec05fca25ef6d73a2379a81cca3d40",
+      "bytes": 384075
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/uav-results/actuation-startup-diagnosis-20261117.json",
+      "sha256": "a8cb010fd69661ff49f74681b2bab288db78353c72a3c48787e22732ab31f40d",
+      "bytes": 978
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/uav-results/actuation-reasons-20261117.json",
+      "sha256": "bc063b1998c252a5c40630c50c18d1889ea3d2943067c19a8cdd9cebc58aea45",
+      "bytes": 9174
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/uav-results/readiness-20261117.json",
+      "sha256": "a85930060bfb2f31a4124aea8a77bcd0a22773bb981f82280a620cfabae720c5",
+      "bytes": 1975
+    },
+    {
+      "path": "simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py",
+      "sha256": "6170c2737bf5ea3008a4c709aefa3b5e4ce4107fb3a7af1fef021de2e3bd43d5",
+      "bytes": 1835
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_HANDOFF_README.md",
+      "sha256": "f244a59322970350ae3d58ec5c1f7c980bced9b7402ea5a57c288ebefb5dcd22",
+      "bytes": 3268
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/README.md",
+      "sha256": "ae48fd6d0ecee15a42ab0c05bafe0445f16a7d850f42dc572187a170ca8d01e6",
+      "bytes": 1143
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_EXECUTIVE_DECISION_BRIEF.md",
+      "sha256": "faafd09008085fb4d23d6734d7f9c758c5e403c68e84915ae8b646a2702cabd7",
+      "bytes": 6056
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_REUSE_MATRIX.md",
+      "sha256": "d2ac919d7839f845792928c86a0ff6c938aa9e39b8829022ddafec90db521610",
+      "bytes": 3969
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md",
+      "sha256": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40",
+      "bytes": 3633
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_REQUIREMENTS.md",
+      "sha256": "b6b1e8868ca3cefdcef849b5a8132f6e1a2b03b6efffbc97e7309300d8017cf3",
+      "bytes": 5198
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONFIGURATION_FORM.md",
+      "sha256": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137",
+      "bytes": 2444
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_OPEN_DECISIONS.md",
+      "sha256": "1763f214075d2ce3885ccbb125d95b1399ca94c99018e6e1987ac123e9e9f205",
+      "bytes": 5688
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md",
+      "sha256": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4",
+      "bytes": 4821
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_SHORTLIST.md",
+      "sha256": "3f34378945201e185e7b52231ce395df1f8c61dfb5041dd76d95c3b4a4fce0ea",
+      "bytes": 8937
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_ACCESS_AND_SECURITY.md",
+      "sha256": "4ce8b9b1b1f34e74f8a8a61cc8d904a434b46a09779aa777fcefabdcd1539e6a",
+      "bytes": 7284
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md",
+      "sha256": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d",
+      "bytes": 2240
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONTACT_LOG.md",
+      "sha256": "955f101b5fb6af7d2e10881dde456bfe03ef05536d135e54bf8a38e32b474aca",
+      "bytes": 2791
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_COST_AND_SCHEDULE_ESTIMATE.md",
+      "sha256": "684f301ae16897ff6a675838f1d239be697e46c04439094e99baa3818b4b5cc7",
+      "bytes": 4598
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md",
+      "sha256": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397",
+      "bytes": 3651
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REQUEST_FOR_INFORMATION.md",
+      "sha256": "88d74af9a97cbcd54c66d23e143e8483f4c62854a1881076bab4024df8a6c494",
+      "bytes": 5230
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_DELIVERY_SPECIFICATION.md",
+      "sha256": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d",
+      "bytes": 5283
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_QUICKSTART.md",
+      "sha256": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a",
+      "bytes": 3791
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_DATA_LAYOUT.md",
+      "sha256": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d",
+      "bytes": 2263
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_SOURCES.md",
+      "sha256": "18e125634e8a7c8d0cb4dee666d88e987eee9df4acafcdd19484327cab263062",
+      "bytes": 5074
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md",
+      "sha256": "6f0a45d13c28d82bddf590b8d7fd9f5d06635fc92d05f0c01c48cfbe36220f44",
+      "bytes": 8316
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_EVALUATION_MATRIX.md",
+      "sha256": "109534232a6bf9f65919467c2b35a9c720decd3b15f226ae54b1e66667a2e7eb",
+      "bytes": 2918
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_VERIFICATION_PLAN.md",
+      "sha256": "38881621745eb53932da9a39c40f1b2bd18cb295cb55f71ac48e054e657a93b0",
+      "bytes": 11344
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REQUIREMENTS_TEST_MATRIX.md",
+      "sha256": "2042b3930ab1a03fb7893f97172f7c554ca5ede746ad03e6a04285e025f6f619",
+      "bytes": 9391
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/compose.json",
+      "sha256": "3a6bb0610cf999e8cc1d5f5b784fb175ed8de8502ba8dc3e641b075eeca1b1c6",
+      "bytes": 3202
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/launch_r8.py",
+      "sha256": "40120029bd59e923ba7430dc1807c42057d6f84bde19eb7020a6d9bbe7471b0e",
+      "bytes": 4310
+    }
+  ]
+}

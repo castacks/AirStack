@@ -1,0 +1,108 @@
+{
+  "kernel_boot_id": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+  "clock_ticks_per_second": 100,
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/isaac-sim/PX4-Autopilot",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit_code": 0,
+      "stdout": "94cb2012792b2ae89f0b147cfee53ee31ae550be\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/isaac-sim/PX4-Autopilot",
+        "describe",
+        "--tags",
+        "--always"
+      ],
+      "exit_code": 0,
+      "stdout": "v1.16.1\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator",
+        "status",
+        "--porcelain=v1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "process_environment": {
+    "210": {
+      "ISAAC_SIM_STAGE_SCALE": "",
+      "ISAAC_SIM_SCENE": "",
+      "ISAAC_SIM_HEADLESS": "true",
+      "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp"
+    },
+    "975": {
+      "ISAAC_SIM_STAGE_SCALE": "",
+      "ISAAC_SIM_SCENE": "",
+      "ISAAC_SIM_HEADLESS": "true",
+      "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+      "PX4_SIM_MODEL": "gazebo-classic_iris"
+    }
+  },
+  "launch_source": {
+    "path": "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py",
+    "sha256": "6170c2737bf5ea3008a4c709aefa3b5e4ce4107fb3a7af1fef021de2e3bd43d5",
+    "relevant_lines": [
+      {
+        "line": 3,
+        "text": "Example single-drone PX4 launcher with scene preparation."
+      },
+      {
+        "line": 6,
+        "text": " - Loading a Pegasus world with an environment"
+      },
+      {
+        "line": 7,
+        "text": " - Scaling the environment prim and adding collision geometry"
+      },
+      {
+        "line": 10,
+        "text": " - Optionally saving the prepared scene as a self-contained USD"
+      },
+      {
+        "line": 11,
+        "text": "   (pass ``save_scene_to=`` below)"
+      },
+      {
+        "line": 15,
+        "text": "`airstack up --scene <shortname>` \u2014 a Pegasus catalog key or USD URL;"
+      },
+      {
+        "line": 29,
+        "text": "from pegasus_app import PegasusApp, resolve_scene_from_env  # noqa: E402"
+      },
+      {
+        "line": 33,
+        "text": "    # Scene from `airstack up --scene` (or set ISAAC_SIM_SCENE to any"
+      },
+      {
+        "line": 35,
+        "text": "    env_url, stage_scale = resolve_scene_from_env(SIMULATION_ENVIRONMENTS)"
+      },
+      {
+        "line": 37,
+        "text": "    PegasusApp("
+      },
+      {
+        "line": 44,
+        "text": "                # Single-drone scenes keep the historical prim/node names."
+      }
+    ]
+  }
+}

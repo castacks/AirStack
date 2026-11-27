@@ -1,0 +1,11 @@
+{
+  "attempts": [
+    {
+      "id": "MAP-PARAM-01",
+      "exit_code": 1,
+      "result": "COLLECTOR_FAILED",
+      "reason": "DDS/RCL rejected Marker and MarkerArray subscriptions to the same topic in one node: incompatible type / invalid allocator. No parameter query or motion request ran.",
+      "action": "Retain failure; rerun with PointCloud2 and Marker only in MAP-PARAM-02."
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "service_graph": {},
+  "queries": [],
+  "limits": "Read-only parameter plugin GetParameters, not full frozen-parameter or home_AGL equivalence."
+}

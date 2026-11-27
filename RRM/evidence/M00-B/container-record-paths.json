@@ -1,0 +1,14 @@
+[
+  {
+    "container": "airstack-robot-desktop-1",
+    "exit_code": 0,
+    "stdout": "{\"/home/debo/RRM/projects/RRM-C001-F00\": false, \"/root/RRM-C001-F00\": false, \"/root/RRM-agent-coordination\": false, \"/root/Downloads/RRM-C001-F00\": false, \"/isaac-sim/RRM-C001-F00\": false}\n",
+    "stderr": ""
+  },
+  {
+    "container": "isaac-sim-livestream",
+    "exit_code": 0,
+    "stdout": "{\"/home/debo/RRM/projects/RRM-C001-F00\": false, \"/root/RRM-C001-F00\": false, \"/root/RRM-agent-coordination\": false, \"/root/Downloads/RRM-C001-F00\": false, \"/isaac-sim/RRM-C001-F00\": false}\n",
+    "stderr": ""
+  }
+]

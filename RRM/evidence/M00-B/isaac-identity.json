@@ -1,0 +1,126 @@
+{
+  "container": "isaac-sim-livestream",
+  "exit_code": 0,
+  "result": {
+    "captured_utc": "2026-11-27T19:44:25.214952+00:00",
+    "processes": [
+      {
+        "pid": 205,
+        "exe": "/usr/bin/bash",
+        "exe_sha256": "bc5945feb8bd26203ebfafea5ce1878bb2e32cb8fb50ab7ae395cfb1e1aaaef1",
+        "proc_start_ticks": "137874925",
+        "args": [
+          "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py"
+        ],
+        "actuation_libraries": []
+      },
+      {
+        "pid": 210,
+        "exe": "/isaac-sim/kit/python/bin/python3.11",
+        "exe_sha256": "5ab9c6fa43fc97154473ba58c9feaf22a4d6134fd6b4dee7b6a4f2b4c3c2ae8f",
+        "proc_start_ticks": "137874926",
+        "args": [
+          "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py"
+        ],
+        "actuation_libraries": []
+      },
+      {
+        "pid": 975,
+        "exe": "/isaac-sim/PX4-Autopilot/build/px4_sitl_default/bin/px4",
+        "exe_sha256": "8382c08cd06e2917e11c3d9bf22f1cd037b3ef8592f7e8caa6355f3e7a41504f",
+        "proc_start_ticks": "137887500",
+        "args": [
+          "/isaac-sim/PX4-Autopilot/build/px4_sitl_default/bin/px4",
+          "/isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/",
+          "-s",
+          "/isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/rcS",
+          "-i",
+          "1",
+          "-d",
+          ""
+        ],
+        "actuation_libraries": []
+      }
+    ],
+    "files": [
+      {
+        "path": "/etc/os-release",
+        "exists": true,
+        "sha256": "176275809152613bf71e86becb8e2d5f1ab006340b51bdbfef3625eff6c2f5f8",
+        "bytes": 400,
+        "resolved": "/usr/lib/os-release",
+        "text": "PRETTY_NAME=\"Ubuntu 24.04.2 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.2 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n"
+      },
+      {
+        "path": "/isaac-sim/VERSION",
+        "exists": true,
+        "sha256": "3608df6c48e6857e9cdcf9cedb5ddf23d3ce76c46bc87b0f6ab3a5241ef5e5e7",
+        "bytes": 37,
+        "resolved": "/isaac-sim/VERSION",
+        "text": "5.1.0-rc.19+release.26219.9c81211b.gl"
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/config/px4_config.yaml",
+        "exists": false
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "exists": false
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+        "exists": false
+      },
+      {
+        "path": "/root/PX4-Autopilot/build/px4_sitl_default/bin/px4",
+        "exists": false
+      },
+      {
+        "path": "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+        "exists": true,
+        "sha256": "09f8390b45a6a9d7588418030907c16bdc141d3372af12101ceb0526d670985b",
+        "bytes": 2238605,
+        "resolved": "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+      }
+    ],
+    "commands": [
+      {
+        "argv": [
+          "dpkg-query",
+          "-W",
+          "-f=${Package} ${Version}\n",
+          "ros-jazzy-mavros",
+          "ros-jazzy-rmw-fastrtps-cpp"
+        ],
+        "exit_code": 0,
+        "stdout": "ros-jazzy-mavros 2.15.1-1noble.20260903.022619\nros-jazzy-rmw-fastrtps-cpp 8.4.4-1noble.20260902.041916\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/root/PX4-Autopilot",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit_code": 128,
+        "stdout": "",
+        "stderr": "fatal: cannot change to '/root/PX4-Autopilot': No such file or directory\n"
+      },
+      {
+        "argv": [
+          "git",
+          "-C",
+          "/isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit_code": 0,
+        "stdout": "19c970b3e625d20866f23aa6d97e7920c58f4732\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "stderr": ""
+}

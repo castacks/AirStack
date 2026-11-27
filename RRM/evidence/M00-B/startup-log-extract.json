@@ -1,0 +1,38 @@
+{
+  "captured_utc": "2026-11-27T19:44:52.165081+00:00",
+  "kernel_boot_id": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+  "clock_ticks_per_second": 100,
+  "files": [
+    {
+      "path": "/root/.ros/log/robot_interface_node_20295_1795804990835.log",
+      "bytes_at_read": 106,
+      "sha256_at_read": "8895f56fd6d02eab086af2b9c9c632dd7843b2d2004e03a586f43c644ba595b5"
+    },
+    {
+      "path": "/root/.ros/log/mavros_node_20294_1795804990840.log",
+      "bytes_at_read": 18720,
+      "sha256_at_read": "b5e374b7fa1f012513d0ddcdce8eb34723e5102ec1ac9c35d08d4d7234c47def"
+    }
+  ],
+  "extracts": [
+    {
+      "path": "/root/.ros/log/robot_interface_node_20295_1795804990835.log",
+      "matches": [
+        {
+          "line": 1,
+          "text": "[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE"
+        }
+      ]
+    },
+    {
+      "path": "/root/.ros/log/mavros_node_20294_1795804990840.log",
+      "matches": [
+        {
+          "line": 158,
+          "text": "[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot"
+        }
+      ]
+    }
+  ],
+  "limits": "Live logs may advance; extracted lines are evidence, full log hash is time-specific. Filtered lines do not establish complete input receipt history."
+}

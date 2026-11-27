@@ -1,0 +1,25 @@
+{
+  "attempt_id": "MAP-PARAM-02",
+  "captured_utc": "2026-11-27T19:46:27.234516+00:00",
+  "queries": [
+    {
+      "error": "MAVROS ParamGet service unavailable"
+    }
+  ],
+  "map_channels": {
+    "/robot_1/vdb_mapping/vdb_map_pointcloud:PointCloud2": {
+      "count": 14,
+      "last_points": 1503,
+      "last_bytes": 24048,
+      "frame_id": "map",
+      "last_receipt_age_s": 0.10553844692185521
+    },
+    "/robot_1/vdb_mapping/vdb_map_visualization:Marker": {
+      "count": 14,
+      "last_points": 1503,
+      "frame_id": "map",
+      "last_receipt_age_s": 0.10056189796887338
+    }
+  },
+  "limitations": "Read-only ParamGet responses and passive map summaries. No full parameter dump, home_AGL, source/binary attestation, physical position or fresh map-cell timestamp qualification. No parameter writes or motion requests."
+}

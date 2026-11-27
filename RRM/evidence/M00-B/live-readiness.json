@@ -1,0 +1,2214 @@
+{
+  "captured_utc": "2026-11-27T19:44:02.277817+00:00",
+  "duration_wall_s": 14.09454718278721,
+  "ros_domain_id": 1,
+  "selected_graph_topics": {
+    "/clock": [
+      "rosgraph_msgs/msg/Clock"
+    ],
+    "/robot_1/interface/actuation_ready": [
+      "std_msgs/msg/Bool"
+    ],
+    "/robot_1/interface/actuation_status": [
+      "std_msgs/msg/String"
+    ],
+    "/robot_1/interface/mavros/extended_state": [
+      "mavros_msgs/msg/ExtendedState"
+    ],
+    "/robot_1/interface/mavros/odometry/in": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/robot_1/interface/mavros/odometry/out": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/robot_1/interface/mavros/state": [
+      "mavros_msgs/msg/State"
+    ],
+    "/robot_1/odometry_conversion/odometry": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/robot_1/vdb_mapping/vdb_map_overwrites": [
+      "vdb_mapping_interfaces/msg/UpdateGrid"
+    ],
+    "/robot_1/vdb_mapping/vdb_map_pointcloud": [
+      "sensor_msgs/msg/PointCloud2"
+    ],
+    "/robot_1/vdb_mapping/vdb_map_sections": [
+      "vdb_mapping_interfaces/msg/UpdateGrid"
+    ],
+    "/robot_1/vdb_mapping/vdb_map_updates": [
+      "vdb_mapping_interfaces/msg/UpdateGrid"
+    ],
+    "/robot_1/vdb_mapping/vdb_map_visualization": [
+      "visualization_msgs/msg/Marker",
+      "visualization_msgs/msg/MarkerArray"
+    ]
+  },
+  "queries": [
+    {
+      "service": "/robot_1/interface/mavros/setpoint_raw/get_parameters",
+      "parameters": [
+        "thrust_scaling"
+      ],
+      "values": [
+        {
+          "name": "thrust_scaling",
+          "type": 3,
+          "double": 1.0,
+          "integer": 0,
+          "string": "",
+          "bool": false
+        }
+      ]
+    },
+    {
+      "service": "/robot_1/interface/robot_interface/get_parameters",
+      "parameters": [
+        "actuation_startup_timeout_s",
+        "mavros_actuation_config",
+        "is_ardupilot",
+        "use_sim_time"
+      ],
+      "values": [
+        {
+          "name": "actuation_startup_timeout_s",
+          "type": 3,
+          "double": 10.0,
+          "integer": 0,
+          "string": "",
+          "bool": false
+        },
+        {
+          "name": "mavros_actuation_config",
+          "type": 4,
+          "double": 0.0,
+          "integer": 0,
+          "string": "",
+          "bool": false
+        },
+        {
+          "name": "is_ardupilot",
+          "type": 1,
+          "double": 0.0,
+          "integer": 0,
+          "string": "",
+          "bool": false
+        },
+        {
+          "name": "use_sim_time",
+          "type": 1,
+          "double": 0.0,
+          "integer": 0,
+          "string": "",
+          "bool": true
+        }
+      ]
+    }
+  ],
+  "channels": {
+    "/clock": {
+      "type": "rosgraph_msgs/msg/Clock",
+      "samples": [
+        {
+          "receipt_monotonic": 1382492.811437332,
+          "clock_ns": 2735899938847
+        },
+        {
+          "receipt_monotonic": 1382492.849018233,
+          "clock_ns": 2735929938847
+        },
+        {
+          "receipt_monotonic": 1382492.884801531,
+          "clock_ns": 2735959938846
+        },
+        {
+          "receipt_monotonic": 1382492.917294634,
+          "clock_ns": 2735989938845
+        },
+        {
+          "receipt_monotonic": 1382492.942851584,
+          "clock_ns": 2736019938845
+        },
+        {
+          "receipt_monotonic": 1382492.979632187,
+          "clock_ns": 2736049938844
+        },
+        {
+          "receipt_monotonic": 1382493.01326519,
+          "clock_ns": 2736079938843
+        },
+        {
+          "receipt_monotonic": 1382493.049995558,
+          "clock_ns": 2736109938843
+        },
+        {
+          "receipt_monotonic": 1382493.089184547,
+          "clock_ns": 2736139938842
+        },
+        {
+          "receipt_monotonic": 1382493.130240535,
+          "clock_ns": 2736169938841
+        },
+        {
+          "receipt_monotonic": 1382493.171135399,
+          "clock_ns": 2736199938841
+        },
+        {
+          "receipt_monotonic": 1382493.215244927,
+          "clock_ns": 2736229938840
+        },
+        {
+          "receipt_monotonic": 1382493.255051909,
+          "clock_ns": 2736259938839
+        },
+        {
+          "receipt_monotonic": 1382493.295604707,
+          "clock_ns": 2736289938839
+        },
+        {
+          "receipt_monotonic": 1382493.335938575,
+          "clock_ns": 2736319938838
+        },
+        {
+          "receipt_monotonic": 1382493.37031556,
+          "clock_ns": 2736349938837
+        },
+        {
+          "receipt_monotonic": 1382493.405976343,
+          "clock_ns": 2736379938837
+        },
+        {
+          "receipt_monotonic": 1382493.444614841,
+          "clock_ns": 2736409938836
+        },
+        {
+          "receipt_monotonic": 1382493.480250136,
+          "clock_ns": 2736439938835
+        },
+        {
+          "receipt_monotonic": 1382493.528137306,
+          "clock_ns": 2736469938835
+        },
+        {
+          "receipt_monotonic": 1382493.557581555,
+          "clock_ns": 2736499938834
+        },
+        {
+          "receipt_monotonic": 1382493.596564703,
+          "clock_ns": 2736529938833
+        },
+        {
+          "receipt_monotonic": 1382493.629922641,
+          "clock_ns": 2736559938833
+        },
+        {
+          "receipt_monotonic": 1382493.682486531,
+          "clock_ns": 2736589938832
+        },
+        {
+          "receipt_monotonic": 1382493.716555352,
+          "clock_ns": 2736619938831
+        },
+        {
+          "receipt_monotonic": 1382493.755491168,
+          "clock_ns": 2736649938831
+        },
+        {
+          "receipt_monotonic": 1382493.799673375,
+          "clock_ns": 2736679938830
+        },
+        {
+          "receipt_monotonic": 1382493.847860799,
+          "clock_ns": 2736709938829
+        },
+        {
+          "receipt_monotonic": 1382493.875787066,
+          "clock_ns": 2736739938829
+        },
+        {
+          "receipt_monotonic": 1382493.914236789,
+          "clock_ns": 2736769938828
+        },
+        {
+          "receipt_monotonic": 1382493.952163893,
+          "clock_ns": 2736799938827
+        },
+        {
+          "receipt_monotonic": 1382494.007320148,
+          "clock_ns": 2736829938827
+        },
+        {
+          "receipt_monotonic": 1382494.039877866,
+          "clock_ns": 2736859938826
+        },
+        {
+          "receipt_monotonic": 1382494.074954869,
+          "clock_ns": 2736889938825
+        },
+        {
+          "receipt_monotonic": 1382494.110795843,
+          "clock_ns": 2736919938825
+        },
+        {
+          "receipt_monotonic": 1382494.143228403,
+          "clock_ns": 2736949938824
+        },
+        {
+          "receipt_monotonic": 1382494.182556002,
+          "clock_ns": 2736979938823
+        },
+        {
+          "receipt_monotonic": 1382494.219105737,
+          "clock_ns": 2737009938823
+        },
+        {
+          "receipt_monotonic": 1382494.257834201,
+          "clock_ns": 2737039938822
+        },
+        {
+          "receipt_monotonic": 1382494.291245929,
+          "clock_ns": 2737069938821
+        },
+        {
+          "receipt_monotonic": 1382494.328718468,
+          "clock_ns": 2737099938821
+        },
+        {
+          "receipt_monotonic": 1382494.365839986,
+          "clock_ns": 2737129938820
+        },
+        {
+          "receipt_monotonic": 1382494.401172864,
+          "clock_ns": 2737159938819
+        },
+        {
+          "receipt_monotonic": 1382494.441771702,
+          "clock_ns": 2737189938819
+        },
+        {
+          "receipt_monotonic": 1382494.482597542,
+          "clock_ns": 2737219938818
+        },
+        {
+          "receipt_monotonic": 1382494.524473207,
+          "clock_ns": 2737249938817
+        },
+        {
+          "receipt_monotonic": 1382494.561216895,
+          "clock_ns": 2737279938817
+        },
+        {
+          "receipt_monotonic": 1382494.601353946,
+          "clock_ns": 2737309938816
+        },
+        {
+          "receipt_monotonic": 1382494.641965392,
+          "clock_ns": 2737339938815
+        },
+        {
+          "receipt_monotonic": 1382494.677359763,
+          "clock_ns": 2737369938815
+        },
+        {
+          "receipt_monotonic": 1382494.719112153,
+          "clock_ns": 2737399938814
+        },
+        {
+          "receipt_monotonic": 1382494.756255103,
+          "clock_ns": 2737429938813
+        },
+        {
+          "receipt_monotonic": 1382494.792143772,
+          "clock_ns": 2737459938813
+        },
+        {
+          "receipt_monotonic": 1382494.830133369,
+          "clock_ns": 2737489938812
+        },
+        {
+          "receipt_monotonic": 1382494.865355801,
+          "clock_ns": 2737519938811
+        },
+        {
+          "receipt_monotonic": 1382494.90474924,
+          "clock_ns": 2737549938810
+        },
+        {
+          "receipt_monotonic": 1382494.937697378,
+          "clock_ns": 2737579938810
+        },
+        {
+          "receipt_monotonic": 1382494.990191311,
+          "clock_ns": 2737609938809
+        },
+        {
+          "receipt_monotonic": 1382495.032555815,
+          "clock_ns": 2737639938808
+        },
+        {
+          "receipt_monotonic": 1382495.073593405,
+          "clock_ns": 2737669938808
+        },
+        {
+          "receipt_monotonic": 1382495.124255394,
+          "clock_ns": 2737699938807
+        },
+        {
+          "receipt_monotonic": 1382495.161955236,
+          "clock_ns": 2737729938806
+        },
+        {
+          "receipt_monotonic": 1382495.207814224,
+          "clock_ns": 2737759938806
+        },
+        {
+          "receipt_monotonic": 1382495.251947336,
+          "clock_ns": 2737789938805
+        },
+        {
+          "receipt_monotonic": 1382495.283608863,
+          "clock_ns": 2737819938804
+        },
+        {
+          "receipt_monotonic": 1382495.327832312,
+          "clock_ns": 2737849938804
+        },
+        {
+          "receipt_monotonic": 1382495.365130437,
+          "clock_ns": 2737879938803
+        },
+        {
+          "receipt_monotonic": 1382495.404628653,
+          "clock_ns": 2737909938802
+        },
+        {
+          "receipt_monotonic": 1382495.447231627,
+          "clock_ns": 2737939938802
+        },
+        {
+          "receipt_monotonic": 1382495.486799097,
+          "clock_ns": 2737969938801
+        },
+        {
+          "receipt_monotonic": 1382495.528258313,
+          "clock_ns": 2737999938800
+        },
+        {
+          "receipt_monotonic": 1382495.577894184,
+          "clock_ns": 2738029938800
+        },
+        {
+          "receipt_monotonic": 1382495.615198398,
+          "clock_ns": 2738059938799
+        },
+        {
+          "receipt_monotonic": 1382495.643261261,
+          "clock_ns": 2738089938798
+        },
+        {
+          "receipt_monotonic": 1382495.678584475,
+          "clock_ns": 2738119938798
+        },
+        {
+          "receipt_monotonic": 1382495.714349185,
+          "clock_ns": 2738149938797
+        },
+        {
+          "receipt_monotonic": 1382495.763139499,
+          "clock_ns": 2738179938796
+        },
+        {
+          "receipt_monotonic": 1382495.78979012,
+          "clock_ns": 2738209938796
+        },
+        {
+          "receipt_monotonic": 1382495.824334828,
+          "clock_ns": 2738239938795
+        },
+        {
+          "receipt_monotonic": 1382495.857359413,
+          "clock_ns": 2738269938794
+        },
+        {
+          "receipt_monotonic": 1382495.892324555,
+          "clock_ns": 2738299938794
+        },
+        {
+          "receipt_monotonic": 1382495.928789803,
+          "clock_ns": 2738329938793
+        },
+        {
+          "receipt_monotonic": 1382495.966356574,
+          "clock_ns": 2738359938792
+        },
+        {
+          "receipt_monotonic": 1382496.006081111,
+          "clock_ns": 2738389938792
+        },
+        {
+          "receipt_monotonic": 1382496.042843828,
+          "clock_ns": 2738419938791
+        },
+        {
+          "receipt_monotonic": 1382496.079089384,
+          "clock_ns": 2738449938790
+        },
+        {
+          "receipt_monotonic": 1382496.117875205,
+          "clock_ns": 2738479938790
+        },
+        {
+          "receipt_monotonic": 1382496.152465163,
+          "clock_ns": 2738509938789
+        },
+        {
+          "receipt_monotonic": 1382496.189501561,
+          "clock_ns": 2738539938788
+        },
+        {
+          "receipt_monotonic": 1382496.238844179,
+          "clock_ns": 2738569938788
+        },
+        {
+          "receipt_monotonic": 1382496.272379524,
+          "clock_ns": 2738599938787
+        },
+        {
+          "receipt_monotonic": 1382496.310560302,
+          "clock_ns": 2738629938786
+        },
+        {
+          "receipt_monotonic": 1382496.355841517,
+          "clock_ns": 2738659938786
+        },
+        {
+          "receipt_monotonic": 1382496.416189258,
+          "clock_ns": 2738689938785
+        },
+        {
+          "receipt_monotonic": 1382496.449850042,
+          "clock_ns": 2738719938784
+        },
+        {
+          "receipt_monotonic": 1382496.494824715,
+          "clock_ns": 2738749938784
+        },
+        {
+          "receipt_monotonic": 1382496.531922167,
+          "clock_ns": 2738779938783
+        },
+        {
+          "receipt_monotonic": 1382496.574613603,
+          "clock_ns": 2738809938782
+        },
+        {
+          "receipt_monotonic": 1382496.617803834,
+          "clock_ns": 2738839938782
+        },
+        {
+          "receipt_monotonic": 1382496.657915876,
+          "clock_ns": 2738869938781
+        },
+        {
+          "receipt_monotonic": 1382496.701588023,
+          "clock_ns": 2738899938780
+        },
+        {
+          "receipt_monotonic": 1382496.755485057,
+          "clock_ns": 2738929938780
+        },
+        {
+          "receipt_monotonic": 1382496.789182225,
+          "clock_ns": 2738959938779
+        },
+        {
+          "receipt_monotonic": 1382496.823742117,
+          "clock_ns": 2738989938778
+        },
+        {
+          "receipt_monotonic": 1382496.862321285,
+          "clock_ns": 2739019938778
+        },
+        {
+          "receipt_monotonic": 1382496.917483137,
+          "clock_ns": 2739049938777
+        },
+        {
+          "receipt_monotonic": 1382496.950180387,
+          "clock_ns": 2739079938776
+        },
+        {
+          "receipt_monotonic": 1382496.993248422,
+          "clock_ns": 2739109938776
+        },
+        {
+          "receipt_monotonic": 1382497.048371576,
+          "clock_ns": 2739139938775
+        },
+        {
+          "receipt_monotonic": 1382497.076267016,
+          "clock_ns": 2739169938774
+        },
+        {
+          "receipt_monotonic": 1382497.11732684,
+          "clock_ns": 2739199938774
+        },
+        {
+          "receipt_monotonic": 1382497.153519106,
+          "clock_ns": 2739229938773
+        },
+        {
+          "receipt_monotonic": 1382497.195289131,
+          "clock_ns": 2739259938772
+        },
+        {
+          "receipt_monotonic": 1382497.230455227,
+          "clock_ns": 2739289938772
+        },
+        {
+          "receipt_monotonic": 1382497.268283463,
+          "clock_ns": 2739319938771
+        },
+        {
+          "receipt_monotonic": 1382497.310168652,
+          "clock_ns": 2739349938770
+        },
+        {
+          "receipt_monotonic": 1382497.348219914,
+          "clock_ns": 2739379938770
+        },
+        {
+          "receipt_monotonic": 1382497.398892429,
+          "clock_ns": 2739409938769
+        },
+        {
+          "receipt_monotonic": 1382497.43149768,
+          "clock_ns": 2739439938768
+        },
+        {
+          "receipt_monotonic": 1382497.474752947,
+          "clock_ns": 2739469938768
+        },
+        {
+          "receipt_monotonic": 1382497.516340578,
+          "clock_ns": 2739499938767
+        },
+        {
+          "receipt_monotonic": 1382497.554764102,
+          "clock_ns": 2739529938766
+        },
+        {
+          "receipt_monotonic": 1382497.592892741,
+          "clock_ns": 2739559938766
+        },
+        {
+          "receipt_monotonic": 1382497.631553983,
+          "clock_ns": 2739589938765
+        },
+        {
+          "receipt_monotonic": 1382497.666319555,
+          "clock_ns": 2739619938764
+        },
+        {
+          "receipt_monotonic": 1382497.705388573,
+          "clock_ns": 2739649938764
+        },
+        {
+          "receipt_monotonic": 1382497.743680499,
+          "clock_ns": 2739679938763
+        },
+        {
+          "receipt_monotonic": 1382497.780130483,
+          "clock_ns": 2739709938762
+        },
+        {
+          "receipt_monotonic": 1382497.820165029,
+          "clock_ns": 2739739938762
+        },
+        {
+          "receipt_monotonic": 1382497.861967534,
+          "clock_ns": 2739769938761
+        },
+        {
+          "receipt_monotonic": 1382497.905953195,
+          "clock_ns": 2739799938760
+        },
+        {
+          "receipt_monotonic": 1382497.943221364,
+          "clock_ns": 2739829938760
+        },
+        {
+          "receipt_monotonic": 1382497.980910559,
+          "clock_ns": 2739859938759
+        },
+        {
+          "receipt_monotonic": 1382498.018599444,
+          "clock_ns": 2739889938758
+        },
+        {
+          "receipt_monotonic": 1382498.06999481,
+          "clock_ns": 2739919938758
+        },
+        {
+          "receipt_monotonic": 1382498.102657508,
+          "clock_ns": 2739949938757
+        },
+        {
+          "receipt_monotonic": 1382498.141427444,
+          "clock_ns": 2739979938756
+        },
+        {
+          "receipt_monotonic": 1382498.181286585,
+          "clock_ns": 2740009938756
+        },
+        {
+          "receipt_monotonic": 1382498.228933763,
+          "clock_ns": 2740039938755
+        },
+        {
+          "receipt_monotonic": 1382498.267243265,
+          "clock_ns": 2740069938754
+        },
+        {
+          "receipt_monotonic": 1382498.306487238,
+          "clock_ns": 2740099938753
+        },
+        {
+          "receipt_monotonic": 1382498.343144405,
+          "clock_ns": 2740129938753
+        },
+        {
+          "receipt_monotonic": 1382498.382626266,
+          "clock_ns": 2740159938752
+        },
+        {
+          "receipt_monotonic": 1382498.415752613,
+          "clock_ns": 2740189938751
+        },
+        {
+          "receipt_monotonic": 1382498.450460287,
+          "clock_ns": 2740219938751
+        },
+        {
+          "receipt_monotonic": 1382498.482788761,
+          "clock_ns": 2740249938750
+        },
+        {
+          "receipt_monotonic": 1382498.531256528,
+          "clock_ns": 2740279938749
+        },
+        {
+          "receipt_monotonic": 1382498.561265148,
+          "clock_ns": 2740309938749
+        },
+        {
+          "receipt_monotonic": 1382498.596399296,
+          "clock_ns": 2740339938748
+        },
+        {
+          "receipt_monotonic": 1382498.638217535,
+          "clock_ns": 2740369938747
+        },
+        {
+          "receipt_monotonic": 1382498.691196112,
+          "clock_ns": 2740399938747
+        },
+        {
+          "receipt_monotonic": 1382498.727042165,
+          "clock_ns": 2740429938746
+        },
+        {
+          "receipt_monotonic": 1382498.77105167,
+          "clock_ns": 2740459938745
+        },
+        {
+          "receipt_monotonic": 1382498.80617388,
+          "clock_ns": 2740489938745
+        },
+        {
+          "receipt_monotonic": 1382498.846262668,
+          "clock_ns": 2740519938744
+        },
+        {
+          "receipt_monotonic": 1382498.887270213,
+          "clock_ns": 2740549938743
+        },
+        {
+          "receipt_monotonic": 1382498.923394646,
+          "clock_ns": 2740579938743
+        },
+        {
+          "receipt_monotonic": 1382498.956091065,
+          "clock_ns": 2740609938742
+        },
+        {
+          "receipt_monotonic": 1382499.003055612,
+          "clock_ns": 2740639938741
+        },
+        {
+          "receipt_monotonic": 1382499.034469664,
+          "clock_ns": 2740669938741
+        },
+        {
+          "receipt_monotonic": 1382499.071597091,
+          "clock_ns": 2740699938740
+        },
+        {
+          "receipt_monotonic": 1382499.112111562,
+          "clock_ns": 2740729938739
+        },
+        {
+          "receipt_monotonic": 1382499.15734818,
+          "clock_ns": 2740759938739
+        },
+        {
+          "receipt_monotonic": 1382499.185761784,
+          "clock_ns": 2740789938738
+        },
+        {
+          "receipt_monotonic": 1382499.22266377,
+          "clock_ns": 2740819938737
+        },
+        {
+          "receipt_monotonic": 1382499.258757928,
+          "clock_ns": 2740849938737
+        },
+        {
+          "receipt_monotonic": 1382499.303906363,
+          "clock_ns": 2740879938736
+        },
+        {
+          "receipt_monotonic": 1382499.329494712,
+          "clock_ns": 2740909938735
+        },
+        {
+          "receipt_monotonic": 1382499.362491503,
+          "clock_ns": 2740939938735
+        },
+        {
+          "receipt_monotonic": 1382499.396694556,
+          "clock_ns": 2740969938734
+        },
+        {
+          "receipt_monotonic": 1382499.43756251,
+          "clock_ns": 2740999938733
+        },
+        {
+          "receipt_monotonic": 1382499.476140627,
+          "clock_ns": 2741029938733
+        },
+        {
+          "receipt_monotonic": 1382499.508466807,
+          "clock_ns": 2741059938732
+        },
+        {
+          "receipt_monotonic": 1382499.550542284,
+          "clock_ns": 2741089938731
+        },
+        {
+          "receipt_monotonic": 1382499.588025198,
+          "clock_ns": 2741119938731
+        },
+        {
+          "receipt_monotonic": 1382499.637413563,
+          "clock_ns": 2741149938730
+        },
+        {
+          "receipt_monotonic": 1382499.668979646,
+          "clock_ns": 2741179938729
+        },
+        {
+          "receipt_monotonic": 1382499.703182347,
+          "clock_ns": 2741209938729
+        },
+        {
+          "receipt_monotonic": 1382499.742462895,
+          "clock_ns": 2741239938728
+        },
+        {
+          "receipt_monotonic": 1382499.790642687,
+          "clock_ns": 2741269938727
+        },
+        {
+          "receipt_monotonic": 1382499.823142839,
+          "clock_ns": 2741299938727
+        },
+        {
+          "receipt_monotonic": 1382499.859415226,
+          "clock_ns": 2741329938726
+        },
+        {
+          "receipt_monotonic": 1382499.898759701,
+          "clock_ns": 2741359938725
+        },
+        {
+          "receipt_monotonic": 1382499.929924897,
+          "clock_ns": 2741389938725
+        },
+        {
+          "receipt_monotonic": 1382499.964643738,
+          "clock_ns": 2741419938724
+        },
+        {
+          "receipt_monotonic": 1382500.010543648,
+          "clock_ns": 2741449938723
+        },
+        {
+          "receipt_monotonic": 1382500.049898839,
+          "clock_ns": 2741479938723
+        },
+        {
+          "receipt_monotonic": 1382500.084682588,
+          "clock_ns": 2741509938722
+        },
+        {
+          "receipt_monotonic": 1382500.123112852,
+          "clock_ns": 2741539938721
+        },
+        {
+          "receipt_monotonic": 1382500.157615837,
+          "clock_ns": 2741569938721
+        },
+        {
+          "receipt_monotonic": 1382500.195955625,
+          "clock_ns": 2741599938720
+        },
+        {
+          "receipt_monotonic": 1382500.233265156,
+          "clock_ns": 2741629938719
+        },
+        {
+          "receipt_monotonic": 1382500.278621226,
+          "clock_ns": 2741659938719
+        },
+        {
+          "receipt_monotonic": 1382500.306164585,
+          "clock_ns": 2741689938718
+        },
+        {
+          "receipt_monotonic": 1382500.344740089,
+          "clock_ns": 2741719938717
+        },
+        {
+          "receipt_monotonic": 1382500.379688796,
+          "clock_ns": 2741749938717
+        },
+        {
+          "receipt_monotonic": 1382500.426520474,
+          "clock_ns": 2741779938716
+        },
+        {
+          "receipt_monotonic": 1382500.459088568,
+          "clock_ns": 2741809938715
+        },
+        {
+          "receipt_monotonic": 1382500.493465985,
+          "clock_ns": 2741839938715
+        },
+        {
+          "receipt_monotonic": 1382500.525575858,
+          "clock_ns": 2741869938714
+        },
+        {
+          "receipt_monotonic": 1382500.565606697,
+          "clock_ns": 2741899938713
+        },
+        {
+          "receipt_monotonic": 1382500.599102833,
+          "clock_ns": 2741929938713
+        },
+        {
+          "receipt_monotonic": 1382500.637392214,
+          "clock_ns": 2741959938712
+        },
+        {
+          "receipt_monotonic": 1382500.677587582,
+          "clock_ns": 2741989938711
+        },
+        {
+          "receipt_monotonic": 1382500.70775338,
+          "clock_ns": 2742019938711
+        },
+        {
+          "receipt_monotonic": 1382500.75747497,
+          "clock_ns": 2742049938710
+        },
+        {
+          "receipt_monotonic": 1382500.788941903,
+          "clock_ns": 2742079938709
+        },
+        {
+          "receipt_monotonic": 1382500.82209475,
+          "clock_ns": 2742109938709
+        },
+        {
+          "receipt_monotonic": 1382500.860386185,
+          "clock_ns": 2742139938708
+        },
+        {
+          "receipt_monotonic": 1382500.896736327,
+          "clock_ns": 2742169938707
+        },
+        {
+          "receipt_monotonic": 1382500.932636192,
+          "clock_ns": 2742199938707
+        },
+        {
+          "receipt_monotonic": 1382500.969474664,
+          "clock_ns": 2742229938706
+        },
+        {
+          "receipt_monotonic": 1382501.007373645,
+          "clock_ns": 2742259938705
+        },
+        {
+          "receipt_monotonic": 1382501.045144704,
+          "clock_ns": 2742289938705
+        },
+        {
+          "receipt_monotonic": 1382501.086371089,
+          "clock_ns": 2742319938704
+        },
+        {
+          "receipt_monotonic": 1382501.127411414,
+          "clock_ns": 2742349938703
+        },
+        {
+          "receipt_monotonic": 1382501.162837943,
+          "clock_ns": 2742379938703
+        },
+        {
+          "receipt_monotonic": 1382501.20128347,
+          "clock_ns": 2742409938702
+        },
+        {
+          "receipt_monotonic": 1382501.235326571,
+          "clock_ns": 2742439938701
+        },
+        {
+          "receipt_monotonic": 1382501.271504595,
+          "clock_ns": 2742469938701
+        },
+        {
+          "receipt_monotonic": 1382501.310918674,
+          "clock_ns": 2742499938700
+        },
+        {
+          "receipt_monotonic": 1382501.350235227,
+          "clock_ns": 2742529938699
+        },
+        {
+          "receipt_monotonic": 1382501.401954281,
+          "clock_ns": 2742559938699
+        },
+        {
+          "receipt_monotonic": 1382501.42984135,
+          "clock_ns": 2742589938698
+        },
+        {
+          "receipt_monotonic": 1382501.474436039,
+          "clock_ns": 2742619938697
+        },
+        {
+          "receipt_monotonic": 1382501.515524846,
+          "clock_ns": 2742649938696
+        },
+        {
+          "receipt_monotonic": 1382501.567496734,
+          "clock_ns": 2742679938696
+        },
+        {
+          "receipt_monotonic": 1382501.603366462,
+          "clock_ns": 2742709938695
+        },
+        {
+          "receipt_monotonic": 1382501.641303812,
+          "clock_ns": 2742739938694
+        },
+        {
+          "receipt_monotonic": 1382501.676919026,
+          "clock_ns": 2742769938694
+        },
+        {
+          "receipt_monotonic": 1382501.727682558,
+          "clock_ns": 2742799938693
+        },
+        {
+          "receipt_monotonic": 1382501.758538438,
+          "clock_ns": 2742829938692
+        },
+        {
+          "receipt_monotonic": 1382501.795451231,
+          "clock_ns": 2742859938692
+        },
+        {
+          "receipt_monotonic": 1382501.838411173,
+          "clock_ns": 2742889938691
+        },
+        {
+          "receipt_monotonic": 1382501.894307554,
+          "clock_ns": 2742919938690
+        },
+        {
+          "receipt_monotonic": 1382501.933573008,
+          "clock_ns": 2742949938690
+        },
+        {
+          "receipt_monotonic": 1382501.977267781,
+          "clock_ns": 2742979938689
+        },
+        {
+          "receipt_monotonic": 1382502.024896461,
+          "clock_ns": 2743009938688
+        },
+        {
+          "receipt_monotonic": 1382502.055822025,
+          "clock_ns": 2743039938688
+        },
+        {
+          "receipt_monotonic": 1382502.101157393,
+          "clock_ns": 2743069938687
+        },
+        {
+          "receipt_monotonic": 1382502.139770103,
+          "clock_ns": 2743099938686
+        },
+        {
+          "receipt_monotonic": 1382502.189850694,
+          "clock_ns": 2743129938686
+        },
+        {
+          "receipt_monotonic": 1382502.225448922,
+          "clock_ns": 2743159938685
+        },
+        {
+          "receipt_monotonic": 1382502.258337982,
+          "clock_ns": 2743189938684
+        },
+        {
+          "receipt_monotonic": 1382502.294125516,
+          "clock_ns": 2743219938684
+        },
+        {
+          "receipt_monotonic": 1382502.346463536,
+          "clock_ns": 2743249938683
+        },
+        {
+          "receipt_monotonic": 1382502.381079962,
+          "clock_ns": 2743279938682
+        },
+        {
+          "receipt_monotonic": 1382502.413665824,
+          "clock_ns": 2743309938682
+        },
+        {
+          "receipt_monotonic": 1382502.450986092,
+          "clock_ns": 2743339938681
+        },
+        {
+          "receipt_monotonic": 1382502.494161019,
+          "clock_ns": 2743369938680
+        },
+        {
+          "receipt_monotonic": 1382502.525257522,
+          "clock_ns": 2743399938680
+        },
+        {
+          "receipt_monotonic": 1382502.561163875,
+          "clock_ns": 2743429938679
+        },
+        {
+          "receipt_monotonic": 1382502.598835034,
+          "clock_ns": 2743459938678
+        },
+        {
+          "receipt_monotonic": 1382502.632493184,
+          "clock_ns": 2743489938678
+        },
+        {
+          "receipt_monotonic": 1382502.668126786,
+          "clock_ns": 2743519938677
+        },
+        {
+          "receipt_monotonic": 1382502.702452744,
+          "clock_ns": 2743549938676
+        },
+        {
+          "receipt_monotonic": 1382502.738726093,
+          "clock_ns": 2743579938676
+        },
+        {
+          "receipt_monotonic": 1382502.77872175,
+          "clock_ns": 2743609938675
+        },
+        {
+          "receipt_monotonic": 1382502.815295321,
+          "clock_ns": 2743639938674
+        },
+        {
+          "receipt_monotonic": 1382502.849312013,
+          "clock_ns": 2743669938674
+        },
+        {
+          "receipt_monotonic": 1382502.891314488,
+          "clock_ns": 2743699938673
+        },
+        {
+          "receipt_monotonic": 1382502.930912156,
+          "clock_ns": 2743729938672
+        },
+        {
+          "receipt_monotonic": 1382502.977626244,
+          "clock_ns": 2743759938672
+        },
+        {
+          "receipt_monotonic": 1382503.011993244,
+          "clock_ns": 2743789938671
+        },
+        {
+          "receipt_monotonic": 1382503.046419333,
+          "clock_ns": 2743819938670
+        },
+        {
+          "receipt_monotonic": 1382503.08605707,
+          "clock_ns": 2743849938670
+        },
+        {
+          "receipt_monotonic": 1382503.117592146,
+          "clock_ns": 2743879938669
+        },
+        {
+          "receipt_monotonic": 1382503.151694907,
+          "clock_ns": 2743909938668
+        },
+        {
+          "receipt_monotonic": 1382503.194736793,
+          "clock_ns": 2743939938668
+        },
+        {
+          "receipt_monotonic": 1382503.235661633,
+          "clock_ns": 2743969938667
+        },
+        {
+          "receipt_monotonic": 1382503.264970516,
+          "clock_ns": 2743999938666
+        },
+        {
+          "receipt_monotonic": 1382503.29640503,
+          "clock_ns": 2744029938666
+        },
+        {
+          "receipt_monotonic": 1382503.33872699,
+          "clock_ns": 2744059938665
+        },
+        {
+          "receipt_monotonic": 1382503.370032638,
+          "clock_ns": 2744089938664
+        },
+        {
+          "receipt_monotonic": 1382503.404847254,
+          "clock_ns": 2744119938664
+        },
+        {
+          "receipt_monotonic": 1382503.435285162,
+          "clock_ns": 2744149938663
+        },
+        {
+          "receipt_monotonic": 1382503.482122699,
+          "clock_ns": 2744179938662
+        },
+        {
+          "receipt_monotonic": 1382503.510862704,
+          "clock_ns": 2744209938662
+        },
+        {
+          "receipt_monotonic": 1382503.544924704,
+          "clock_ns": 2744239938661
+        },
+        {
+          "receipt_monotonic": 1382503.588269186,
+          "clock_ns": 2744269938660
+        },
+        {
+          "receipt_monotonic": 1382503.619315934,
+          "clock_ns": 2744299938660
+        },
+        {
+          "receipt_monotonic": 1382503.658448067,
+          "clock_ns": 2744329938659
+        },
+        {
+          "receipt_monotonic": 1382503.696407772,
+          "clock_ns": 2744359938658
+        },
+        {
+          "receipt_monotonic": 1382503.743958043,
+          "clock_ns": 2744389938658
+        },
+        {
+          "receipt_monotonic": 1382503.779894352,
+          "clock_ns": 2744419938657
+        },
+        {
+          "receipt_monotonic": 1382503.819051333,
+          "clock_ns": 2744449938656
+        },
+        {
+          "receipt_monotonic": 1382503.855481879,
+          "clock_ns": 2744479938656
+        },
+        {
+          "receipt_monotonic": 1382503.892282072,
+          "clock_ns": 2744509938655
+        },
+        {
+          "receipt_monotonic": 1382503.944368572,
+          "clock_ns": 2744539938654
+        },
+        {
+          "receipt_monotonic": 1382503.971754042,
+          "clock_ns": 2744569938654
+        },
+        {
+          "receipt_monotonic": 1382504.01662498,
+          "clock_ns": 2744599938653
+        },
+        {
+          "receipt_monotonic": 1382504.054580276,
+          "clock_ns": 2744629938652
+        },
+        {
+          "receipt_monotonic": 1382504.09067837,
+          "clock_ns": 2744659938652
+        },
+        {
+          "receipt_monotonic": 1382504.128029124,
+          "clock_ns": 2744689938651
+        },
+        {
+          "receipt_monotonic": 1382504.166860234,
+          "clock_ns": 2744719938650
+        },
+        {
+          "receipt_monotonic": 1382504.220340808,
+          "clock_ns": 2744749938650
+        },
+        {
+          "receipt_monotonic": 1382504.258990582,
+          "clock_ns": 2744779938649
+        },
+        {
+          "receipt_monotonic": 1382504.294028054,
+          "clock_ns": 2744809938648
+        },
+        {
+          "receipt_monotonic": 1382504.335407861,
+          "clock_ns": 2744839938648
+        },
+        {
+          "receipt_monotonic": 1382504.372129887,
+          "clock_ns": 2744869938647
+        },
+        {
+          "receipt_monotonic": 1382504.416023288,
+          "clock_ns": 2744899938646
+        },
+        {
+          "receipt_monotonic": 1382504.443714681,
+          "clock_ns": 2744929938646
+        },
+        {
+          "receipt_monotonic": 1382504.480071775,
+          "clock_ns": 2744959938645
+        },
+        {
+          "receipt_monotonic": 1382504.52097359,
+          "clock_ns": 2744989938644
+        },
+        {
+          "receipt_monotonic": 1382504.551156544,
+          "clock_ns": 2745019938644
+        },
+        {
+          "receipt_monotonic": 1382504.58545428,
+          "clock_ns": 2745049938643
+        },
+        {
+          "receipt_monotonic": 1382504.621518692,
+          "clock_ns": 2745079938642
+        },
+        {
+          "receipt_monotonic": 1382504.665574629,
+          "clock_ns": 2745109938642
+        },
+        {
+          "receipt_monotonic": 1382504.705313118,
+          "clock_ns": 2745139938641
+        },
+        {
+          "receipt_monotonic": 1382504.739250359,
+          "clock_ns": 2745169938640
+        },
+        {
+          "receipt_monotonic": 1382504.776835968,
+          "clock_ns": 2745199938639
+        },
+        {
+          "receipt_monotonic": 1382504.81874286,
+          "clock_ns": 2745229938639
+        },
+        {
+          "receipt_monotonic": 1382504.85443373,
+          "clock_ns": 2745259938638
+        }
+      ],
+      "count": 313,
+      "last_receipt_age_s": 4.285387694835663e-05,
+      "max_receipt_gap_s": 0.06034774100407958
+    },
+    "/robot_1/interface/actuation_ready": {
+      "type": "std_msgs/msg/Bool",
+      "samples": [
+        {
+          "receipt_monotonic": 1382492.913337889,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382493.114613364,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382493.313083843,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382493.512995568,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382493.712954235,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382493.912944278,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382494.114152691,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382494.313387024,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382494.512877663,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382494.712872424,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382494.9128783,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382495.112950789,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382495.312871377,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382495.51635881,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382495.712855731,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382495.913243155,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382496.112913985,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382496.312677397,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382496.512739249,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382496.712815362,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382496.913313433,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382497.112698433,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382497.312654095,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382497.512815306,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382497.714026243,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382497.912708652,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382498.112832307,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382498.31269583,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382498.512953186,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382498.712732071,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382498.91320195,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382499.112492317,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382499.313023847,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382499.512877826,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382499.71335912,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382499.912876491,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382500.113328631,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382500.312570957,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382500.512915064,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382500.71266096,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382500.912756972,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382501.112827838,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382501.312490507,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382501.512884211,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382501.714508942,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382501.913032832,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382502.112828833,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382502.312923674,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382502.512864383,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382502.712975509,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382502.912988538,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382503.112908997,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382503.312889054,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382503.512532154,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382503.713017316,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382503.912699004,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382504.113030132,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382504.312593801,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382504.512941205,
+          "data": false
+        },
+        {
+          "receipt_monotonic": 1382504.712772308,
+          "data": false
+        }
+      ],
+      "count": 60,
+      "last_receipt_age_s": 0.14170427597127855,
+      "max_receipt_gap_s": 0.20348743302747607
+    },
+    "/robot_1/interface/actuation_status": {
+      "type": "std_msgs/msg/String",
+      "samples": [
+        {
+          "receipt_monotonic": 1382492.91344415,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382493.114689519,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382493.313173589,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382493.513105755,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382493.71301091,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382493.913032882,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382494.114219923,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382494.313480815,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382494.512963933,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382494.713131304,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382494.912984841,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382495.113058642,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382495.312967151,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382495.516435016,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382495.712936853,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382495.913339139,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382496.112993105,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382496.312729235,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382496.512827352,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382496.712903175,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382496.913416969,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382497.112774698,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382497.312722618,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382497.512904231,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382497.714097711,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382497.912779059,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382498.112928944,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382498.312780547,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382498.513045145,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382498.712796879,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382498.913273117,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382499.112537485,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382499.313113834,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382499.512968942,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382499.713454705,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382499.912965495,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382500.113422683,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382500.312630806,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382500.512997629,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382500.712733048,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382500.912891185,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382501.112901079,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382501.312691942,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382501.512975108,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382501.714607601,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382501.913131811,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382502.112919279,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382502.313194582,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382502.512962902,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382502.713083553,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382502.913085735,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382503.112992431,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382503.312981053,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382503.512587337,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382503.713109584,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382503.913074931,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382504.113149252,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382504.312650006,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382504.513037329,
+          "data": "STARTUP_DEADLINE"
+        },
+        {
+          "receipt_monotonic": 1382504.712844717,
+          "data": "STARTUP_DEADLINE"
+        }
+      ],
+      "count": 60,
+      "last_receipt_age_s": 0.1416318668052554,
+      "max_receipt_gap_s": 0.20346786500886083
+    },
+    "/robot_1/interface/mavros/extended_state": {
+      "type": "mavros_msgs/msg/ExtendedState",
+      "samples": [
+        {
+          "receipt_monotonic": 1382492.938853748,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382493.208905617,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382493.441232575,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382493.712646039,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382494.002475054,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382494.215599104,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382494.479096968,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382494.749365262,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382494.987843438,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382495.278907536,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382495.570824972,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382495.789111635,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382496.041686661,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382496.306304086,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382496.571989513,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382496.85623655,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382497.146351695,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382497.394271644,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382497.661663216,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382497.936612327,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382498.18166062,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382498.444884481,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382498.721701081,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382498.952733667,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382499.214926751,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382499.468182204,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382499.70038179,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382499.960218208,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382500.224204089,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382500.45639371,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382500.701762637,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382500.961296558,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382501.195204203,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382501.464344505,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382501.751223195,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382502.023488636,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382502.288116184,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382502.55349592,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382502.774493046,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382503.042049877,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382503.289624926,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382503.508613359,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382503.775120506,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382504.047382551,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382504.290421951,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382504.544160733,
+          "landed_state": 1,
+          "vtol_state": 0
+        },
+        {
+          "receipt_monotonic": 1382504.810583663,
+          "landed_state": 1,
+          "vtol_state": 0
+        }
+      ],
+      "count": 47,
+      "last_receipt_age_s": 0.043892920948565006,
+      "max_receipt_gap_s": 0.29191743582487106
+    },
+    "/robot_1/interface/mavros/state": {
+      "type": "mavros_msgs/msg/State",
+      "samples": [
+        {
+          "receipt_monotonic": 1382493.999716258,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382495.277957401,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382496.571525662,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382497.935620088,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382499.213982735,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382500.456034868,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382501.750640726,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382503.041726289,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        },
+        {
+          "receipt_monotonic": 1382504.290136821,
+          "connected": true,
+          "armed": false,
+          "mode": "AUTO.LOITER"
+        }
+      ],
+      "count": 9,
+      "last_receipt_age_s": 0.5643397627864033,
+      "max_receipt_gap_s": 1.3640944259241223
+    }
+  },
+  "publisher_endpoints": {
+    "/clock": [
+      {
+        "node_name": "_World_base_link_PX4MultirotorGraph_robot_1_ROS2PublishClock",
+        "node_namespace": "/",
+        "reliability": "1",
+        "durability": "2"
+      }
+    ],
+    "/robot_1/interface/actuation_ready": [
+      {
+        "node_name": "robot_interface",
+        "node_namespace": "/robot_1/interface",
+        "reliability": "1",
+        "durability": "2"
+      }
+    ],
+    "/robot_1/interface/actuation_status": [
+      {
+        "node_name": "robot_interface",
+        "node_namespace": "/robot_1/interface",
+        "reliability": "1",
+        "durability": "2"
+      }
+    ],
+    "/robot_1/interface/mavros/extended_state": [
+      {
+        "node_name": "sys",
+        "node_namespace": "/robot_1/interface/mavros",
+        "reliability": "1",
+        "durability": "1"
+      }
+    ],
+    "/robot_1/interface/mavros/state": [
+      {
+        "node_name": "sys",
+        "node_namespace": "/robot_1/interface/mavros",
+        "reliability": "1",
+        "durability": "1"
+      }
+    ]
+  },
+  "limitations": "Passive telemetry and read-only ROS GetParameters only. No SetParameters, mode, arming, action or motion request. Header source freshness and physical ground truth not established; monotonic times are this collector process."
+}
