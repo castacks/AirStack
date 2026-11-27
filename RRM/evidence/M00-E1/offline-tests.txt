@@ -1,0 +1,14 @@
+test_balance_and_counts (test_m00e1_plan.DesignTests.test_balance_and_counts) ... ok
+test_complete_hypotheses_operations_and_preconditions (test_m00e1_plan.DesignTests.test_complete_hypotheses_operations_and_preconditions) ... ok
+test_deterministic_frozen_schedule (test_m00e1_plan.DesignTests.test_deterministic_frozen_schedule) ... ok
+test_every_trial_exploratory_and_unexecuted (test_m00e1_plan.DesignTests.test_every_trial_exploratory_and_unexecuted) ... ok
+test_matched_pairs_and_block_repetitions (test_m00e1_plan.DesignTests.test_matched_pairs_and_block_repetitions) ... ok
+test_unique_ids_and_evidence_paths (test_m00e1_plan.DesignTests.test_unique_ids_and_evidence_paths) ... ok
+test_missing_authority_flag_rejected (test_m00e1_plan.PendingDecisionTests.test_missing_authority_flag_rejected) ... ok
+test_pending_never_authorizes (test_m00e1_plan.PendingDecisionTests.test_pending_never_authorizes) ... ok
+test_reject_inferred_approval_or_signature (test_m00e1_plan.PendingDecisionTests.test_reject_inferred_approval_or_signature) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.004s
+
+OK

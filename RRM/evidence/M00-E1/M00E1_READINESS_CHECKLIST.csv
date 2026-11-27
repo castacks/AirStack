@@ -1,0 +1,19 @@
+check_id,prerequisite,status,responsible,required_evidence,blocking_for_execution,execution_pass,evidence_reference
+CHK01,Written PD scope and authority,REQUIRES_APPROVAL,PD,Signed decision tied to exact package/candidate/environment/schedule and expiry,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK02,Exact independent target identity,UNVERIFIED,Infrastructure owner,"OSMO workflow UID, container/host/boot IDs and exclusive ownership",YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK03,Candidate source and overlays,UNVERIFIED,Technical owner,"Reviewed source/build/launch/config manifest, no unapproved hooks",YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK04,Immutable images and access,UNVERIFIED,Release custodian,"Verified digests, installed artifacts, provenance and access rights",YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK05,Scene and vehicle identity,UNVERIFIED,Simulation owner,USD/script/assets/seed/epoch hashes and SITL airframe config,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK06,Device and capability isolation,UNVERIFIED,Safety reviewer,No actuator/serial/USB/CAN/radio passthrough; least privilege independently attested,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK07,Network and endpoint isolation,UNVERIFIED,Infrastructure/safety owner,Routes/firewall/endpoints/domain/namespace deny physical and other workflows,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK08,No missions or command producers,UNVERIFIED,Safety reviewer,Approved process allowlist excludes mission/autonomy/GCS/arming/motion senders,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK09,Guard semantics and P1 predicate,UNVERIFIED,Technical reviewer,Same guard rules and finite fresh dependency predicate independent of deferred guard; no readiness bypass,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK10,Instrumentation I01-I06,UNVERIFIED,Instrumentation owner,Installed hook identities; completeness/drop/overhead validation; competing hypothesis channels,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK11,Clock mapping,UNVERIFIED,Instrumentation owner,Per-boot/process monotonic/realtime/sim mappings and uncertainty; no assumed Docker clock equality,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK12,Resources and operational stop bounds,REQUIRES_APPROVAL,PD/Infrastructure owner,Numeric max duration/storage/resource/recorder limits approved; distinct from requirement acceptance,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK13,Cache reproducibility,UNVERIFIED,Simulation owner,Fresh volumes and audited pre-existing pinned warm artifact; no hidden extra startups,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK14,Independent evidence recorder,UNVERIFIED,Evidence owner,"Independent supervision, capacity, loss/exit status and durability checked; no REC-01 qualification inference",YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK15,Abort authority and process ownership,UNVERIFIED,Operator/safety owner,Named stop authority and exact target-only termination procedure reviewed,YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK16,Interruption recovery,UNVERIFIED,Operator/evidence owner,"Seal incomplete evidence, preserve caches, isolate leftovers, reauthorize before any extra startup",YES,NOT_ASSESSED,PENDING_TARGET_EVIDENCE
+CHK17,Documented exploratory schedule,VERIFIED_DOCUMENT,Codex,24 proposed startups; 2x2x6; deterministic paired order; no execution/qualification claim,YES,NOT_ASSESSED,verification-results.json
+CHK18,Historical evidence integrity,VERIFIED_DOCUMENT,Codex,Starting M00-D checks pass; sealed sources and tracked identities preserved,YES,NOT_ASSESSED,verification-results.json

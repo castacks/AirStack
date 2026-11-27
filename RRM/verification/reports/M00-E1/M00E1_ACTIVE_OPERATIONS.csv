@@ -1,0 +1,8 @@
+operation_id,operation,boundary,authorization,performed_in_m00e1,approved_command_manifest
+OP01,"Provision independent OSMO workflow, bounded resources and deny-by-default networks",No changes to existing workflows; exact target UID/pool/host and safety owner required,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP02,"Stage reviewed pinned images, source, instrumentation and launcher overlays in target",No edit to protected current checkout; exact external candidate hashes and commands required,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP03,Clone dedicated cache and evidence volumes per trial,Only assigned disposable volumes; no shared-cache deletion; no unlisted warm-up startup,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP04,Start allowlisted isolated simulator and PX4 SITL process tree,"No physical device access; no missions, arming or motion commands",SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP05,Start allowlisted isolated MAVROS and interface/guard according to P0/P1,Same guard semantics and reviewed dependency predicate; no GCS/autonomy mission stack,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP06,Stop exact isolated trial process tree on completion/abort; subsequent scheduled starts only,No restart of existing workflow or automatic retry; interrupted attempt retained,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE
+OP07,"Start bounded independent recorder, resource/receive-only network hooks and normal guard transaction",Allowlist normal Set/Get double1.0 startup transaction only; no manual parameter repair or live injection,SEPARATE_PD_AUTHORIZATION_REQUIRED,NO,PENDING_NOT_EXECUTABLE

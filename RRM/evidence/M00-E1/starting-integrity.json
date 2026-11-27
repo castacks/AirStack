@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "sha256sum",
+        "-c",
+        "RRM/evidence/M00-D/SHA256SUMS"
+      ],
+      "exit_code": 0,
+      "stdout": "RRM/PROJECT_STATUS.md: OK\nRRM/evidence/M00-D/.gitignore: OK\nRRM/evidence/M00-D/EXECUTION_DIRECTIVE.md: OK\nRRM/evidence/M00-D/M00D_BLOCKER_DISPOSITION.csv: OK\nRRM/evidence/M00-D/M00D_CHANGED_FILES.txt: OK\nRRM/evidence/M00-D/characterization-summary.json: OK\nRRM/evidence/M00-D/dependency-graph.json: OK\nRRM/evidence/M00-D/diagnostic-scope-audit.json: OK\nRRM/evidence/M00-D/diagnostic-tests.txt: OK\nRRM/evidence/M00-D/instrumentation-catalog.csv: OK\nRRM/evidence/M00-D/latency-measurements.csv: OK\nRRM/evidence/M00-D/passive-metadata-after.json: OK\nRRM/evidence/M00-D/passive-metadata-before.json: OK\nRRM/evidence/M00-D/repository-before.json: OK\nRRM/evidence/M00-D/source-manifest.json: OK\nRRM/evidence/M00-D/starting-integrity.json: OK\nRRM/evidence/M00-D/validation-attempts.json: OK\nRRM/handoffs/M00D_HANDOFF.md: OK\nRRM/scripts/m00d_characterize.py: OK\nRRM/scripts/m00d_validate_events.py: OK\nRRM/scripts/validate_m00d.py: OK\nRRM/tests/test_m00d_diagnostics.py: OK\nRRM/verification/procedures/M00D_CONTROLLED_REPRODUCTION.md: OK\nRRM/verification/reports/M00-D/M00D_DEPENDENCY_GRAPH.md: OK\nRRM/verification/reports/M00-D/M00D_G0_REASSESSMENT.md: OK\nRRM/verification/reports/M00-D/M00D_HYPOTHESIS_MATRIX.csv: OK\nRRM/verification/reports/M00-D/M00D_INSTRUMENTATION_PLAN.md: OK\nRRM/verification/reports/M00-D/M00D_LATENCY_CHARACTERIZATION.md: OK\nRRM/evidence/M00-D/M00D_EVIDENCE_MANIFEST.json: OK\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00d_characterize.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"startup_episode_count\": 1,\n  \"new_startup_trials\": 0,\n  \"measured_characterization_intervals\": 12,\n  \"missing_measurements\": 7,\n  \"independent_deadline_interval_s\": \"19.276162179\",\n  \"startup_variability\": \"NOT_ESTIMABLE_N1; no standard deviation, p95 or confidence interval reported\",\n  \"tier_executed\": \"A_OFFLINE_AND_READ_ONLY_METADATA_ONLY\",\n  \"acceptance_thresholds_created\": false\n}\n",
+      "stderr": ""
+    }
+  ],
+  "starting_discrepancies": [],
+  "prior_status_manifest_rule": "Historical status checksum entries must be resolved using pinned milestone Git blobs after authorized PROJECT_STATUS update; no sealed manifest edits."
+}

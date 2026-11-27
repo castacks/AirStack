@@ -1,0 +1,152 @@
+{
+  "algorithm": "SHA-256",
+  "scope": "Exact E1 package plus authorized status update; no active trials",
+  "files": [
+    {
+      "path": "RRM/PROJECT_STATUS.md",
+      "bytes": 7612,
+      "sha256": "dcb27d84a8e189b3b0146a3f9f7579f292d9efb36849defb7c9561cef4dca59c"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/.gitignore",
+      "bytes": 27,
+      "sha256": "2d9ed3052e450b6bcea6666933c689919c73cc9393536f8fc7d8b8518872b8da"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/EXECUTION_DIRECTIVE.md",
+      "bytes": 8517,
+      "sha256": "186abc6003ff637e659b02f5408ebebc3ef26185109f5a2f95f04515741f93bc"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/M00E1_BLOCKER_DISPOSITION.csv",
+      "bytes": 14601,
+      "sha256": "2eba81d7457a8def12aaad1c9d16bdb56bc866472c32bac368aefe0e8c45a111"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/M00E1_CHANGED_FILES.txt",
+      "bytes": 1403,
+      "sha256": "7e2a698c5152e8eab0d0111ef65d557c4e90f7cbed71dbc1205d3c775b912445"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/M00E1_PENDING_DECISION.json",
+      "bytes": 467,
+      "sha256": "15df2db39b38f4fe5d03d6744004a224a199bce75d7527fa3397364c4f989fbc"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/M00E1_READINESS_CHECKLIST.csv",
+      "bytes": 3563,
+      "sha256": "ef5768af18126d352b66c1dfc5df9ebbbd20b77dfe84fd067c15d4982de17355"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/input-inventory.json",
+      "bytes": 9947,
+      "sha256": "d24ab35467a6f00574654a53b038b8227bc6f63cb5e127602b8800a676ee764f"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/offline-tests.txt",
+      "bytes": 1144,
+      "sha256": "75168e45378ad7f771915da63a6297575df19ca58fc62175b07551b0c2b500d2"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/passive-environment-after.json",
+      "bytes": 3127,
+      "sha256": "7a992bcd1a96dd985dfc9bf00d7874f31291fe384b34b05a4355a88f98c85d5b"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/passive-environment.json",
+      "bytes": 3818,
+      "sha256": "72a166f67d1ce814a9de5248b10185eba83f92ea07ff119d3a034a2b43bd1e3a"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/repository-before.json",
+      "bytes": 405241,
+      "sha256": "a8c0193bdf53a8fcd2fb31e23b4e8c87a423e14ecdcd91416357d1353c267cda"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/scope-audit.json",
+      "bytes": 1106,
+      "sha256": "5297c4224bd0dbd87a076568947c538e69ad626eedaabab72b89057fb7c65254"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/source-manifest.json",
+      "bytes": 10817,
+      "sha256": "4faa032530ac94d715bed47b864489c07e5544cf281afb12178a54e3c183081a"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/starting-integrity.json",
+      "bytes": 2456,
+      "sha256": "47dae3f0af6ecedd3c005488b8b4d4fec01d8b13e88240ec96e628ba04f7d110"
+    },
+    {
+      "path": "RRM/evidence/M00-E1/validation-attempts.json",
+      "bytes": 1129,
+      "sha256": "394a700b56c54805b2284f58ba0323d8022e9ac409ae855d21f6159bd37aa2aa"
+    },
+    {
+      "path": "RRM/handoffs/M00E1_HANDOFF.md",
+      "bytes": 4385,
+      "sha256": "2288d759035609a30cd855dba092739ea80ae02b3b2bf1a6f069ba9ae97aa06c"
+    },
+    {
+      "path": "RRM/scripts/m00e1_plan.py",
+      "bytes": 5177,
+      "sha256": "9a7bb0c878951131d00890ee65ed3cc00001329efdf785d3f099c05fdb2991de"
+    },
+    {
+      "path": "RRM/scripts/validate_m00e1.py",
+      "bytes": 12168,
+      "sha256": "e5a65a6ebb0eef69dc1c73e789b35599611310737caea85bffcf49a33e324dff"
+    },
+    {
+      "path": "RRM/tests/test_m00e1_plan.py",
+      "bytes": 4452,
+      "sha256": "a9ed2002205ebba94b4015c7941e5951fec6cdfeff121cc64ce98db3765e973c"
+    },
+    {
+      "path": "RRM/verification/procedures/M00E1_TIER_B_EXECUTION_PROCEDURE.md",
+      "bytes": 8062,
+      "sha256": "4e7cd8323a6920aa9523a07b57a2bbd34b8d47df89c5bd89d903c2b1e04ce515"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_ACTIVE_OPERATIONS.csv",
+      "bytes": 1721,
+      "sha256": "394b8ebd246a780aea2e63d308303873b3af865ee454f2fbf3903d426206f6aa"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_AUTHORIZATION_REQUEST.md",
+      "bytes": 7320,
+      "sha256": "2211b141cdea2a295bd6a9101061a143c7d37c998d7fa90ff8ba59f0c7545d85"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_CONFIGURATION_REGISTER.csv",
+      "bytes": 8604,
+      "sha256": "f02f4d2e609361b7198378a25c45b52efb6010d637e67c31937070faa4300817"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_G0_CONTINUITY.md",
+      "bytes": 3429,
+      "sha256": "0a8ebd619245fd5091b285158b80f3f64533dc68679d595d0a68c103d4a31c91"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_INSTRUMENTATION_SPEC.md",
+      "bytes": 5572,
+      "sha256": "153d44922042d0ded04237ec9aa7388c23399167ebc790bebe67e05602c39193"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_SAFETY_ISOLATION_REVIEW.md",
+      "bytes": 4745,
+      "sha256": "7d3faac91232408d6806278ec221c18a01cd2502c7157461e64e48075b152310"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1/M00E1_TRIAL_MATRIX.csv",
+      "bytes": 30469,
+      "sha256": "1f7eab7691075acfbbb96dae8552d51f07cc05aed4bb4172a57ecb99a410114c"
+    }
+  ],
+  "exclusions": {
+    "M00E1_EVIDENCE_MANIFEST.json": "self-reference; covered by detached SHA256SUMS",
+    "SHA256SUMS": "self-reference",
+    "verification-results.json": "post-hash validator output; immutable Git object covers final bytes"
+  },
+  "parent_commit": "5b11d4d348db399e0e3ae638e318da9d7079ace6"
+}

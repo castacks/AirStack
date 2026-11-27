@@ -1,0 +1,16 @@
+{
+  "package_state": "PREPARED \u2014 NOT AUTHORIZED FOR EXECUTION",
+  "pd_decision": "PENDING",
+  "pd_signature": null,
+  "pd_name": null,
+  "decision_utc": null,
+  "approval_reference": null,
+  "rejection_reason": null,
+  "approved_environment": null,
+  "approved_candidate_manifest": null,
+  "approved_command_manifest": null,
+  "approved_operational_limits": null,
+  "authority_expiry": null,
+  "requested_maximum_startups": 24,
+  "execution_authorized": false
+}

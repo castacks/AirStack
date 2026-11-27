@@ -1,0 +1,23 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "result": "FAIL",
+      "check": "Procedure retention wording",
+      "detail": "Validator required explicit phrase no replacement. Procedure already forbade substitute success; added the explicit no replacement statement for unambiguous consistency. No runtime operation involved."
+    },
+    {
+      "attempt": 2,
+      "result": "PASS",
+      "check": "Pre-staging full package validation",
+      "detail": "Nine grouped checks passed; untracked Markdown was not yet covered by Git diff whitespace inspection."
+    },
+    {
+      "attempt": 3,
+      "result": "FAIL",
+      "check": "Staged git diff --cached --check and repeated full validator",
+      "detail": "Nine Markdown hard-break trailing spaces in blank PD decision form flagged by Git; removed and separated form fields with blank lines. Staged check and validator both reported the same whitespace issue; no semantic change or runtime action."
+    }
+  ],
+  "note": "All validation attempts retained; final verification-results.json records latest complete passing check. Nine offline tests passed on first run."
+}
