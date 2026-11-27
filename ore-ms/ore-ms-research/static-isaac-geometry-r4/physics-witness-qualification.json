@@ -1,0 +1,213 @@
+{
+  "status": "INCONCLUSIVE",
+  "starting_commit": "3704e5f7903f5169dfc69cbb5237e271a24512a8",
+  "image_digest": "sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+  "image_config_id": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+  "upstream_isaac_tag": "v5.1.0",
+  "upstream_isaac_commit": "47d886f2858d1ceed556b21c88927aa67bc81c12",
+  "installed_sources": {
+    "replicator": {
+      "image_path": "/isaac-sim/extscache/omni.replicator.core-1.12.27+107.3.3.lx64.r.cp311/omni/replicator/core/scripts/orchestrator.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "c297093ae4100f5fc20f576f0b71d0dc4c765b2135f2a945764bbe63889a7c42",
+      "retained_path": "image-source/isaac-sim/extscache/omni.replicator.core-1.12.27+107.3.3.lx64.r.cp311/omni/replicator/core/scripts/orchestrator.py",
+      "line_ranges": [
+        "455-515",
+        "627-701",
+        "1502-1622"
+      ]
+    },
+    "kit_timeline": {
+      "image_path": "/isaac-sim/extscache/omni.timeline-1.0.14+69cbf6ad.lx64.r.cp311/omni/timeline/_timeline.pyi",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "c5a431d83c24de23aefca0912ef819ae2f3322418264b81aba5279d4fe4ac35e",
+      "retained_path": "image-source/isaac-sim/extscache/omni.timeline-1.0.14+69cbf6ad.lx64.r.cp311/omni/timeline/_timeline.pyi",
+      "line_ranges": [
+        "299-329",
+        "499-513"
+      ]
+    },
+    "world": {
+      "image_path": "/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/world/world.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "b34988f342e82d5285d2939ffa70eed567994d810eda673eb32525834e51dd65",
+      "retained_path": "image-source/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/world/world.py",
+      "line_ranges": [
+        "356-398"
+      ]
+    },
+    "world_counter": {
+      "image_path": "/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/simulation_context/simulation_context.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "ebafc6bcb30a454925fe21b96dcdbd4637c922a3fa9d5a6947308c9796ba5028",
+      "retained_path": "image-source/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/simulation_context/simulation_context.py",
+      "line_ranges": [
+        "133-168",
+        "251-264",
+        "624-646",
+        "698-714",
+        "900-919",
+        "1397-1429"
+      ]
+    },
+    "manual_physics": {
+      "image_path": "/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/physics_context/physics_context.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "7486ec315d2525bdef6e1cef294d67d419511e3367e7f40001a8324e2b6a7751",
+      "retained_path": "image-source/isaac-sim/exts/isaacsim.core.api/isaacsim/core/api/physics_context/physics_context.py",
+      "line_ranges": [
+        "563-573"
+      ]
+    },
+    "physx_binding": {
+      "image_path": "/isaac-sim/extscache/omni.physx-107.3.26+107.3.3.lx64.r.cp311.u353/omni/physx/bindings/_physx.pyi",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "ff13abb83480dcc707ac2ad60062306aef7a33f885d32ed4c8ee6dfea2008e79",
+      "retained_path": "image-source/isaac-sim/extscache/omni.physx-107.3.26+107.3.3.lx64.r.cp311.u353/omni/physx/bindings/_physx.pyi",
+      "line_ranges": [
+        "1899-1925"
+      ]
+    },
+    "playback_tick": {
+      "image_path": "/isaac-sim/extscache/omni.graph.action_nodes-1.50.4+107.3.0.lx64.r.cp311.u353/omni/graph/action_nodes/ogn/nodes/OgnOnPlaybackTick.cpp",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "04938b835888e3b3ede50dbe747b88e7f266356b9c50de1170cf7acef1cf6fa2",
+      "retained_path": "image-source/isaac-sim/extscache/omni.graph.action_nodes-1.50.4+107.3.0.lx64.r.cp311.u353/omni/graph/action_nodes/ogn/nodes/OgnOnPlaybackTick.cpp",
+      "line_ranges": [
+        "25-41"
+      ]
+    },
+    "simulation_manager": {
+      "image_path": "/isaac-sim/exts/isaacsim.core.simulation_manager/isaacsim/core/simulation_manager/impl/simulation_manager.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "9f608b061c7aa4285a4a722806d3858e7e44ab82d907309635c6295a272dd659",
+      "retained_path": "image-source/isaac-sim/exts/isaacsim.core.simulation_manager/isaacsim/core/simulation_manager/impl/simulation_manager.py",
+      "line_ranges": [
+        "235-250",
+        "754-791"
+      ]
+    },
+    "simulation_manager_tests": {
+      "image_path": "/isaac-sim/exts/isaacsim.core.simulation_manager/isaacsim/core/simulation_manager/tests/test_extension.py",
+      "layer_overlay_id": "e3fa7590e1f1f103680e241212007ef073464edae332df095aa18c7bf329071b",
+      "sha256": "dc2d787e7e256160f5d7552ea303ffb97896f5588c9ecd4cd609e3202ba78a5c",
+      "retained_path": "image-source/isaac-sim/exts/isaacsim.core.simulation_manager/isaacsim/core/simulation_manager/tests/test_extension.py",
+      "line_ranges": [
+        "75-140"
+      ]
+    }
+  },
+  "tagged_native_files": {
+    "ISimulationManager.h": "baac36d2fcc2245913082e4a5f75f19359c97f565d7ea7beb390c20bc2aabdae",
+    "IsaacsimCoreSimulationManagerBindings.cpp": "5662cf134fc098acb072984c19d65418a1c68a14c3296fdc277f90412384879e",
+    "OgnIsaacReadSimulationTime.cpp": "d78c1efd5c23c94d5e4af7f6f89b7ea3e0de1fb4e5489c05c831493190a64f8f",
+    "OgnIsaacReadSimulationTime.ogn": "1f984cc0a7955da922a9d4bc461f1897ce6fafc8acf6dbb26f5381adfbaaf316",
+    "OgnOnPhysicsStep.cpp": "d98896def68b6353b6d4a0ed7dfb4ea91c3716eb33a459962b60bd6f90efd297",
+    "OgnROS2PublishClock.cpp": "19e8f2e35d83f27b91122bfdb82655ac7b8d58f85df0961aa076acb1389b89b2",
+    "Ros2Message.cpp": "99ec67c391f094215fe1a003e14b62d8be46dcd2326ddf8a2f38bf96944c62c7"
+  },
+  "archived_live_evidence": {
+    "status": "PASS",
+    "physics_indices": [
+      3,
+      3,
+      3
+    ],
+    "graph_time_s": [
+      0.0,
+      0.30000000447034836,
+      0.30000000447034836
+    ],
+    "timeline_s": [
+      -0.09999999701976778,
+      -0.09999999701976778,
+      -0.09999999701976778
+    ],
+    "timeline_playing": [
+      true,
+      false,
+      false
+    ],
+    "graph_node_counts": [
+      {
+        "Tick": 0,
+        "Time": 0,
+        "Publish": 0
+      },
+      {
+        "Tick": 6997,
+        "Time": 6997,
+        "Publish": 6997
+      },
+      {
+        "Tick": 6997,
+        "Time": 6997,
+        "Publish": 6997
+      }
+    ],
+    "raw_wire_ns": [
+      300000004,
+      300000004
+    ],
+    "archived_epoch_outcome": "CLOCK_ASSOCIATION_UNVERIFIED",
+    "accepted_epochs": 0,
+    "counterfactual_is_not_observed": true
+  },
+  "archived_live_status": "FAIL",
+  "source_supported_inferences": [
+    "First ordinary capture can commit the playhead without adding the requested delta.",
+    "Zero at zero graph computes does not sample the pre-render native simulation clock.",
+    "The graph time node samples the Simulation Manager monotonic clock under the unchanged defaults.",
+    "The world index counts legacy PhysX notifications since callback setup or STOP."
+  ],
+  "unknowns": [
+    "Whether the exact render call dispatched any new native post-step event.",
+    "Whether a positive native event would be reflected by the legacy subscription in this path.",
+    "Whether the first graph-time value was already present before graph execution."
+  ],
+  "preferred_candidate": {
+    "api": "omni.physx.get_physx_interface().subscribe_physics_on_step_events",
+    "arguments": {
+      "pre_step": false,
+      "order": 0
+    },
+    "source_contract": "post-physics-step callback",
+    "decision": "retain as candidate pending native delivery evidence",
+    "replicator_path_validated": false
+  },
+  "acceptance_logic_changed": false,
+  "geometry_recorder_changed": false,
+  "live_execution": false,
+  "geometry_interval_ns": 2000000000,
+  "offline_tests": {
+    "status": "PASS",
+    "total": 84,
+    "r2": 10,
+    "r3": 36,
+    "r4": 31,
+    "receipt": 7,
+    "analytic_geometry_m08": "PASS",
+    "archived_evidence_replay": "PASS",
+    "frozen_and_historical_hashes": "PASS",
+    "logs": [
+      "r2-tests.log",
+      "r3-tests.log",
+      "r4-tests.log",
+      "receipt-tests.log",
+      "adapter-check.log",
+      "frozen-evidence-check.log"
+    ],
+    "archived_initial_import_errors": [
+      "r3-missing-import-path.log",
+      "r4-missing-import-path.log"
+    ]
+  },
+  "evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-physics-witness-r4.m8kQ6K5P",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "60a2e640964f6608669810caef433108827070537ef57deac547ad437b9c570a",
+    "manifest_entries": 48,
+    "archived_run": "/root/ore-ms-artifacts/static-isaac-clock-epochs-live-r4.YB2kBYRM",
+    "replay_script": "replay-evidence.py"
+  }
+}
