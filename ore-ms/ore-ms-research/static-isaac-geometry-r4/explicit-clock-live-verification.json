@@ -1,0 +1,461 @@
+{
+  "status": "PASS",
+  "starting_commit": "5352a812c8eaf52fdd3624010e28313851fda802",
+  "branch": "ore-ms-orb-development",
+  "isolated_attempts": 1,
+  "earliest_failed_gate": null,
+  "qualified_both_epochs": true,
+  "accepted_epochs_ns": [
+    400000005,
+    500000007
+  ],
+  "observed_epoch_separation_ns": 100000002,
+  "lifetime_native_events": 5,
+  "raw_ros_deliveries": 12,
+  "brackets": [
+    {
+      "bracket": 1,
+      "status": "PASS",
+      "accepted_epoch_ns": 400000005,
+      "physics_events": [
+        {
+          "sequence": 4,
+          "dt_s": 0.10000000149011612,
+          "valid": true,
+          "monotonic_ns": 1372710410173287
+        }
+      ],
+      "raw_wire_ns": [
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005,
+        400000005
+      ],
+      "boundaries": {
+        "before_resume": {
+          "counters": {
+            "native_count": 3,
+            "world_count": 3,
+            "manager_count": 3
+          },
+          "native_time_s": 0.30000000447034836,
+          "native_monotonic_s": 0.30000000447034836,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          "graph_time_s": 0.0,
+          "publisher_input_s": 0.0
+        },
+        "before_step": {
+          "counters": {
+            "native_count": 3,
+            "world_count": 3,
+            "manager_count": 3
+          },
+          "native_time_s": 0.30000000447034836,
+          "native_monotonic_s": 0.30000000447034836,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          "graph_time_s": 0.0,
+          "publisher_input_s": 0.0
+        },
+        "after_step": {
+          "counters": {
+            "native_count": 4,
+            "world_count": 4,
+            "manager_count": 4
+          },
+          "native_time_s": 0.4000000059604645,
+          "native_monotonic_s": 0.4000000059604645,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          "graph_time_s": 0.0,
+          "publisher_input_s": 0.0
+        },
+        "after_render": {
+          "counters": {
+            "native_count": 4,
+            "world_count": 4,
+            "manager_count": 4
+          },
+          "native_time_s": 0.4000000059604645,
+          "native_monotonic_s": 0.4000000059604645,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4837,
+            "Time": 4837,
+            "Publish": 4837
+          },
+          "graph_time_s": 0.4000000059604645,
+          "publisher_input_s": 0.4000000059604645
+        },
+        "after_poll": {
+          "counters": {
+            "native_count": 4,
+            "world_count": 4,
+            "manager_count": 4
+          },
+          "native_time_s": 0.4000000059604645,
+          "native_monotonic_s": 0.4000000059604645,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4837,
+            "Time": 4837,
+            "Publish": 4837
+          },
+          "graph_time_s": 0.4000000059604645,
+          "publisher_input_s": 0.4000000059604645
+        }
+      },
+      "discovery": {
+        "topic": "/clock",
+        "publishers": [
+          {
+            "name": "_World_ReceiptClock_Publish",
+            "namespace": "/",
+            "type": "rosgraph_msgs/msg/Clock",
+            "gid": [
+              1,
+              15,
+              127,
+              1,
+              49,
+              0,
+              145,
+              87,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              3
+            ],
+            "qos": {
+              "history": "UNKNOWN",
+              "reliability": "RELIABLE",
+              "durability": "VOLATILE",
+              "liveliness": "AUTOMATIC",
+              "depth": 0,
+              "deadline_ns": 9223372036854775807,
+              "lifespan_ns": 9223372036854775807,
+              "liveliness_lease_ns": 9223372036854775807
+            },
+            "compatibility": "OK",
+            "reason": ""
+          }
+        ],
+        "subscriber_qos": {
+          "history": "UNKNOWN",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE",
+          "liveliness": "AUTOMATIC",
+          "depth": 0,
+          "deadline_ns": 9223372036854775807,
+          "lifespan_ns": 9223372036854775807,
+          "liveliness_lease_ns": 9223372036854775807
+        },
+        "subscriber_qos_source": "discovered",
+        "errors": {}
+      },
+      "gates": {
+        "resume_is_inert": "PASS",
+        "explicit_step": "PASS",
+        "epoch_order": "PASS",
+        "render_is_inert": "PASS",
+        "render_graph": "PASS",
+        "raw_callbacks": "PASS",
+        "poll_is_inert": "PASS",
+        "final_graph": "PASS",
+        "publisher": "PASS",
+        "accepted_epoch": "PASS"
+      }
+    },
+    {
+      "bracket": 2,
+      "status": "PASS",
+      "accepted_epoch_ns": 500000007,
+      "physics_events": [
+        {
+          "sequence": 5,
+          "dt_s": 0.10000000149011612,
+          "valid": true,
+          "monotonic_ns": 1372793082334328
+        }
+      ],
+      "raw_wire_ns": [
+        500000007,
+        500000007
+      ],
+      "boundaries": {
+        "before_resume": {
+          "counters": {
+            "native_count": 4,
+            "world_count": 4,
+            "manager_count": 4
+          },
+          "native_time_s": 0.4000000059604645,
+          "native_monotonic_s": 0.4000000059604645,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4837,
+            "Time": 4837,
+            "Publish": 4837
+          },
+          "graph_time_s": 0.4000000059604645,
+          "publisher_input_s": 0.4000000059604645
+        },
+        "before_step": {
+          "counters": {
+            "native_count": 4,
+            "world_count": 4,
+            "manager_count": 4
+          },
+          "native_time_s": 0.4000000059604645,
+          "native_monotonic_s": 0.4000000059604645,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4837,
+            "Time": 4837,
+            "Publish": 4837
+          },
+          "graph_time_s": 0.4000000059604645,
+          "publisher_input_s": 0.4000000059604645
+        },
+        "after_step": {
+          "counters": {
+            "native_count": 5,
+            "world_count": 5,
+            "manager_count": 5
+          },
+          "native_time_s": 0.5000000074505806,
+          "native_monotonic_s": 0.5000000074505806,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4837,
+            "Time": 4837,
+            "Publish": 4837
+          },
+          "graph_time_s": 0.4000000059604645,
+          "publisher_input_s": 0.4000000059604645
+        },
+        "after_render": {
+          "counters": {
+            "native_count": 5,
+            "world_count": 5,
+            "manager_count": 5
+          },
+          "native_time_s": 0.5000000074505806,
+          "native_monotonic_s": 0.5000000074505806,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4839,
+            "Time": 4839,
+            "Publish": 4839
+          },
+          "graph_time_s": 0.5000000074505806,
+          "publisher_input_s": 0.5000000074505806
+        },
+        "after_poll": {
+          "counters": {
+            "native_count": 5,
+            "world_count": 5,
+            "manager_count": 5
+          },
+          "native_time_s": 0.5000000074505806,
+          "native_monotonic_s": 0.5000000074505806,
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "auto_update": true,
+          "graph_counts": {
+            "Tick": 4839,
+            "Time": 4839,
+            "Publish": 4839
+          },
+          "graph_time_s": 0.5000000074505806,
+          "publisher_input_s": 0.5000000074505806
+        }
+      },
+      "discovery": {
+        "topic": "/clock",
+        "publishers": [
+          {
+            "name": "_World_ReceiptClock_Publish",
+            "namespace": "/",
+            "type": "rosgraph_msgs/msg/Clock",
+            "gid": [
+              1,
+              15,
+              127,
+              1,
+              49,
+              0,
+              145,
+              87,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              3
+            ],
+            "qos": {
+              "history": "UNKNOWN",
+              "reliability": "RELIABLE",
+              "durability": "VOLATILE",
+              "liveliness": "AUTOMATIC",
+              "depth": 0,
+              "deadline_ns": 9223372036854775807,
+              "lifespan_ns": 9223372036854775807,
+              "liveliness_lease_ns": 9223372036854775807
+            },
+            "compatibility": "OK",
+            "reason": ""
+          }
+        ],
+        "subscriber_qos": {
+          "history": "UNKNOWN",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE",
+          "liveliness": "AUTOMATIC",
+          "depth": 0,
+          "deadline_ns": 9223372036854775807,
+          "lifespan_ns": 9223372036854775807,
+          "liveliness_lease_ns": 9223372036854775807
+        },
+        "subscriber_qos_source": "discovered",
+        "errors": {}
+      },
+      "gates": {
+        "between_brackets": "PASS",
+        "resume_is_inert": "PASS",
+        "explicit_step": "PASS",
+        "epoch_order": "PASS",
+        "render_is_inert": "PASS",
+        "render_graph": "PASS",
+        "raw_callbacks": "PASS",
+        "poll_is_inert": "PASS",
+        "final_graph": "PASS",
+        "publisher": "PASS",
+        "accepted_epoch": "PASS"
+      }
+    }
+  ],
+  "preflight": {
+    "status": "PASS",
+    "worker_sha256": "d81c41d4ee94c6a7ae2503f3c3f831a43eb9c1f7b8e01d926fd4986a577492c6",
+    "stage_sha256": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+    "image": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+    "image_config_id": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+    "mount_gate": "PASS",
+    "mount_count": 2,
+    "network": "none",
+    "ipc": "private",
+    "host_timeout_s": 180,
+    "kill_grace_s": 15,
+    "ros_domain_id": 91
+  },
+  "cpu_tests": {
+    "status": "PASS",
+    "existing": 88,
+    "new": 5,
+    "total": 93,
+    "r2": 10,
+    "r3": 36,
+    "r4": 40,
+    "frozen_receipt": 7,
+    "analytic_adapter": "PASS"
+  },
+  "shutdown": {
+    "docker_exit": {
+      "id": "d177abe0a58bff2f388f56fa927da29e94090f34d79a129dfab54131dbd5da6b",
+      "restart_count": 0,
+      "state": {
+        "Dead": false,
+        "Error": "",
+        "ExitCode": 0,
+        "FinishedAt": "2026-11-27T17:02:18.224704958Z",
+        "OOMKilled": false,
+        "Paused": false,
+        "Pid": 0,
+        "Restarting": false,
+        "Running": false,
+        "StartedAt": "2026-11-27T17:00:00.699247746Z",
+        "Status": "exited"
+      }
+    },
+    "attach_exit": 0,
+    "shutdown_requested": true,
+    "native_shutdown_return": false,
+    "kit_shutdown_log": [
+      "[133.375s] Simulation App Shutting Down"
+    ],
+    "host_verified_shutdown": true
+  },
+  "operational_isolation": {
+    "status": "PASS",
+    "matching_containers": 3
+  },
+  "historical_and_frozen_hashes": "PASS",
+  "geometry_executed": false,
+  "geometry_recorder_changed": false,
+  "frozen_geometry_interval_ns": 2000000000,
+  "evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-explicit-clock-r4.Al3TbO9c",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_entries": 66,
+    "manifest_sha256": "dce9a67465383aedb9f6c4d8fe083c50f21240fc20a717850b00e949cff71486",
+    "independent_review": "independent-review.json",
+    "independent_review_script": "independent-review.py",
+    "physics_events": "run/capture/physics-post-steps.jsonl",
+    "snapshots": "run/capture/explicit-brackets.jsonl",
+    "worker_gates": "run/capture/explicit-gates.jsonl",
+    "raw_ros": "run/capture/clock-raw.jsonl",
+    "clock_diagnostic": "run/capture/clock-diagnostic.jsonl",
+    "lifecycle": "run/capture/phases.jsonl",
+    "kit_log": "run/child.log",
+    "docker_exit": "run/container-exit.json",
+    "operational_snapshots": [
+      "operational-before.txt",
+      "operational-after.txt"
+    ]
+  }
+}
