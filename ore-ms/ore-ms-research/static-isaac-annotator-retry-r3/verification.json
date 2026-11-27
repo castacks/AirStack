@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "FAIL",
+  "acquisition_status": "PASS",
+  "starting_commit": "04a74f8e5ce06d12edfc632cb429c81954259537",
+  "branch": "ore-ms-orb-development",
+  "runtime": {
+    "simulator_starts": 1,
+    "render_attempts": 2,
+    "render_attempt_bound": 8,
+    "timeout_s": 150,
+    "container_id": "8e910d73fd4f37b26bf0f31544563312bbb48c8e6b65164f8afbef7fce6178f3",
+    "container_restart_count": 0,
+    "started_utc": "2026-11-27T04:24:55.126154892Z",
+    "finished_utc": "2026-11-27T04:26:55.06328452Z",
+    "container_elapsed_s": 119.93713,
+    "image_reference": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+    "image_config": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+    "child_exit": 0,
+    "container_exit": 0,
+    "supervisor_exit": 1
+  },
+  "raw_pair_review": {
+    "raw_pair_valid": true,
+    "shutdown_completed": false,
+    "reference_time": [
+      7489,
+      30
+    ],
+    "simulation_time_s_as_recorded_by_isaac": 0.30000000447034836,
+    "first_ready_attempt": 2,
+    "width": 33,
+    "height": 25,
+    "depth_bytes": 3300,
+    "instance_bytes": 3300,
+    "finite_positive_target_pixels": 64,
+    "instance_id_counts": {
+      "0": 761,
+      "1": 64
+    },
+    "sha256": {
+      "run/capture/depth.f32le": "47c44d97ae8d5ed16b7d82f1c10d62e3d829820b7f5f5b94f24e1417a1f66c01",
+      "run/capture/instances.u32le": "225d5abeadda43409961299fc4766f04912b274ec6f4d0549ea64613bd6566dd",
+      "run/capture/frame.json": "1e3c31dc957bc5ae46966e3bb64fba7eb443b7edf5072c5d4c02049f1d7e9eda",
+      "run/capture/readiness.jsonl": "37eed35464b1616491499305779180f55a5d0bc02547821a33718526e4f32089",
+      "run/capture/phases.jsonl": "76cbbe24b9ab8127a0d84b3d026c49e034fe0ef0bf87a4cde8e4089a6a9b8d47"
+    }
+  },
+  "first_failed_gate": {
+    "gate": "durable_shutdown",
+    "last_lifecycle_event": {
+      "phase": "shutdown",
+      "status": "started",
+      "line": 13
+    },
+    "child_log": "run/child.log",
+    "supervisor_failure": "run/FAILED.json"
+  },
+  "evidence": {
+    "local_directory": "/root/ore-ms-artifacts/static-isaac-annotator-retry-r3.eroSaJ0U",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "77acd5bb06a15a7b0ff210c14b4af68cfdf58eb0232cf4c082b09802c6f61819",
+    "artifact_hashes": {
+      "bounds.txt": "bc2ce0e4492cf497ae4de4728baf73b5308f395898ee1905ee25743d91725b0c",
+      "check-existing-evidence.sh": "5ae815a1d5099d9606e319ee170478371152b617c37cfe6438084920238b85ad",
+      "cleanup.txt": "df71414799a4c9c3523a065700f6d35ec19c2dc91d6e3218c9de31d2682c1fe1",
+      "container-after.txt": "9ca81c0504ddc9dd3605c25108ff75540dc9edbd8d3e1959726606597d6d81b2",
+      "container-created.txt": "3a0e5a2788e17edf879ee5f054f59532ba67839e21c21803dbbcde28d63d7157",
+      "container-mounts.json": "2e733d0bf6a4a1e06f5852e45702de1f8c8c03da672ae7b54e06f42b20ebe21c",
+      "container.cid": "df71414799a4c9c3523a065700f6d35ec19c2dc91d6e3218c9de31d2682c1fe1",
+      "diagnostic-state-during.txt": "7dca7204e6d08a143cc6043a420b5644f49e2e7e86c857b8ca0c2c7c69862bfa",
+      "execute-once.sh": "5356eb2457cb3e58acadb4dabc2db3b63e64fcbd95c6b0c9a41805cb5a028b26",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "e351d71615909e8e31034d8de5a2f88c45137c4ecfde58f0c7bbeed529ca8095",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "independent-artifact-review.json": "bf5b6568763388840c25b090d7f399f666ad006102b7f5f1771199c83bc98b33",
+      "input-after.txt": "e3590b761f1c0a1fb07b0366b13b345b0196176ec3432c28fda0f4f2c74bd5ce",
+      "input-git-pins.txt": "f87c62f5a2373a4551f5fcc82238f48132bf166c8009cc7a88723cfd22c98fdc",
+      "input.sha256": "f98998df02d1825b6e0d7fc138dc7b6f1486cf7d8c107be0b88cb3fbef1c4b7c",
+      "input/capture_one_r3.py": "3281b7649ccc4f00468ab062a4249fb15d101eda0b76d6ee8336a87d6ffc038c",
+      "input/readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+      "input/recorder.py": "90c7c4629e6252855cdb5ef33721dd0df17e336cb2e5d8dea13bf92da2dce640",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/supervise_r3.py": "cde4f7b5efc822b95e49e20c413298aea140b57ba204aefe69efc55bf561720b",
+      "input/validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+      "launch-once.sh": "bde38301c3a0e1d49ebdae1240d101d66bf4ed7e55127e233bdbb5437193067c",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pre-existing-after.txt": "4bdc79a34add542e9c767e094bdd9f5c3bfa1b058bc3f76e2d779ff3cf918f38",
+      "pre-existing-before.txt": "4bdc79a34add542e9c767e094bdd9f5c3bfa1b058bc3f76e2d779ff3cf918f38",
+      "r2-offline-tests.log": "6389b52856f1ae5323d6be9cfe170548cfe38362d41a8102f4f9f4801f852c38",
+      "r3-offline-tests.log": "5e726a5b5a34c4da45bcb4dc23cd00e35a5d50e60fd118a0e3d916fb3eb17d38",
+      "run/FAILED.json": "bfdb23601812acc9f346192ad3eec6e60cba666073add7712d7aaf5db2d0009c",
+      "run/capture/depth.f32le": "47c44d97ae8d5ed16b7d82f1c10d62e3d829820b7f5f5b94f24e1417a1f66c01",
+      "run/capture/frame.json": "1e3c31dc957bc5ae46966e3bb64fba7eb443b7edf5072c5d4c02049f1d7e9eda",
+      "run/capture/instances.u32le": "225d5abeadda43409961299fc4766f04912b274ec6f4d0549ea64613bd6566dd",
+      "run/capture/phases.jsonl": "76cbbe24b9ab8127a0d84b3d026c49e034fe0ef0bf87a4cde8e4089a6a9b8d47",
+      "run/capture/readiness.jsonl": "37eed35464b1616491499305779180f55a5d0bc02547821a33718526e4f32089",
+      "run/child.log": "ce3db0f2bcf5863ca5031225f01f4f7d66fec66766b9f2f6d7b9318b1eda6d14",
+      "source-commit.txt": "19afdc5ea4ec63e4f3fc49edc3556cd6dfb14cd6277602ce77a5f97a1d159cfa",
+      "start-requested.txt": "8483a7a653be156474bba9c112867363e861cf55fc30327405b125ecc5a04ad4",
+      "supervisor-exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  },
+  "gates": {
+    "offline_preflight": {
+      "status": "PASS",
+      "evidence": "All 37 tests passed.",
+      "paths": [
+        "r3-offline-tests.log",
+        "r2-offline-tests.log"
+      ]
+    },
+    "pinned_source_image_stage": {
+      "status": "PASS",
+      "evidence": "The six staged inputs are byte-identical to the source commit. Stage, image and mount records matched the pins.",
+      "paths": [
+        "input-git-pins.txt",
+        "input.sha256",
+        "image.txt",
+        "container-created.txt"
+      ]
+    },
+    "structured_mounts": {
+      "status": "PASS",
+      "evidence": "The isolated container had the exact read-only input and read-write capture binds.",
+      "paths": [
+        "container-mounts.json",
+        "run/child.log"
+      ]
+    },
+    "native_depth_and_ids": {
+      "status": "PASS",
+      "evidence": "Both valid native buffers arrived on attempt 2 and were persisted.",
+      "paths": [
+        "run/capture/readiness.jsonl",
+        "run/capture/depth.f32le",
+        "run/capture/instances.u32le"
+      ]
+    },
+    "same_native_reference": {
+      "status": "PASS",
+      "evidence": "Both native writer records carried [7489, 30].",
+      "paths": [
+        "run/capture/readiness.jsonl",
+        "run/capture/frame.json"
+      ]
+    },
+    "resolved_simulation_time": {
+      "status": "PASS",
+      "evidence": "The native mapping recorded 0.30000000447034836 s consistently.",
+      "paths": [
+        "run/capture/readiness.jsonl",
+        "run/capture/frame.json"
+      ]
+    },
+    "camera_and_array_integrity": {
+      "status": "PASS",
+      "evidence": "Independent decoding confirmed dimensions, types, and 64 finite-positive target pixels.",
+      "paths": [
+        "independent-artifact-review.json",
+        "run/capture/frame.json"
+      ]
+    },
+    "persisted_before_shutdown": {
+      "status": "PASS",
+      "evidence": "The write_artifacts completion event precedes shutdown start.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "durable_shutdown": {
+      "status": "FAIL",
+      "evidence": "Shutdown started, but no durable completion record demonstrates return to Python.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log"
+      ]
+    },
+    "supervisor_completion": {
+      "status": "FAIL",
+      "evidence": "Exit 0 was rejected with supervisor exit 1 and FAILED.json. COMPLETED.json is absent.",
+      "paths": [
+        "supervisor-exit.txt",
+        "run/FAILED.json"
+      ]
+    },
+    "operational_isolation": {
+      "status": "PASS",
+      "evidence": "The three operational snapshots matched on ID, image, start time, restart count and status.",
+      "paths": [
+        "operational-before.txt",
+        "operational-after.txt"
+      ]
+    },
+    "retained_artifact_integrity": {
+      "status": "PASS",
+      "evidence": "All 39 retained files passed manifest verification.",
+      "paths": [
+        "SHA256SUMS.txt"
+      ]
+    },
+    "preserved_research_artifacts": {
+      "status": "PASS",
+      "evidence": "R1, R2, previous R3 and frozen M05\u2013M08 checksums match before and after.",
+      "paths": [
+        "pre-existing-before.txt",
+        "pre-existing-after.txt"
+      ]
+    }
+  }
+}
