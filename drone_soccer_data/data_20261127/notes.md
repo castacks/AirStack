@@ -1,0 +1,3 @@
+- /bags/drone_3_VolleyBall_20261127_170435: barrier calibration
+- /bags/drone_3_VolleyBall_20261127_172747: first policy optimization with trajopt and new coord frame, didn't seem to make a difference
+- /bags/drone_3_VolleyBall_20261127_175304: increased gain to 10x, ran training for 5 min until battery ran out

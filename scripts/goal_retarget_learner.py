@@ -101,6 +101,8 @@ def parse_args() -> argparse.Namespace:
                              'gradient of the plan-tracking error (bptt)')
     parser.add_argument('--goal-step-gain', type=float, default=PLAN_UPDATE.goal_step_gain,
                         help='dg_curr = gain * displacement, or -gain * dL/dg (bptt)')
+    parser.add_argument('--retarget-angle-gain', type=float, default=PLAN_UPDATE.forward.retarget_angle_gain,
+                        help="multiple of dg_curr's turn of the goal applied per step, before the 45 deg limit")
     parser.add_argument('--batch-window-s', type=float, default=PLAN_UPDATE.forward.batch_window_s,
                         help='flight of one iterate per batch (s)')
     parser.add_argument('--plan-workers', type=int, default=PLAN_UPDATE.plan_workers,
@@ -347,7 +349,8 @@ def build_learner(args: argparse.Namespace, session: dict):
     config = dataclasses.replace(
         PLAN_UPDATE, goal_step_rule=args.goal_step_rule, goal_step_gain=args.goal_step_gain,
         plan_workers=args.plan_workers,
-        forward=dataclasses.replace(PLAN_UPDATE.forward, batch_window_s=args.batch_window_s),
+        forward=dataclasses.replace(
+            PLAN_UPDATE.forward, batch_window_s=args.batch_window_s, retarget_angle_gain=args.retarget_angle_gain),
     )
     expert_path = args.expert or args.drone_soccer / DEFAULT_EXPERT
     expert = PPO.load(expert_path, device='cpu')
@@ -413,7 +416,7 @@ def main() -> None:
     barrier_name = args.barrier_dataset or 'custom barrier'
     start_note = f' | pi_F resumes from {start_path.parent.name}/{start_path.name}' if resuming else ''
     console.info(f'Learner attached to {run_dir.name} | expert {expert_path.name} ({learner.policy_frame} frame)'
-                 f'{start_note} | goal step {config.goal_step_rule} x{config.goal_step_gain:g} | {barrier_name} | '
+                 f'{start_note} | goal step {config.goal_step_rule} x{config.goal_step_gain:g}, turn x{config.forward.retarget_angle_gain:g} | {barrier_name} | '
                  f'{config.forward.batch_window_s:.0f} s of flight per update | '
                  f'details in {run_dir / LEARNER_LOG_FILE}')
 

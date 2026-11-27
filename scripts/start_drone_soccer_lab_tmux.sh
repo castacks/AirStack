@@ -20,7 +20,7 @@ MOTIVE_SERVER_IP="${MOTIVE_SERVER_IP:-192.168.50.5}"
 MOTIVE_CLIENT_IP="${MOTIVE_CLIENT_IP:-192.168.50.6}"
 POLICY_REQUIREMENTS="/root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt"
 LEARNER_SESSION="${LEARNER_SESSION:-drone_soccer_learner}"
-GOAL_RETARGET_BARRIER="${GOAL_RETARGET_BARRIER:-data_20261119}"
+GOAL_RETARGET_BARRIER="${GOAL_RETARGET_BARRIER:-data_20261127}"
 ATTACH=1
 STOP=0
 GOAL_RETARGET=0
@@ -39,7 +39,7 @@ With --goal-retarget, the policy launch command uses
 policy_commander_drone3_goal_retarget.yaml (online goal-retargeting updates),
 and a HOST tmux session drone_soccer_learner gets the learner command typed
 (scripts/run_goal_retarget_learner.sh), also not run. Check the barrier
-argument (GOAL_RETARGET_BARRIER, default data_20261119) before pressing Enter.
+argument (GOAL_RETARGET_BARRIER, default data_20261127) before pressing Enter.
 Attach to it from the host with: tmux attach -t drone_soccer_learner
 
 The Micro XRCE-DDS agent still runs as a sibling host-networked container;
