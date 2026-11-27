@@ -1,0 +1,217 @@
+{
+  "status": "FAIL",
+  "starting_commit": "c4b5fb5f20fb422179181061b858508283caeb9a",
+  "branch": "ore-ms-orb-development",
+  "first_failed_gate": "step_1.physics_step_advancement",
+  "qualified_both_epochs": false,
+  "accepted_epoch_count": 0,
+  "accepted_epochs_ns": [],
+  "required_epoch_count": 2,
+  "isolated_execution_attempts": 1,
+  "cpu_tests": {
+    "total": 84,
+    "r2": 10,
+    "r3": 36,
+    "r4": 31,
+    "frozen_receipt": 7,
+    "status": "PASS"
+  },
+  "preflight": {
+    "image_reference": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+    "image_config_id": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+    "structured_mounts": "PASS",
+    "approved_mounts": 2,
+    "network": "none",
+    "ipc": "private",
+    "host_attach_timeout_s": 150,
+    "host_timeout_kill_after_s": 15,
+    "fixture_sha256": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7"
+  },
+  "ros_configuration": {
+    "graph": "/World/ReceiptClock",
+    "namespace": "/",
+    "subscription_topic": "/clock",
+    "node": "ore_r4_isolated_receipt",
+    "rclpy_domain": 91,
+    "executor": "rclpy.spin_once",
+    "clock_policy": "diagnostic_epochs",
+    "ros_environment": {
+      "ROS_DOMAIN_ID": "91",
+      "ROS_DISTRO": "jazzy",
+      "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+      "ROS_AUTOMATIC_DISCOVERY_RANGE": "LOCALHOST",
+      "ROS_LOCALHOST_ONLY": null,
+      "ROS_NAMESPACE": null
+    }
+  },
+  "clock_callbacks": [
+    {
+      "sec": 0,
+      "nanosec": 300000004
+    },
+    {
+      "sec": 0,
+      "nanosec": 300000004
+    }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "probe_status": "CLOCK_ASSOCIATION_UNVERIFIED",
+      "observations": {
+        "physics_indices": [
+          3,
+          3,
+          3
+        ],
+        "native_simulation_time_s": [
+          0.0,
+          0.30000000447034836,
+          0.30000000447034836
+        ],
+        "publisher_compute_counts": [
+          0,
+          6997
+        ],
+        "publisher_input_s": 0.30000000447034836,
+        "exact_expected_wire_stamp_ns": 300000004,
+        "received_stamps_ns": [
+          300000004,
+          300000004
+        ],
+        "accepted_epoch_ns": null,
+        "publishers": [
+          {
+            "name": "_World_ReceiptClock_Publish",
+            "namespace": "/",
+            "type": "rosgraph_msgs/msg/Clock",
+            "gid": [
+              1,
+              15,
+              127,
+              1,
+              49,
+              0,
+              196,
+              56,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              3
+            ],
+            "qos": {
+              "history": "UNKNOWN",
+              "reliability": "RELIABLE",
+              "durability": "VOLATILE",
+              "liveliness": "AUTOMATIC",
+              "depth": 0,
+              "deadline_ns": 9223372036854775807,
+              "lifespan_ns": 9223372036854775807,
+              "liveliness_lease_ns": 9223372036854775807
+            },
+            "compatibility": "OK",
+            "reason": ""
+          }
+        ],
+        "queue_settled": true,
+        "executor_spin_calls": 3,
+        "graph_counts": [
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 6997,
+            "Time": 6997,
+            "Publish": 6997
+          }
+        ]
+      },
+      "gates": {
+        "physics_step_advancement": "FAIL",
+        "native_clock_progression": "PASS",
+        "publisher_compute_advanced": "PASS",
+        "compatible_publisher": "PASS",
+        "post_render_bracket_stable": "PASS",
+        "exact_native_to_wire_mapping": "PASS",
+        "unambiguous_callback_group": "PASS",
+        "strictly_advancing_epoch": "NOT_REACHED",
+        "graph_present_enabled": "PASS",
+        "graph_nodes_evaluated": "PASS",
+        "epoch_acceptance": "FAIL"
+      },
+      "status": "FAIL",
+      "phase": "subscriber_wait"
+    },
+    {
+      "step": 2,
+      "status": "NOT_REACHED",
+      "accepted_epoch_ns": null
+    }
+  ],
+  "two_distinct_advancing_epochs_gate": "FAIL",
+  "process_and_shutdown": {
+    "host_exit": {
+      "Dead": false,
+      "Error": "",
+      "ExitCode": 0,
+      "FinishedAt": "2026-11-27T16:16:56.649718331Z",
+      "OOMKilled": false,
+      "Paused": false,
+      "Pid": 0,
+      "Restarting": false,
+      "Running": false,
+      "StartedAt": "2026-11-27T16:14:57.963464487Z",
+      "Status": "exited"
+    },
+    "attach_exit": 0,
+    "container_id": "f05c1f0e3ee08e309864348b73aab1e123e285624882cbaa8cf837fb8e31d2ae",
+    "container_exit_receipt_sha256": "42c0fbeefeba1c67c7f4cb1d3e1ef4b208e2a9af9f42b6027eb940e14f1d8da5",
+    "elapsed_s": 118.686254,
+    "shutdown_request": true,
+    "native_shutdown_return": false,
+    "shutdown_verified": true,
+    "kit_shutdown_log": "[114.372s] Simulation App Shutting Down",
+    "clock_check_present": false
+  },
+  "completion_marker_present": false,
+  "operational_container_snapshots": {
+    "status": "PASS",
+    "verified_equal": true,
+    "matched_count": 3,
+    "fields": [
+      "name",
+      "id",
+      "image_id",
+      "started_at",
+      "restart_count",
+      "status"
+    ]
+  },
+  "historical_evidence_and_frozen_hashes": "PASS",
+  "geometry_capture_executed": false,
+  "frozen_geometry_interval_ns": 2000000000,
+  "evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-clock-epochs-live-r4.YB2kBYRM",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "8b3ee5d72b2dd54e6645041f723ef3b705a8b784845055c236d18073db119c81",
+    "manifest_entries": 42,
+    "raw_callbacks": "run/capture/clock-raw.jsonl",
+    "graph_and_physics_observations": "run/capture/clock-diagnostic.jsonl",
+    "clock_configuration": "run/capture/clock-configuration.json",
+    "worker_lifecycle": "run/capture/phases.jsonl",
+    "kit_log": "run/child.log",
+    "container_exit": "run/container-exit.json",
+    "independent_review": "independent-clock-epoch-review.json",
+    "independent_review_script": "independent-review.py",
+    "operational_snapshots": [
+      "operational-before.txt",
+      "operational-after.txt"
+    ]
+  }
+}
