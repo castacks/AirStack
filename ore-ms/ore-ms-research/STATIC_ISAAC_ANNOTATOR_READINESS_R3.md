@@ -32,7 +32,7 @@ python3 ore-ms/maintenance/check_docs.py
 
 ## One-frame procedure for separate authorization
 
-Use the same cached Isaac Sim 5.1.0 image, verified GPU 0, and isolated stationary USD stage as R2. Run only with separate authorization, from the committed R3 sources. Check the image config, verify the stage and source digests, and compare operational container IDs, images, start times and restarts before and after. The launcher creates a unique disposable container, checks isolation while it is still stopped, and starts it once. The only mounts are immutable scratch input and the new recorder output path.
+Use the same cached Isaac Sim 5.1.0 image, verified GPU 0, and isolated stationary USD stage as R2. Run only with separate authorization, from the committed R3 sources. Check the image config, verify the stage and source digests, and compare operational container IDs, images, start times and restarts before and after. The launcher creates a unique disposable container, checks isolation and validates the saved structured mount records while it is still stopped, and starts it once. The only mounts are immutable scratch input and the new recorder output path.
 
 ```bash
 set -euo pipefail
@@ -48,9 +48,9 @@ test "$(docker image inspect --format '{{.Id}}' "$image")" = "$image_id"
 git diff --quiet HEAD -- "$r3" "$shared" "$r1/input/stage.usda"
 git rev-parse HEAD > "$scratch/source-commit.txt"
 mkdir "$scratch/input"
-cp "$r1/input/stage.usda" "$shared" "$r3/"{capture_one_r3,readiness,supervise_r3}.py "$scratch/input/"
+cp "$r1/input/stage.usda" "$shared" "$r3/"{capture_one_r3,readiness,supervise_r3,validate_mounts}.py "$scratch/input/"
 (cd "$scratch/input" && sha256sum --check "$r1/input.sha256" --ignore-missing)
-(cd "$scratch/input" && sha256sum stage.usda recorder.py capture_one_r3.py readiness.py supervise_r3.py) > "$scratch/input.sha256"
+(cd "$scratch/input" && sha256sum stage.usda recorder.py capture_one_r3.py readiness.py supervise_r3.py validate_mounts.py) > "$scratch/input.sha256"
 printf '%s\n%s\n' "$image" "$image_id" > "$scratch/image.txt"
 
 snapshot() {
@@ -75,9 +75,8 @@ cid="$(docker create --name "$name" --pull never --network none --ipc private \
 printf '%s\n' "$cid" > "$p/container.cid"
 docker inspect --type container --format '{{.Image}} {{.Name}} {{.State.Status}} {{.HostConfig.NetworkMode}} {{.HostConfig.IpcMode}} {{.HostConfig.Privileged}} {{json .Mounts}}' "$cid" > "$p/container-created.txt"
 test "$(docker inspect --type container --format '{{.Image}} {{.Name}} {{.State.Status}} {{.HostConfig.NetworkMode}} {{.HostConfig.IpcMode}} {{.HostConfig.Privileged}}' "$cid")" = "${pins[1]} /$name created none private false"
-actual="$(docker inspect --type container --format '{{range .Mounts}}{{printf "%s %s %s %t\n" .Type .Source .Destination .RW}}{{end}}' "$cid" | sort)"
-expected="$(printf '%s\n' "bind $p/input /capture-input false" "bind $p/run/capture /capture-output true" | sort)"
-test "$actual" = "$expected"
+docker inspect --type container --format '{{json .Mounts}}' "$cid" > "$p/container-mounts.json"
+python3 "$p/input/validate_mounts.py" "$p/container-mounts.json" "$p/input" "$p/run/capture" --exact
 exec docker start --attach "$cid"
 SH
 status=0
