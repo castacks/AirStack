@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ORE-MS static Isaac geometry receipt and lock R1",
+  "oneOf": [{"$ref": "#/$defs/receipt"}, {"$ref": "#/$defs/lock"}],
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "vec": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin_m", "optical_to_stage"],
+      "properties": {
+        "origin_m": {"$ref": "#/$defs/vec"},
+        "optical_to_stage": {"type": "array", "items": {"$ref": "#/$defs/vec"}, "minItems": 3, "maxItems": 3}
+      }
+    },
+    "intrinsics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "fx", "fy", "cx", "cy"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 0},
+        "height": {"type": "integer", "minimum": 0},
+        "fx": {"type": "number"},
+        "fy": {"type": "number"},
+        "cx": {"type": "number"},
+        "cy": {"type": "number"}
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uv", "axial_m", "first_hit"],
+      "properties": {
+        "uv": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 2, "maxItems": 2},
+        "axial_m": {"type": "number", "exclusiveMinimum": 0, "maximum": 16},
+        "first_hit": {"type": "string", "minLength": 1}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tick", "pose_stamp_ns", "depth_stamp_ns", "depth_frame", "tf", "pose", "camera_info", "ray_origin_m", "ray_direction", "pixels"],
+      "properties": {
+        "tick": {"type": "integer", "minimum": 0},
+        "pose_stamp_ns": {"type": "integer", "minimum": 0},
+        "depth_stamp_ns": {"type": "integer", "minimum": 0},
+        "depth_frame": {"type": "string", "minLength": 1},
+        "tf": {"type": "object", "additionalProperties": false, "required": ["stamp_ns", "parent", "child", "pose"], "properties": {"stamp_ns": {"type": "integer", "minimum": 0}, "parent": {"type": "string", "minLength": 1}, "child": {"type": "string", "minLength": 1}, "pose": {"$ref": "#/$defs/pose"}}},
+        "pose": {"$ref": "#/$defs/pose"},
+        "camera_info": {"type": "object", "additionalProperties": false, "required": ["stamp_ns", "frame", "intrinsics"], "properties": {"stamp_ns": {"type": "integer", "minimum": 0}, "frame": {"type": "string", "minLength": 1}, "intrinsics": {"$ref": "#/$defs/intrinsics"}}},
+        "ray_origin_m": {"$ref": "#/$defs/vec"},
+        "ray_direction": {"$ref": "#/$defs/vec"},
+        "pixels": {"type": "array", "items": {"$ref": "#/$defs/sample"}, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "lock_sha256", "clock", "depth_annotator", "issue", "target", "files"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "kind": {"enum": ["isaac_capture", "synthetic_test"]},
+        "lock_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "clock": {"type": "object", "additionalProperties": false, "required": ["source", "epoch_ns", "period_ns", "samples_ns"], "properties": {"source": {"const": "IsaacReadSimulationTime:/clock"}, "epoch_ns": {"type": "integer", "minimum": 0}, "period_ns": {"const": 100000000}, "samples_ns": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 21, "maxItems": 21}}},
+        "depth_annotator": {"const": "distance_to_image_plane"},
+        "issue": {"$ref": "#/$defs/observation"},
+        "target": {"$ref": "#/$defs/observation"},
+        "files": {"type": "object", "additionalProperties": false, "required": ["clock", "issue", "target"], "properties": {"clock": {"$ref": "#/$defs/file"}, "issue": {"$ref": "#/$defs/file"}, "target": {"$ref": "#/$defs/file"}}}
+      }
+    },
+    "lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "fixture_sha256", "isaac_version", "image_sha256", "airstack_commit", "pegasus_commit", "renderer", "stage", "control_axial_m", "files"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "kind": {"enum": ["isaac_capture", "synthetic_test"]},
+        "fixture_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "isaac_version": {"const": "5.1.0"},
+        "image_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "airstack_commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "pegasus_commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "renderer": {"type": "string", "minLength": 1},
+        "stage": {"type": "object", "additionalProperties": false, "required": ["meters_per_unit", "up_axis", "camera_prim", "only_renderable_prim", "target_center_m", "target_normal", "target_half_extents_xz_m"], "properties": {"meters_per_unit": {"const": 1}, "up_axis": {"const": "Z"}, "camera_prim": {"type": "string", "minLength": 1}, "only_renderable_prim": {"type": "string", "minLength": 1}, "target_center_m": {"$ref": "#/$defs/vec"}, "target_normal": {"$ref": "#/$defs/vec"}, "target_half_extents_xz_m": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}}},
+        "control_axial_m": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+        "files": {"type": "object", "required": ["stage", "exporter", "preflight"], "additionalProperties": {"$ref": "#/$defs/file"}}
+      }
+    }
+  }
+}

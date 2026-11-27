@@ -1,0 +1,22 @@
+{
+  "id": "static-isaac-ray-10m-r1",
+  "isaac_version": "5.1.0",
+  "meters_per_unit": 1,
+  "up_axis": "Z",
+  "stage_frame": "ore_stage",
+  "camera_frame": "ore_camera_optical",
+  "camera_prim": "/World/ReceiptCamera",
+  "target_prim": "/World/ReceiptTarget",
+  "origin_m": [0, 0, 1],
+  "optical_to_stage": [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+  "target_center_m": [0, 10, 1],
+  "target_normal": [0, -1, 0],
+  "target_half_extents_xz_m": [2, 2],
+  "intrinsics": {"width": 33, "height": 25, "fx": 20, "fy": 20, "cx": 16, "cy": 12},
+  "pixels": [[16, 12], [18, 12]],
+  "tick_period_ns": 100000000,
+  "issue_tick": 10,
+  "target_tick": 30,
+  "reference_control_axial_m": [5, 15],
+  "maximum_range_error_m": 0.001
+}
