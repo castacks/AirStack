@@ -1,0 +1,15 @@
+test_clock_domain_mixing_rejected (test_m00c_timing.TimingEvidenceTests.test_clock_domain_mixing_rejected) ... ok
+test_cross_boot_ticks_rejected (test_m00c_timing.TimingEvidenceTests.test_cross_boot_ticks_rejected) ... ok
+test_exact_nanosecond_arithmetic (test_m00c_timing.TimingEvidenceTests.test_exact_nanosecond_arithmetic) ... ok
+test_first_recorded_heartbeat_used (test_m00c_timing.TimingEvidenceTests.test_first_recorded_heartbeat_used) ... ok
+test_missing_deadline_not_fabricated (test_m00c_timing.TimingEvidenceTests.test_missing_deadline_not_fabricated) ... ok
+test_numeric_origin_remains_missing (test_m00c_timing.TimingEvidenceTests.test_numeric_origin_remains_missing) ... ok
+test_prior_excerpts_match_originals (test_m00c_timing.TimingEvidenceTests.test_prior_excerpts_match_originals) ... ok
+test_reversed_episode_rejected (test_m00c_timing.TimingEvidenceTests.test_reversed_episode_rejected) ... ok
+test_utc_nanoseconds_preserved (test_m00c_timing.TimingEvidenceTests.test_utc_nanoseconds_preserved) ... ok
+test_wrong_tick_rate_rejected (test_m00c_timing.TimingEvidenceTests.test_wrong_tick_rate_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.011s
+
+OK

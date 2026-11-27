@@ -1,0 +1,170 @@
+{
+  "all_passed": true,
+  "scope": "Offline M00-C evidence/reconciliation/project-control integrity; not F00 qualification or independent V&V",
+  "checks": [
+    {
+      "check": "authorized_repository_branch_start",
+      "passed": true,
+      "detail": "Required clean M00-B starting baseline"
+    },
+    {
+      "check": "history_preserved",
+      "passed": true,
+      "detail": "At required parent or one direct local M00-C successor"
+    },
+    {
+      "check": "all_preexisting_tracked_files_unchanged",
+      "passed": true,
+      "detail": {
+        "tracked_entries": 1935,
+        "changed": []
+      }
+    },
+    {
+      "check": "complete_reference_tree_unchanged",
+      "passed": true,
+      "detail": {
+        "entries": 648,
+        "scope_limit": "No submodule internal or ignored runtime tree hash claim"
+      }
+    },
+    {
+      "check": "outside_workspace_scope",
+      "passed": true,
+      "detail": {
+        "outside": []
+      }
+    },
+    {
+      "check": "controlled_input_integrity",
+      "passed": true,
+      "detail": {
+        "files": 48
+      }
+    },
+    {
+      "check": "input_SHA256SUMS",
+      "passed": true,
+      "detail": {
+        "entries_ok": 26,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "input_RELEASE_MANIFEST.sha256",
+      "passed": true,
+      "detail": {
+        "entries_ok": 20,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "source_evidence_hashes",
+      "passed": true,
+      "detail": {
+        "sources": 70,
+        "changed": []
+      }
+    },
+    {
+      "check": "timeline_replay_exact",
+      "passed": true,
+      "detail": {
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "timing_domain_and_precision",
+      "passed": true,
+      "detail": "Decimal replay of original logs; no numeric origin fabricated; kernel/producer/sink clocks separate"
+    },
+    {
+      "check": "timing_regression_results",
+      "passed": true,
+      "detail": "Ten offline cases: mixed clocks, boot IDs, wrong units/rates, missing/reversed/duplicate events and exact arithmetic"
+    },
+    {
+      "check": "all_original_blockers_dispositioned",
+      "passed": true,
+      "detail": "Ten original IDs, explicit actions/authorities/closure; no proposed remedy marked closed"
+    },
+    {
+      "check": "no_acceptance_changes_or_false_passes",
+      "passed": true,
+      "detail": "Every prior source acceptance/hash/MAP/KPI/IVV field preserved; diagnostics add no requirement verdict"
+    },
+    {
+      "check": "all_candidates_have_verification_and_approval",
+      "passed": true,
+      "detail": {
+        "candidate_count": 5,
+        "implemented": false
+      }
+    },
+    {
+      "check": "hypotheses_trace_to_actions",
+      "passed": true,
+      "detail": "Ten competing hypotheses retain contrary evidence and missing measurements"
+    },
+    {
+      "check": "evidence_references_resolve_or_are_declared_external",
+      "passed": true,
+      "detail": {
+        "missing_references": [],
+        "declared_external_dependencies": 4
+      }
+    },
+    {
+      "check": "authorized_diagnostic_scope_audit",
+      "passed": true,
+      "detail": "Audited passive collector has subscriptions/GetParameters only; action inventory asserts no active tests; not an exhaustive external-runtime monitor"
+    },
+    {
+      "check": "runtime_key_identities_preserved",
+      "passed": true,
+      "detail": "Container start/image/restart counts and interface/MAVROS/Isaac/PX4 process identities unchanged"
+    },
+    {
+      "check": "roadmap_status_consistency",
+      "passed": true,
+      "detail": "WP00\u201308/G0\u20138 present; detailed allocation explicitly proposed; original IDs/history/coverage/gate/authorization agree; known full SHA is an as-of snapshot"
+    },
+    {
+      "check": "new_document_links_and_script_syntax",
+      "passed": true,
+      "detail": {
+        "broken": []
+      }
+    },
+    {
+      "check": "evidence_manifest_coverage_and_hashes",
+      "passed": true,
+      "detail": {
+        "hashed_artifacts": 30,
+        "bad": []
+      }
+    },
+    {
+      "check": "detached_sha256_manifest",
+      "passed": true,
+      "detail": {
+        "entries_ok": 31,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "staged_scope",
+      "passed": true,
+      "detail": {
+        "staged_count": 33,
+        "authorized_files": 33
+      }
+    },
+    {
+      "check": "staged_whitespace",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

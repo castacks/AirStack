@@ -1,0 +1,57 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "log",
+        "-3",
+        "--format=%H %s"
+      ],
+      "exit_code": 0,
+      "stdout": "93b8196e835effc3da34cac5677eab4d30c1378a RRM-F00 M00-B: investigate G0 baseline and readiness blockers\ne772605ccfb6c3bfe515e8e07961cdddc0831968 RRM-F00 M00: establish baseline and requirements assessment\n169c83a58bbb387e9a9086ef49ca2dd5887a7eb7 Reject invalid trajectory stamps before controller construction\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "branch",
+        "-vv"
+      ],
+      "exit_code": 0,
+      "stdout": "* ore_proj 93b8196e8 [origin/ore_proj] RRM-F00 M00-B: investigate G0 baseline and readiness blockers\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain=v1"
+      ],
+      "exit_code": 0,
+      "stdout": "?? RRM/evidence/M00-C/\n?? RRM/scripts/m00c_collect_startup.py\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "log",
+        "--all",
+        "--format=%H",
+        "--",
+        "RRM-C001-F00",
+        "RRM-C001-BOUNDARY"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "expected_records": {
+    "/root/Downloads/RRM-C001-F00-EXT": false,
+    "/root/RRM-agent-coordination": false,
+    "/home/debo/RRM/projects/RRM-C001-F00": false,
+    "/root/AirStack/RRM-C001-F00": false,
+    "/root/AirStack/RRM-C001-BOUNDARY": false
+  },
+  "limitation": "Rechecked prior exact paths and available Git history only; M00-B bounded search remains historical; no claim about unavailable external accounts."
+}

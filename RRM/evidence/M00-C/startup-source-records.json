@@ -1,0 +1,2569 @@
+{
+  "captured_utc": "2026-11-27T21:30:11.260817+00:00",
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "--format",
+        "{\"name\":{{json .Name}},\"image\":{{json .Image}},\"started\":{{json .State.StartedAt}},\"restart_count\":{{.RestartCount}}}",
+        "isaac-sim-livestream",
+        "airstack-robot-desktop-1",
+        "airstack-gcs-1"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"name\":\"/isaac-sim-livestream\",\"image\":\"sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf\",\"started\":\"2026-11-27T18:41:25.413772267Z\",\"restart_count\":0}\n{\"name\":\"/airstack-robot-desktop-1\",\"image\":\"sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290\",\"started\":\"2026-11-27T18:41:26.092998749Z\",\"restart_count\":0}\n{\"name\":\"/airstack-gcs-1\",\"image\":\"sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e\",\"started\":\"2026-11-27T18:41:24.673861086Z\",\"restart_count\":0}\n",
+      "stderr": ""
+    }
+  ],
+  "filtered_logs": [
+    {
+      "container": "isaac-sim-livestream",
+      "argv": [
+        "docker",
+        "logs",
+        "--timestamps",
+        "--since",
+        "2026-11-27T18:40:00Z",
+        "--until",
+        "2026-11-27T18:50:00Z",
+        "isaac-sim-livestream"
+      ],
+      "exit_code": 0,
+      "records": [
+        {
+          "stream": "stdout",
+          "line": 1,
+          "text": "2026-11-27T18:41:26.162823138Z PYTHONPATH=\"$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true --/app/livestream/fixedHostPort=49099 --/app/livestream/minHostPort=49099 --/app/livestream/maxHostPort=49099 --/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/physics/cudaDevice=0"
+        },
+        {
+          "stream": "stdout",
+          "line": 7,
+          "text": "2026-11-27T18:41:26.679254293Z \u001b[?2004h[DOCKER Isaac]\u001b[01;32mroot@9f2da7b82b6b\u001b[00m:\u001b[01;34m~\u001b[00m# PYTHONPATH=\"$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true --/app/livestream/fixedHostPort=49099 --/app/livestream/minHostPort=49099 --/app/livestream/maxHostPort=49099 --/renderer/activeGpu=0 --/renderer/multiGpu/enabled=false --/physics/cudaDevice=0"
+        },
+        {
+          "stream": "stdout",
+          "line": 10,
+          "text": "Starting kit application with the following args:  ['/isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py', '/isaac-sim/apps/isaacsim.exp.base.python.kit', '--/app/tokens/exe-path=/isaac-sim/kit', '--/persistent/app/viewport/displayOptions=3286', '--/rtx/materialDb/syncLoads=True', '--/rtx/hydra/materialSyncLoads=True', '--/omni.kit.plugin/syncUsdLoads=True', '--/app/renderer/resolution/width=1280', '--/app/renderer/resolution/height=720', '--/app/window/width=1920', '--/app/window/height=1080', '--/renderer/multiGpu/enabled=True', '--/app/fastShutdown=True', '--/app/installSignalHandlers=0', '--ext-folder', '/isaac-sim/exts', '--ext-folder', '/isaac-sim/apps', '--/physics/cudaDevice=0', '--/plugins/carb.tasking.plugin/threadCount=32', '--/plugins/omni.tbb.globalcontrol/maxThreadCount=32', '--portable', '--no-window', '--/app/window/hideUi=False', '--allow-root']"
+        },
+        {
+          "stream": "stdout",
+          "line": 16,
+          "text": "2026-11-27T18:41:27.083415263Z [0.068s] [ext: omni.kit.async_engine-0.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 18,
+          "text": "2026-11-27T18:41:27.873487242Z [0.858s] [ext: omni.metrics.core-0.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 20,
+          "text": "2026-11-27T18:41:27.879794222Z [0.858s] [ext: omni.client.lib-1.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 22,
+          "text": "2026-11-27T18:41:27.914522274Z [0.900s] [ext: omni.blobkey-1.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 24,
+          "text": "2026-11-27T18:41:27.914740063Z [0.901s] [ext: omni.stats-1.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 26,
+          "text": "2026-11-27T18:41:27.933464949Z [0.916s] [ext: omni.datastore-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 28,
+          "text": "2026-11-27T18:41:27.937143188Z [0.923s] [ext: omni.client-1.3.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 30,
+          "text": "2026-11-27T18:41:27.943660597Z [0.929s] [ext: omni.ujitso.default-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 32,
+          "text": "2026-11-27T18:41:27.948667944Z [0.933s] [ext: omni.hsscclient-1.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 34,
+          "text": "2026-11-27T18:41:27.977456480Z [0.963s] [ext: omni.gpu_foundation.shadercache.vulkan-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 36,
+          "text": "2026-11-27T18:41:28.015173218Z [1.001s] [ext: omni.assets.plugins-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 38,
+          "text": "2026-11-27T18:41:28.016949311Z [1.003s] [ext: omni.gpu_foundation-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 40,
+          "text": "2026-11-27T18:41:28.031649817Z [1.016s] [ext: carb.windowing.plugins-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 44,
+          "text": "2026-11-27T18:41:28.031672561Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:28Z [990ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 46,
+          "text": "2026-11-27T18:41:28.031675044Z \u001b[0m[1.017s] [ext: omni.kit.renderer.init-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 114,
+          "text": "2026-11-27T18:41:30.103275555Z [3.087s] [ext: omni.kit.pipapi-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 116,
+          "text": "2026-11-27T18:41:30.126552331Z [3.112s] [ext: omni.kit.pip_archive-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 118,
+          "text": "2026-11-27T18:41:30.141307389Z [3.125s] [ext: omni.pip.compute-1.6.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 120,
+          "text": "2026-11-27T18:41:30.154644973Z [3.139s] [ext: omni.materialx.libs-1.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 122,
+          "text": "2026-11-27T18:41:30.178904104Z [3.164s] [ext: omni.pip.cloud-1.4.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 124,
+          "text": "2026-11-27T18:41:30.217705490Z [3.203s] [ext: omni.isaac.core_archive-3.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 126,
+          "text": "2026-11-27T18:41:30.243679503Z [3.229s] [ext: omni.usd.config-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 128,
+          "text": "2026-11-27T18:41:30.262438501Z [3.248s] [ext: omni.gpucompute.plugins-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 130,
+          "text": "2026-11-27T18:41:30.263378632Z [3.249s] [ext: omni.usd.libs-1.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 132,
+          "text": "2026-11-27T18:41:30.359451647Z [3.343s] [ext: omni.mdl-56.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 134,
+          "text": "2026-11-27T18:41:30.649792408Z [3.625s] [ext: omni.iray.libs-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 136,
+          "text": "2026-11-27T18:41:30.649897157Z [3.636s] [ext: omni.mdl.neuraylib-0.2.12] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 138,
+          "text": "2026-11-27T18:41:30.701474761Z [3.682s] [ext: omni.kit.usd.mdl-1.1.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 140,
+          "text": "2026-11-27T18:41:31.049356557Z [4.035s] [ext: omni.services.pip_archive-0.16.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 142,
+          "text": "2026-11-27T18:41:31.075517421Z [4.059s] [ext: omni.isaac.ml_archive-3.0.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 144,
+          "text": "2026-11-27T18:41:31.103601091Z [4.089s] [ext: omni.kit.telemetry-0.5.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 146,
+          "text": "2026-11-27T18:41:31.194078299Z [4.180s] [ext: omni.kit.loop-isaac-1.3.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 148,
+          "text": "2026-11-27T18:41:31.223230525Z [4.209s] [ext: omni.kit.test-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 150,
+          "text": "2026-11-27T18:41:31.684664600Z [4.668s] [ext: omni.appwindow-1.1.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 154,
+          "text": "2026-11-27T18:41:31.684704790Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:31Z [4,643ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 156,
+          "text": "2026-11-27T18:41:31.769089392Z \u001b[0m[4.753s] [ext: omni.kit.renderer.core-1.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 160,
+          "text": "2026-11-27T18:41:32.044365065Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:32Z [5,000ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 164,
+          "text": "2026-11-27T18:41:32.058058740Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:32Z [5,017ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 166,
+          "text": "2026-11-27T18:41:32.191641919Z \u001b[0m[5.167s] [ext: omni.kit.renderer.capture-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 168,
+          "text": "2026-11-27T18:41:32.314914287Z [5.300s] [ext: omni.kit.renderer.imgui-2.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 172,
+          "text": "2026-11-27T18:41:32.322789057Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:32Z [5,280ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 176,
+          "text": "2026-11-27T18:41:32.330218835Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:32Z [5,285ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 180,
+          "text": "2026-11-27T18:41:32.330223682Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:41:32Z [5,287ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 182,
+          "text": "2026-11-27T18:41:32.514084260Z \u001b[0m[5.488s] [ext: omni.ui-2.27.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 184,
+          "text": "2026-11-27T18:41:32.564647861Z [5.548s] [ext: omni.kit.mainwindow-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 186,
+          "text": "2026-11-27T18:41:32.630100933Z [5.612s] [ext: carb.audio-0.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 188,
+          "text": "2026-11-27T18:41:32.634606782Z [5.620s] [ext: omni.uiaudio-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 190,
+          "text": "2026-11-27T18:41:32.672859911Z [5.657s] [ext: omni.kit.uiapp-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 192,
+          "text": "2026-11-27T18:41:32.672893691Z [5.657s] [ext: omni.usd.schema.metrics.assembler-107.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 194,
+          "text": "2026-11-27T18:41:32.730675520Z [5.715s] [ext: omni.anim.behavior.schema-107.3.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 196,
+          "text": "2026-11-27T18:41:32.804358350Z [5.790s] [ext: omni.usd.schema.omnigraph-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 198,
+          "text": "2026-11-27T18:41:32.891497213Z [5.874s] [ext: omni.usd.schema.geospatial-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 200,
+          "text": "2026-11-27T18:41:32.960665609Z [5.946s] [ext: omni.usd.schema.anim-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 202,
+          "text": "2026-11-27T18:41:33.127393045Z [6.113s] [ext: omni.usd.schema.audio-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 204,
+          "text": "2026-11-27T18:41:33.177387526Z [6.163s] [ext: isaacsim.robot.schema-3.6.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 206,
+          "text": "2026-11-27T18:41:33.299056440Z [6.285s] [ext: omni.usd_resolver-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 208,
+          "text": "2026-11-27T18:41:33.334734186Z [6.320s] [ext: omni.usd.core-1.5.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 210,
+          "text": "2026-11-27T18:41:33.341584007Z [6.323s] [ext: omni.usd.schema.omni_sensors-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 212,
+          "text": "2026-11-27T18:41:33.609468571Z [6.595s] [ext: omni.usd.schema.semantics-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 214,
+          "text": "2026-11-27T18:41:33.639131488Z [6.625s] [ext: omni.usd.schema.omni_lens_distortion-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 216,
+          "text": "2026-11-27T18:41:33.718832190Z [6.701s] [ext: omni.usd.schema.render_settings.rtx-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 218,
+          "text": "2026-11-27T18:41:33.763438459Z [6.744s] [ext: omni.graph.exec-0.9.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 220,
+          "text": "2026-11-27T18:41:33.763477807Z [6.745s] [ext: omni.kit.actions.core-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 222,
+          "text": "2026-11-27T18:41:33.808910675Z [6.795s] [ext: omni.kit.usd_undo-0.1.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 224,
+          "text": "2026-11-27T18:41:33.839357816Z [6.825s] [ext: omni.kit.exec.core-0.13.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 226,
+          "text": "2026-11-27T18:41:33.899628527Z [6.885s] [ext: omni.kit.commands-1.4.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 228,
+          "text": "2026-11-27T18:41:34.079533346Z [7.064s] [ext: omni.kit.window.popup_dialog-2.0.24] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 230,
+          "text": "2026-11-27T18:41:34.172815062Z [7.158s] [ext: omni.activity.core-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 232,
+          "text": "2026-11-27T18:41:34.270082020Z [7.256s] [ext: omni.resourcemonitor-107.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 234,
+          "text": "2026-11-27T18:41:34.398021220Z [7.384s] [ext: omni.timeline-1.0.14] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 236,
+          "text": "2026-11-27T18:41:34.478504244Z [7.461s] [ext: omni.kit.widget.nucleus_connector-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 238,
+          "text": "2026-11-27T18:41:34.571859161Z [7.557s] [ext: usdrt.scenegraph-7.6.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 240,
+          "text": "2026-11-27T18:41:35.098122892Z [8.083s] [ext: omni.kit.audiodeviceenum-1.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 242,
+          "text": "2026-11-27T18:41:35.153590803Z [8.139s] [ext: omni.hydra.usdrt_delegate-7.5.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 244,
+          "text": "2026-11-27T18:41:35.271039640Z [8.257s] [ext: omni.hydra.scene_delegate-0.3.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 246,
+          "text": "2026-11-27T18:41:35.278827309Z [8.263s] [ext: omni.usd-1.13.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 250,
+          "text": "2026-11-27T18:41:35.780032360Z [8.766s] [ext: omni.kit.asset_converter-5.0.17] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 252,
+          "text": "2026-11-27T18:41:35.907258922Z [8.893s] [ext: omni.usd.schema.physx-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 254,
+          "text": "2026-11-27T18:41:36.327354111Z [9.313s] [ext: omni.anim.navigation.schema-107.3.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 256,
+          "text": "2026-11-27T18:41:36.627718695Z [9.613s] [ext: omni.inspect-1.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 258,
+          "text": "2026-11-27T18:41:36.774292685Z [9.760s] [ext: omni.kit.notification_manager-1.0.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 260,
+          "text": "2026-11-27T18:41:36.903131973Z [9.889s] [ext: omni.graph.core-2.184.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 262,
+          "text": "2026-11-27T18:41:36.906948551Z [9.893s] [ext: isaacsim.core.deprecation_manager-0.2.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 264,
+          "text": "2026-11-27T18:41:37.036736183Z [10.022s] [ext: omni.usd.schema.omniscripting-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 266,
+          "text": "2026-11-27T18:41:37.320720563Z [10.305s] [ext: omni.usd.schema.flow-107.1.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 268,
+          "text": "2026-11-27T18:41:37.385679608Z [10.370s] [ext: omni.anim.graph.schema-107.3.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 270,
+          "text": "2026-11-27T18:41:37.495049655Z [10.481s] [ext: omni.usd.schema.isaac-3.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 272,
+          "text": "2026-11-27T18:41:37.495083176Z [10.481s] [ext: isaacsim.core.version-2.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 274,
+          "text": "2026-11-27T18:41:37.593550748Z [10.575s] [ext: omni.ui.scene-1.11.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 276,
+          "text": "2026-11-27T18:41:37.770863447Z [10.757s] [ext: isaacsim.storage.native-1.5.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 278,
+          "text": "2026-11-27T18:41:38.054335574Z [11.040s] [ext: omni.kit.widget.options_menu-1.1.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 280,
+          "text": "2026-11-27T18:41:38.123786706Z [11.108s] [ext: omni.kit.menu.core-1.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 282,
+          "text": "2026-11-27T18:41:38.280464434Z [11.266s] [ext: omni.graph.tools-1.79.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 284,
+          "text": "2026-11-27T18:41:38.835271743Z [11.820s] [ext: omni.kit.widget.filter-1.1.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 286,
+          "text": "2026-11-27T18:41:38.993914159Z [11.980s] [ext: omni.kit.menu.utils-2.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 288,
+          "text": "2026-11-27T18:41:39.209575300Z [12.195s] [ext: omni.graph-1.141.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 290,
+          "text": "2026-11-27T18:41:39.594712978Z [12.580s] [ext: omni.kit.hotkeys.core-1.3.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 292,
+          "text": "2026-11-27T18:41:39.596810938Z [12.583s] [ext: omni.anim.curve.core-1.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 294,
+          "text": "2026-11-27T18:41:39.707961004Z [12.694s] [ext: omni.kit.clipboard-1.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 296,
+          "text": "2026-11-27T18:41:39.742074124Z [12.728s] [ext: omni.usdphysics-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 298,
+          "text": "2026-11-27T18:41:39.790362416Z [12.776s] [ext: omni.physx.foundation-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 300,
+          "text": "2026-11-27T18:41:39.914628394Z [12.900s] [ext: omni.kit.widget.context_menu-1.2.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 302,
+          "text": "2026-11-27T18:41:39.976899265Z [12.963s] [ext: omni.kit.helper.file_utils-0.1.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 304,
+          "text": "2026-11-27T18:41:40.019857823Z [13.006s] [ext: omni.kit.widget.path_field-2.0.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 306,
+          "text": "2026-11-27T18:41:40.112299257Z [13.098s] [ext: omni.kvdb-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 308,
+          "text": "2026-11-27T18:41:40.173899516Z [13.160s] [ext: omni.kit.widget.options_button-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 310,
+          "text": "2026-11-27T18:41:40.216696078Z [13.202s] [ext: omni.kit.widget.filebrowser-2.12.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 312,
+          "text": "2026-11-27T18:41:40.290522673Z [13.276s] [ext: omni.kit.widget.browser_bar-2.0.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 314,
+          "text": "2026-11-27T18:41:40.397361213Z [13.383s] [ext: omni.localcache-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 316,
+          "text": "2026-11-27T18:41:40.437654564Z [13.423s] [ext: omni.convexdecomposition-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 318,
+          "text": "2026-11-27T18:41:40.587972759Z [13.574s] [ext: omni.kit.window.filepicker-2.13.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 320,
+          "text": "2026-11-27T18:41:40.955824064Z [13.942s] [ext: omni.physx.cooking-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 322,
+          "text": "2026-11-27T18:41:41.028720894Z [14.014s] [ext: omni.physics-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 324,
+          "text": "2026-11-27T18:41:41.134622017Z [14.120s] [ext: omni.kit.window.file_exporter-1.0.33] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 326,
+          "text": "2026-11-27T18:41:41.200868416Z [14.186s] [ext: omni.kit.stage_template.core-1.1.22] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 328,
+          "text": "2026-11-27T18:41:41.281117787Z [14.267s] [ext: omni.physx-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 330,
+          "text": "2026-11-27T18:41:41.343672226Z [14.329s] [ext: omni.kit.usd.layers-2.2.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 332,
+          "text": "2026-11-27T18:41:41.505047851Z [14.491s] [ext: omni.kit.window.file_importer-1.1.18] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 334,
+          "text": "2026-11-27T18:41:41.655151021Z [14.636s] [ext: omni.physics.physx-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 336,
+          "text": "2026-11-27T18:41:41.688437754Z \u001b[1m\u001b[93m2026-11-27T18:41:41Z [14,612ms] [Warning] [carb] Acquiring non optional plugin interface which is not listed as dependency: [omni::physx::IPhysxBenchmarks v1.0] (plugin: <default plugin>), by client: omni.physics.physx.plugin. Add it to CARB_PLUGIN_IMPL_DEPS() macro of a client."
+        },
+        {
+          "stream": "stdout",
+          "line": 338,
+          "text": "2026-11-27T18:41:41.700697330Z \u001b[0m[14.685s] [ext: omni.kit.numpy.common-0.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 340,
+          "text": "2026-11-27T18:41:41.756563713Z [14.742s] [ext: omni.kit.window.file-2.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 342,
+          "text": "2026-11-27T18:41:41.862572230Z [14.834s] [ext: omni.physics.stageupdate-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 344,
+          "text": "2026-11-27T18:41:42.025887576Z [15.010s] [ext: omni.kit.window.drop_support-1.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 346,
+          "text": "2026-11-27T18:41:42.082667849Z [15.068s] [ext: omni.kit.window.content_browser_registry-0.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 348,
+          "text": "2026-11-27T18:41:42.170444485Z [15.155s] [ext: omni.isaac.dynamic_control-2.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 352,
+          "text": "2026-11-27T18:41:42.335171944Z \u001b[0m[15.319s] [ext: omni.kit.window.content_browser-3.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 354,
+          "text": "2026-11-27T18:41:42.547858968Z [15.532s] [ext: omni.graph.action_core-1.1.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 356,
+          "text": "2026-11-27T18:41:42.590879950Z [15.577s] [ext: omni.kit.usd.collect-2.4.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 358,
+          "text": "2026-11-27T18:41:42.654180108Z [15.640s] [ext: isaacsim.gui.content_browser-0.1.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 360,
+          "text": "2026-11-27T18:41:42.723187638Z [15.708s] [ext: omni.graph.action_nodes-1.50.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 362,
+          "text": "2026-11-27T18:41:42.781472997Z [15.764s] [ext: omni.kit.widget.prompt-1.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 364,
+          "text": "2026-11-27T18:41:43.039117690Z [16.025s] [ext: omni.graph.action-1.130.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 366,
+          "text": "2026-11-27T18:41:43.154636667Z [16.140s] [ext: omni.kit.tool.collect-2.2.18] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 368,
+          "text": "2026-11-27T18:41:43.439740795Z [16.425s] [ext: omni.index.libs-380600.8087.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 370,
+          "text": "2026-11-27T18:41:43.441644501Z [16.427s] [ext: omni.ujitso.client-0.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 372,
+          "text": "2026-11-27T18:41:43.445700611Z [16.432s] [ext: omni.index-1.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 374,
+          "text": "2026-11-27T18:41:43.447069209Z [16.433s] [ext: omni.volume-0.5.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 376,
+          "text": "2026-11-27T18:41:43.604223784Z [16.590s] [ext: omni.hydra.rtx.shadercache.vulkan-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 378,
+          "text": "2026-11-27T18:41:43.837013737Z [16.823s] [ext: omni.kit.context_menu-1.8.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 380,
+          "text": "2026-11-27T18:41:43.897109260Z [16.883s] [ext: omni.hydra.rtx-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 382,
+          "text": "2026-11-27T18:41:43.923451207Z \u001b[1m\u001b[93m2026-11-27T18:41:43Z [16,882ms] [Warning] [omni.log] Source: omni.hydra was already registered."
+        },
+        {
+          "stream": "stdout",
+          "line": 384,
+          "text": "2026-11-27T18:41:43.950217186Z \u001b[0m[16.936s] [ext: omni.kit.material.library-2.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 386,
+          "text": "2026-11-27T18:41:44.023088955Z [17.009s] [ext: omni.hydra.engine.stats-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 388,
+          "text": "2026-11-27T18:41:44.061694875Z [17.045s] [ext: omni.kit.widget.stage_icons-1.0.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 390,
+          "text": "2026-11-27T18:41:44.121379398Z [17.107s] [ext: omni.kit.viewport.scene_camera_model-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 392,
+          "text": "2026-11-27T18:41:44.154736046Z [17.140s] [ext: omni.kit.hydra_texture-1.4.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 394,
+          "text": "2026-11-27T18:41:44.200006545Z [17.186s] [ext: omni.kit.viewport.legacy_gizmos-1.0.19] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 396,
+          "text": "2026-11-27T18:41:44.232545628Z [17.217s] [ext: omni.kit.widget.searchfield-1.1.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 398,
+          "text": "2026-11-27T18:41:44.270627275Z [17.256s] [ext: omni.kit.widget.viewport-107.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 400,
+          "text": "2026-11-27T18:41:44.326887072Z [17.313s] [ext: omni.kit.viewport.registry-104.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 402,
+          "text": "2026-11-27T18:41:44.365206528Z [17.349s] [ext: omni.kit.raycast.query-1.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 404,
+          "text": "2026-11-27T18:41:44.421529692Z [17.407s] [ext: omni.kit.widget.stage-3.1.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 406,
+          "text": "2026-11-27T18:41:44.559635901Z [17.545s] [ext: omni.kit.widget.zoombar-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 408,
+          "text": "2026-11-27T18:41:44.591705995Z [17.577s] [ext: omni.kit.viewport.window-107.2.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 410,
+          "text": "2026-11-27T18:41:44.734989318Z [17.720s] [ext: omni.kit.window.stage-2.6.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 412,
+          "text": "2026-11-27T18:41:44.783654428Z [17.769s] [ext: omni.kit.browser.core-2.3.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 414,
+          "text": "2026-11-27T18:41:44.863030428Z [17.849s] [ext: omni.kit.menu.stage-1.2.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 416,
+          "text": "2026-11-27T18:41:44.897039591Z [17.883s] [ext: omni.kit.browser.folder.core-1.10.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 418,
+          "text": "2026-11-27T18:41:44.994166194Z [17.980s] [ext: omni.kit.property.adapter.core-1.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 420,
+          "text": "2026-11-27T18:41:45.048703549Z [18.034s] [ext: omni.kit.widget.highlight_label-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 422,
+          "text": "2026-11-27T18:41:45.127944223Z [18.113s] [ext: omni.kit.property.adapter.usd-1.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 424,
+          "text": "2026-11-27T18:41:45.186736989Z [18.171s] [ext: omni.ui_query-1.1.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 426,
+          "text": "2026-11-27T18:41:45.209638396Z [18.195s] [ext: omni.kit.window.property-1.12.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 428,
+          "text": "2026-11-27T18:41:45.265780795Z [18.251s] [ext: omni.kit.property.adapter.fabric-1.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 430,
+          "text": "2026-11-27T18:41:45.309522816Z [18.295s] [ext: omni.kit.ui_test-1.3.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 432,
+          "text": "2026-11-27T18:41:45.342499920Z [18.326s] [ext: omni.kit.property.usd-4.5.12] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 434,
+          "text": "2026-11-27T18:41:45.465595756Z [18.451s] [ext: omni.kit.viewport.utility-1.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 436,
+          "text": "2026-11-27T18:41:45.504593238Z [18.490s] [ext: omni.kit.manipulator.viewport-107.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 438,
+          "text": "2026-11-27T18:41:45.534453752Z [18.520s] [ext: omni.kit.usdz_export-1.0.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 440,
+          "text": "2026-11-27T18:41:45.561702989Z [18.547s] [ext: omni.kit.window.extensions-1.4.27] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 442,
+          "text": "2026-11-27T18:41:45.633235887Z [18.619s] [ext: omni.graph.visualization.nodes-2.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 444,
+          "text": "2026-11-27T18:41:45.683674968Z [18.666s] [ext: omni.kit.tool.asset_importer-4.3.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 446,
+          "text": "2026-11-27T18:41:45.770772575Z [18.756s] [ext: isaacsim.gui.components-1.2.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 448,
+          "text": "2026-11-27T18:41:45.853856728Z [18.839s] [ext: isaacsim.examples.browser-0.2.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 450,
+          "text": "2026-11-27T18:41:45.893465723Z [18.877s] [ext: isaacsim.asset.importer.urdf-2.4.30] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 452,
+          "text": "2026-11-27T18:41:46.168094440Z [19.153s] [ext: omni.kit.menu.create-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 454,
+          "text": "2026-11-27T18:41:46.197613436Z [19.182s] [ext: omni.physics.tensors-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 456,
+          "text": "2026-11-27T18:41:46.257978889Z [19.242s] [ext: omni.usd.metrics.assembler-107.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 458,
+          "text": "2026-11-27T18:41:46.291945968Z [19.278s] [ext: omni.kit.widget.graph-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 460,
+          "text": "2026-11-27T18:41:46.373481599Z [19.359s] [ext: omni.kit.widget.searchable_combobox-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 462,
+          "text": "2026-11-27T18:41:46.413458801Z [19.399s] [ext: omni.warp.core-1.8.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 464,
+          "text": "2026-11-27T18:41:46.860274857Z [19.846s] [ext: omni.usd.metrics.assembler.physics-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 466,
+          "text": "2026-11-27T18:41:46.903723846Z [19.889s] [ext: omni.kit.graph.delegate.default-1.2.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 468,
+          "text": "2026-11-27T18:41:46.932218796Z [19.917s] [ext: omni.kit.scripting-107.3.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 470,
+          "text": "2026-11-27T18:41:46.985097714Z [19.970s] [ext: omni.physx.tensors-107.3.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 472,
+          "text": "2026-11-27T18:41:46.999588552Z [19.985s] [ext: isaacsim.core.utils-3.5.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 474,
+          "text": "2026-11-27T18:41:47.051399666Z [20.032s] [ext: omni.anim.asset-107.3.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 476,
+          "text": "2026-11-27T18:41:47.052580620Z [20.037s] [ext: isaacsim.core.simulation_manager-1.4.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 478,
+          "text": "2026-11-27T18:41:51.863654717Z [24.849s] [ext: omni.graph.scriptnode-1.50.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 480,
+          "text": "2026-11-27T18:41:51.889534384Z [24.875s] [ext: omni.kit.graph.editor.core-1.5.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 482,
+          "text": "2026-11-27T18:41:51.987630881Z [24.973s] [ext: omni.kit.widget.settings-1.2.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 484,
+          "text": "2026-11-27T18:41:52.028968709Z [25.015s] [ext: omni.kit.primitive.mesh-1.0.17] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 486,
+          "text": "2026-11-27T18:41:52.101046147Z [25.087s] [ext: isaacsim.core.prims-0.6.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 488,
+          "text": "2026-11-27T18:41:52.313945317Z [25.300s] [ext: omni.kit.widget.material_preview-1.0.16] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 490,
+          "text": "2026-11-27T18:41:52.377076886Z [25.363s] [ext: omni.kit.graph.usd.commands-1.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 492,
+          "text": "2026-11-27T18:41:52.414832270Z [25.400s] [ext: omni.graph.image.core-0.6.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 494,
+          "text": "2026-11-27T18:41:52.417413631Z [25.403s] [ext: omni.kit.window.preferences-1.8.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 496,
+          "text": "2026-11-27T18:41:52.498597700Z [25.482s] [ext: omni.kit.stage_templates-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 498,
+          "text": "2026-11-27T18:41:52.556573470Z [25.542s] [ext: isaacsim.asset.browser-1.3.23] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 500,
+          "text": "2026-11-27T18:41:53.050023950Z [26.036s] [ext: omni.graph.image.nodes-1.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 502,
+          "text": "2026-11-27T18:41:53.052873966Z [26.039s] [ext: omni.kit.viewport.menubar.core-107.2.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 504,
+          "text": "2026-11-27T18:41:53.177534264Z [26.163s] [ext: isaacsim.core.api-4.8.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 506,
+          "text": "2026-11-27T18:41:53.358603524Z [26.342s] [ext: omni.kit.window.material_graph-1.9.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 508,
+          "text": "2026-11-27T18:41:53.444713827Z [26.428s] [ext: omni.kit.viewport.actions-107.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 510,
+          "text": "2026-11-27T18:41:53.502695315Z [26.488s] [ext: omni.graph.nodes-1.170.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 512,
+          "text": "2026-11-27T18:41:53.568998317Z [26.554s] [ext: omni.syntheticdata-0.6.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 514,
+          "text": "2026-11-27T18:41:53.715702827Z [26.701s] [ext: omni.isaac.assets_check-0.3.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 518,
+          "text": "2026-11-27T18:41:53.770180540Z \u001b[0m[26.756s] [ext: isaacsim.core.cloner-1.4.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 520,
+          "text": "2026-11-27T18:41:53.838540301Z [26.824s] [ext: omni.kit.viewport.menubar.display-107.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 522,
+          "text": "2026-11-27T18:41:53.890739450Z [26.875s] [ext: omni.graph.ui_nodes-1.50.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 524,
+          "text": "2026-11-27T18:41:53.950533958Z [26.933s] [ext: omni.videoencoding-0.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 526,
+          "text": "2026-11-27T18:41:54.033235401Z [27.019s] [ext: omni.isaac.cloner-1.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 530,
+          "text": "2026-11-27T18:41:54.145879821Z \u001b[0m[27.132s] [ext: isaacsim.gui.sensors.icon-2.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 532,
+          "text": "2026-11-27T18:41:54.464086692Z [27.448s] [ext: omni.warp-1.8.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 534,
+          "text": "2026-11-27T18:41:54.549605582Z [27.531s] [ext: omni.anim.retarget.core-107.3.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 536,
+          "text": "2026-11-27T18:41:54.868672964Z [27.854s] [ext: omni.debugdraw-0.1.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 538,
+          "text": "2026-11-27T18:41:54.974629338Z [27.960s] [ext: omni.replicator.core-1.12.27] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 572,
+          "text": "2026-11-27T18:41:55.633195945Z \u001b[0m[28.619s] [ext: omni.kit.quicklayout-1.0.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 574,
+          "text": "2026-11-27T18:41:55.685931245Z [28.672s] [ext: omni.anim.navigation.core-107.3.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 576,
+          "text": "2026-11-27T18:41:55.792453594Z [28.777s] [ext: omni.anim.graph.core-107.3.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 578,
+          "text": "2026-11-27T18:41:56.048397977Z [29.034s] [ext: omni.metropolis.utils-0.1.20] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 582,
+          "text": "2026-11-27T18:41:56.786791330Z \u001b[0m[29.761s] [ext: isaacsim.asset.importer.mjcf-2.5.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 584,
+          "text": "2026-11-27T18:41:57.108504368Z [30.092s] [ext: omni.anim.people-0.7.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 586,
+          "text": "2026-11-27T18:41:57.251201390Z [30.237s] [ext: isaacsim.test.docstring-1.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 588,
+          "text": "2026-11-27T18:41:57.405284930Z [30.391s] [ext: isaacsim.core.experimental.utils-0.3.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 590,
+          "text": "2026-11-27T18:41:57.513617083Z [30.499s] [ext: isaacsim.anim.robot-0.0.15] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 592,
+          "text": "2026-11-27T18:41:57.777747796Z [30.763s] [ext: isaacsim.core.experimental.prims-0.8.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 596,
+          "text": "2026-11-27T18:41:58.251158185Z [31.237s] [ext: isaacsim.core.nodes-3.4.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 598,
+          "text": "2026-11-27T18:41:58.365096250Z [31.351s] [ext: omni.flowusd-107.1.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 602,
+          "text": "2026-11-27T18:41:58.534765940Z \u001b[0m[31.517s] [ext: omni.sensors.nv.common-3.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 604,
+          "text": "2026-11-27T18:41:58.637644893Z [31.623s] [ext: isaacsim.core.experimental.materials-0.4.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 606,
+          "text": "2026-11-27T18:41:58.820414658Z [31.805s] [ext: omni.isaac.core-4.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 616,
+          "text": "2026-11-27T18:41:58.885536696Z \u001b[0m[31.870s] [ext: isaacsim.replicator.incident-0.1.28] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 620,
+          "text": "2026-11-27T18:41:59.028718160Z [32.014s] [ext: omni.sensors.net-1.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 622,
+          "text": "2026-11-27T18:41:59.059964867Z [32.046s] [ext: omni.sensors.nv.materials-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 624,
+          "text": "2026-11-27T18:41:59.099055157Z [32.085s] [ext: isaacsim.sensors.camera-1.3.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 626,
+          "text": "2026-11-27T18:41:59.165533193Z [32.151s] [ext: omni.sensors.nv.wpm-3.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 628,
+          "text": "2026-11-27T18:41:59.171978773Z [32.158s] [ext: isaacsim.util.debug_draw-3.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 630,
+          "text": "2026-11-27T18:41:59.250384373Z [32.236s] [ext: omni.sensors.nv.ids-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 632,
+          "text": "2026-11-27T18:41:59.255920929Z [32.242s] [ext: omni.sensors.nv.lidar-3.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 634,
+          "text": "2026-11-27T18:41:59.323473960Z [32.307s] [ext: omni.sensors.nv.radar-3.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 636,
+          "text": "2026-11-27T18:41:59.329038167Z [32.315s] [ext: isaacsim.sensors.physics-0.4.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 638,
+          "text": "2026-11-27T18:41:59.410770465Z [32.394s] [ext: isaacsim.robot_motion.lula-4.0.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 640,
+          "text": "2026-11-27T18:41:59.482514248Z [32.466s] [ext: isaacsim.robot.surface_gripper-3.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 642,
+          "text": "2026-11-27T18:41:59.568266509Z [32.550s] [ext: isaacsim.sensors.rtx-15.8.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 644,
+          "text": "2026-11-27T18:41:59.670419414Z [32.653s] [ext: omni.kit.mesh.raycast-107.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 646,
+          "text": "2026-11-27T18:41:59.727368892Z [32.713s] [ext: isaacsim.robot_motion.motion_generation-8.0.26] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 648,
+          "text": "2026-11-27T18:41:59.795066170Z [32.780s] [ext: isaacsim.robot.manipulators-3.3.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 650,
+          "text": "2026-11-27T18:41:59.843052142Z [32.829s] [ext: isaacsim.core.experimental.objects-0.4.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 652,
+          "text": "2026-11-27T18:41:59.978917861Z [32.965s] [ext: omni.isaac.core_nodes-2.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 656,
+          "text": "2026-11-27T18:42:00.018532503Z \u001b[0m[33.004s] [ext: isaacsim.replicator.agent.core-0.7.28] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 658,
+          "text": "2026-11-27T18:42:00.136854271Z [33.123s] [ext: isaacsim.robot.manipulators.examples-1.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 660,
+          "text": "2026-11-27T18:42:00.213913275Z [33.200s] [ext: isaacsim.simulation_app-2.12.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 662,
+          "text": "2026-11-27T18:42:00.217668370Z [33.203s] [ext: omni.kit.selection-0.1.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 664,
+          "text": "2026-11-27T18:42:00.260614307Z [33.246s] [ext: omni.isaac.franka-1.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 672,
+          "text": "2026-11-27T18:42:00.360171849Z \u001b[0m[33.345s] [ext: isaacsim.robot_motion.lula_test_widget-1.0.12] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 674,
+          "text": "2026-11-27T18:42:00.393544609Z [33.379s] [ext: omni.isaac.kit-2.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 678,
+          "text": "2026-11-27T18:42:00.446179016Z \u001b[0m[33.432s] [ext: isaacsim.gui.menu-2.4.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 680,
+          "text": "2026-11-27T18:42:00.520712714Z [33.506s] [ext: omni.isaac.asset_browser-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 684,
+          "text": "2026-11-27T18:42:00.566443930Z \u001b[0m[33.537s] [ext: omni.isaac.lula_test_widget-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 688,
+          "text": "2026-11-27T18:42:00.586933331Z \u001b[0m[33.573s] [ext: omni.isaac.manipulators-3.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 710,
+          "text": "2026-11-27T18:42:00.659411754Z \u001b[0m[33.643s] [ext: omni.isaac.menu-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 714,
+          "text": "2026-11-27T18:42:00.685201225Z \u001b[0m[33.671s] [ext: isaacsim.robot.policy.examples-4.1.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 716,
+          "text": "2026-11-27T18:42:00.720494056Z [33.704s] [ext: isaacsim.sensors.physx-2.3.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 718,
+          "text": "2026-11-27T18:42:00.776130990Z [33.762s] [ext: omni.isaac.motion_generation-8.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 752,
+          "text": "2026-11-27T18:42:00.816779495Z \u001b[0m[33.799s] [ext: omni.isaac.nucleus-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 758,
+          "text": "2026-11-27T18:42:00.829411933Z \u001b[0m[33.815s] [ext: omni.isaac.quadruped-3.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 762,
+          "text": "2026-11-27T18:42:00.861384007Z \u001b[0m[33.844s] [ext: omni.isaac.range_sensor-4.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 764,
+          "text": "2026-11-27T18:42:00.894763227Z \u001b[1m\u001b[93m2026-11-27T18:42:00Z [33,850ms] [Warning] [omni.isaac.range_sensor] omni.isaac.range_sensor has been deprecated in favor of isaacsim.sensors.physx. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 766,
+          "text": "2026-11-27T18:42:00.894793161Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:42:00Z [33,851ms] [Warning] [omni.isaac.range_sensor.commands] omni.isaac.range_sensor.commands has been deprecated in favor of isaacsim.sensors.physx.commands. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 768,
+          "text": "2026-11-27T18:42:00.898529538Z \u001b[0m[33.884s] [ext: omni.isaac.sensor-13.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 770,
+          "text": "2026-11-27T18:42:00.978305298Z \u001b[1m\u001b[93m2026-11-27T18:42:00Z [33,936ms] [Warning] [omni.isaac.sensor] omni.isaac.sensor has been deprecated in favor of isaacsim.sensors.camera, isaacsim.sensors.physics, isaacsim.sensors.physx, and isaacsim.sensors.rtx. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 776,
+          "text": "2026-11-27T18:42:00.984796056Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:42:00Z [33,942ms] [Warning] [omni.isaac.sensor.commands] omni.isaac.sensor.commands has been deprecated in favor of isaacsim.sensors.physics.commands, isaacsim.sensors.physx.commands, and isaacsim.sensors.rtx.commands. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 784,
+          "text": "2026-11-27T18:42:00.987415575Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:42:00Z [33,944ms] [Warning] [omni.isaac.sensor.rotating_lidar_physX] omni.isaac.sensor.imu_sensor has been deprecated in favor of isaacsim.sensors.physix.rotating_lidar_physX. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 790,
+          "text": "2026-11-27T18:42:01.009492425Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:42:01Z [33,968ms] [Warning] [omni.isaac.sensor.scripts.samples.lightbeam_sensor] omni.isaac.sensor.scripts.samples.lightbeam_sensor has been deprecated in favor of isaacsim.sensors.physx.scripts.samples.lightbeam_sensor. Please update your code accordingly."
+        },
+        {
+          "stream": "stdout",
+          "line": 792,
+          "text": "2026-11-27T18:42:01.023201191Z \u001b[0m[34.008s] [ext: omni.isaac.surface_gripper-2.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 796,
+          "text": "2026-11-27T18:42:01.071660468Z \u001b[0m[34.057s] [ext: omni.kit.widget.toolbar-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 798,
+          "text": "2026-11-27T18:42:01.147420600Z [34.133s] [ext: omni.kit.manipulator.transform-107.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 800,
+          "text": "2026-11-27T18:42:01.222571561Z [34.208s] [ext: omni.kit.manipulator.selector-1.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 802,
+          "text": "2026-11-27T18:42:01.261987993Z [34.246s] [ext: isaacsim.app.about-2.0.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 804,
+          "text": "2026-11-27T18:42:01.325613018Z [34.307s] [ext: isaacsim.cortex.framework-1.0.12] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 806,
+          "text": "2026-11-27T18:42:01.355166917Z [34.341s] [ext: omni.kit.manipulator.tool.snap-1.5.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 808,
+          "text": "2026-11-27T18:42:01.414977697Z [34.399s] [ext: omni.isaac.universal_robots-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 816,
+          "text": "2026-11-27T18:42:01.446297706Z \u001b[0m[34.432s] [ext: omni.isaac.utils-2.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 818,
+          "text": "2026-11-27T18:42:01.487631366Z [34.473s] [ext: omni.isaac.cortex-1.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 822,
+          "text": "2026-11-27T18:42:01.560685990Z \u001b[0m[34.547s] [ext: omni.kit.viewport.manipulator.transform-107.0.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 824,
+          "text": "2026-11-27T18:42:01.614851139Z [34.600s] [ext: omni.isaac.window.about-2.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 830,
+          "text": "2026-11-27T18:42:01.671225156Z \u001b[0m[34.657s] [ext: omni.kit.manipulator.camera-106.0.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 832,
+          "text": "2026-11-27T18:42:01.723611087Z [34.709s] [ext: omni.kit.property.audio-1.0.16] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 834,
+          "text": "2026-11-27T18:42:01.774063967Z [34.760s] [ext: omni.fabric.commands-1.1.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 836,
+          "text": "2026-11-27T18:42:01.845353503Z [34.831s] [ext: omni.kit.manipulator.prim.core-107.0.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 838,
+          "text": "2026-11-27T18:42:01.911650095Z [34.897s] [ext: omni.kit.property.camera-1.0.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 840,
+          "text": "2026-11-27T18:42:01.955598876Z [34.940s] [ext: omni.kit.property.geometry-2.0.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 842,
+          "text": "2026-11-27T18:42:02.064633690Z [35.050s] [ext: omni.kit.property.light-1.0.12] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 844,
+          "text": "2026-11-27T18:42:02.133067450Z [35.116s] [ext: omni.hydra.scene_api-0.1.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 846,
+          "text": "2026-11-27T18:42:02.162379964Z [35.148s] [ext: omni.kit.manipulator.prim.fabric-107.0.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 848,
+          "text": "2026-11-27T18:42:02.204154590Z [35.190s] [ext: omni.kit.manipulator.prim.usd-107.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 850,
+          "text": "2026-11-27T18:42:02.243579746Z [35.229s] [ext: omni.kit.property.material-1.11.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 852,
+          "text": "2026-11-27T18:42:02.362004909Z [35.348s] [ext: omni.kit.property.render-1.2.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 854,
+          "text": "2026-11-27T18:42:02.393452259Z [35.378s] [ext: omni.kit.property.transform-1.5.13] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 856,
+          "text": "2026-11-27T18:42:02.466467844Z [35.446s] [ext: isaacsim.gui.property-1.1.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 858,
+          "text": "2026-11-27T18:42:02.499409272Z [35.485s] [ext: omni.kit.manipulator.prim-107.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 860,
+          "text": "2026-11-27T18:42:02.503463118Z [35.485s] [ext: omni.kit.manipulator.selection-106.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 862,
+          "text": "2026-11-27T18:42:02.536371346Z [35.521s] [ext: omni.isaac.lula-4.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 866,
+          "text": "2026-11-27T18:42:02.560817356Z \u001b[0m[35.547s] [ext: omni.kit.property.bundle-1.4.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 868,
+          "text": "2026-11-27T18:42:02.593092989Z [35.577s] [ext: omni.kit.property.isaac-1.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 874,
+          "text": "2026-11-27T18:42:02.624837588Z \u001b[0m[35.609s] [ext: isaacsim.replicator.writers-1.0.17] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 876,
+          "text": "2026-11-27T18:42:02.757676742Z [35.743s] [ext: omni.kit.viewport.menubar.camera-107.0.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 878,
+          "text": "2026-11-27T18:42:02.862842970Z [35.849s] [ext: omni.kit.viewport.menubar.lighting-107.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 880,
+          "text": "2026-11-27T18:42:02.908508204Z [35.894s] [ext: omni.kit.viewport.menubar.render-107.0.10] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 882,
+          "text": "2026-11-27T18:42:02.978994487Z [35.965s] [ext: omni.kit.viewport.menubar.settings-107.0.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 884,
+          "text": "2026-11-27T18:42:03.066358484Z [36.052s] [ext: isaacsim.replicator.domain_randomization-1.0.16] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 886,
+          "text": "2026-11-27T18:42:03.106277365Z [36.092s] [ext: isaacsim.replicator.examples-1.3.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 888,
+          "text": "2026-11-27T18:42:03.162387253Z [36.148s] [ext: omni.ocio-0.1.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 890,
+          "text": "2026-11-27T18:42:03.197329523Z [36.183s] [ext: omni.rtx.window.settings-0.6.19] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 892,
+          "text": "2026-11-27T18:42:03.302757176Z [36.288s] [ext: omni.kit.window.console-1.1.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 894,
+          "text": "2026-11-27T18:42:03.357946162Z [36.342s] [ext: omni.kit.window.status_bar-0.1.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 896,
+          "text": "2026-11-27T18:42:03.362257838Z [36.348s] [ext: omni.kit.window.toolbar-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 898,
+          "text": "2026-11-27T18:42:03.396545571Z [36.380s] [ext: omni.replicator.isaac-2.0.8] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 902,
+          "text": "2026-11-27T18:42:03.419557313Z \u001b[0m[36.405s] [ext: omni.replicator.replicator_yaml-2.0.11] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 904,
+          "text": "2026-11-27T18:42:03.469563528Z [36.453s] [ext: omni.rtx.settings.core-0.6.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 906,
+          "text": "2026-11-27T18:42:03.542495526Z [36.528s] [ext: omni.usd.metrics.assembler.ui-107.3.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 908,
+          "text": "2026-11-27T18:42:03.611334569Z [36.597s] [ext: isaacsim.robot.wheeled_robots-4.0.24] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 910,
+          "text": "2026-11-27T18:42:03.712992535Z [36.695s] [ext: isaacsim.cortex.behaviors-2.0.14] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 912,
+          "text": "2026-11-27T18:42:03.744698386Z [36.728s] [ext: omni.isaac.version-2.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 916,
+          "text": "2026-11-27T18:42:03.790784306Z \u001b[0m[36.776s] [ext: semantics.schema.editor-2.0.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 918,
+          "text": "2026-11-27T18:42:03.854382480Z [36.840s] [ext: omni.kit.ui.actions-1.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 920,
+          "text": "2026-11-27T18:42:03.891287907Z [36.877s] [ext: semantics.schema.property-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 922,
+          "text": "2026-11-27T18:42:03.923381354Z [36.908s] [ext: omni.isaac.wheeled_robots-3.0.7] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 948,
+          "text": "2026-11-27T18:42:03.973497795Z \u001b[0m[36.958s] [ext: omni.isaac.cortex.sample_behaviors-2.0.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 952,
+          "text": "2026-11-27T18:42:04.006850265Z \u001b[0m[36.992s] [ext: isaacsim.replicator.behavior-1.1.16] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 954,
+          "text": "2026-11-27T18:42:04.039528194Z [37.023s] [ext: isaacsim.core.throttling-2.2.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 956,
+          "text": "2026-11-27T18:42:04.079336439Z [37.065s] [ext: omni.kit.menu.common-2.0.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 958,
+          "text": "2026-11-27T18:42:04.116082625Z [37.102s] [ext: isaacsim.exp.base-5.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 960,
+          "text": "2026-11-27T18:42:04.118316731Z [37.104s] [ext: isaacsim.exp.base.python-5.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 962,
+          "text": "2026-11-27T18:42:04.121963552Z [37.108s] Simulation App Starting"
+        },
+        {
+          "stream": "stdout",
+          "line": 980,
+          "text": "2026-11-27T18:42:04.530384978Z \u001b[0m[37.516s] app ready"
+        },
+        {
+          "stream": "stdout",
+          "line": 982,
+          "text": "2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete"
+        },
+        {
+          "stream": "stdout",
+          "line": 984,
+          "text": "2026-11-27T18:42:09.708544739Z [42.693s] [ext: omni.kit.streamsdk.plugins-7.6.3] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 986,
+          "text": "2026-11-27T18:42:09.708567874Z [42.693s] [ext: omni.kit.livestream.core-7.5.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 988,
+          "text": "2026-11-27T18:42:09.742670756Z [42.726s] [ext: omni.kit.livestream.webrtc-7.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 998,
+          "text": "2026-11-27T18:42:16.336075083Z \u001b[1m\u001b[93m2026-11-27T18:42:16Z [49,294ms] [Warning] [pegasus.simulator.logic.backends.ardupilot_mavlink_backend] [ArduPilotMavlinkBackendConfig] Initialized with vehicle_id=0, connection_type=udpin, connection_ip=127.0.0.1, connection_baseport=14550, ardupilot_autolaunch=True, ardupilot_dir=/isaac-sim/ardupilot, ardupilot_vehicle_model=gazebo-iris, enable_lockstep=False, num_rotors=4, input_offset=[0.0, 0.0, 0.0, 0.0], input_scaling=[1000, 1000, 1000, 1000], zero_position_armed=[100, 100, 100, 100], update_rate=400"
+        },
+        {
+          "stream": "stdout",
+          "line": 1000,
+          "text": "2026-11-27T18:42:16.354847229Z \u001b[0m[49.340s] [ext: isaacsim.ros2.bridge-4.12.4] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1008,
+          "text": "2026-11-27T18:42:18.256592106Z [51.242s] [ext: omni.kit.widget.text_editor-1.1.1] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1010,
+          "text": "2026-11-27T18:42:18.290816562Z [51.276s] [ext: omni.graph.ui-1.101.6] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1012,
+          "text": "2026-11-27T18:42:18.506463999Z [51.491s] [ext: omni.kit.graph.delegate.modern-1.10.9] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1014,
+          "text": "2026-11-27T18:42:18.594807492Z [51.577s] [ext: omni.kit.graph.widget.variables-2.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1016,
+          "text": "2026-11-27T18:42:18.633012261Z [51.619s] [ext: omni.graph.window.core-2.0.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1018,
+          "text": "2026-11-27T18:42:18.753524924Z [51.738s] [ext: omni.graph.window.action-1.50.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1020,
+          "text": "2026-11-27T18:42:18.977839678Z [51.963s] [ext: omni.graph.window.generic-1.50.2] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1022,
+          "text": "2026-11-27T18:42:19.286580205Z [52.265s] [ext: omni.kit.capture.viewport-1.7.5] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1024,
+          "text": "2026-11-27T18:42:19.422701091Z [52.406s] [ext: pegasus.simulator-5.1.0] startup"
+        },
+        {
+          "stream": "stdout",
+          "line": 1034,
+          "text": "2026-11-27T18:42:19.590491162Z PX4 node type class <class 'pegasus.simulator.ogn.python.nodes.OgnPegasusMultirotorPX4Node.OgnPegasusMultirotorPX4Node'> <class 'type'>"
+        },
+        {
+          "stream": "stdout",
+          "line": 1056,
+          "text": "2026-11-27T18:43:23.924567918Z \u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph."
+        },
+        {
+          "stream": "stdout",
+          "line": 1060,
+          "text": "2026-11-27T18:43:27.208238538Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:27Z [120,167ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 1064,
+          "text": "2026-11-27T18:43:27.214600430Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:27Z [120,173ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 1068,
+          "text": "2026-11-27T18:43:27.216450014Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:27Z [120,175ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)"
+        },
+        {
+          "stream": "stdout",
+          "line": 1074,
+          "text": "2026-11-27T18:43:32.276574177Z \u001b[1m\u001b[93m2026-11-27T18:43:32Z [125,234ms] [Warning] [omni.physx.plugin] The rigid body at /World/base_link/Lidar has a possibly invalid inertia tensor of {1.0, 1.0, 1.0} and a negative mass, small sphere approximated inertia was used. Either specify correct values in the mass properties, or add collider(s) to any shape(s) that you wish to automatically compute mass properties for."
+        },
+        {
+          "stream": "stdout",
+          "line": 1090,
+          "text": "2026-11-27T18:43:32.360319167Z PX4 Backend Configuration:"
+        },
+        {
+          "stream": "stdout",
+          "line": 1094,
+          "text": "2026-11-27T18:43:32.360390705Z   Connection: tcpin://localhost:4560"
+        },
+        {
+          "stream": "stdout",
+          "line": 1096,
+          "text": "2026-11-27T18:43:32.360399438Z   PX4 Autolaunch: True"
+        },
+        {
+          "stream": "stdout",
+          "line": 1098,
+          "text": "2026-11-27T18:43:32.360945172Z   PX4 Directory: ~/PX4-Autopilot"
+        },
+        {
+          "stream": "stdout",
+          "line": 1100,
+          "text": "2026-11-27T18:43:32.360950641Z   PX4 Vehicle Model: gazebo-classic_iris"
+        },
+        {
+          "stream": "stdout",
+          "line": 1112,
+          "text": "2026-11-27T18:43:32.433180332Z \u001b[0mINFO  \u001b[37m[px4] \u001b[0minstance: 1\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1114,
+          "text": "2026-11-27T18:43:32.434023085Z Successfully created multirotor: Multirotor Vehicle: /World/base_link, Vehicle ID: 0, USD File: None, Initial Position: [0.   0.   0.07], Initial Orientation: [0.0, 0.0, 0.0, 1.0], Sensors: [<pegasus.simulator.logic.sensors.barometer.Barometer object at 0x72d2eb393950>, <pegasus.simulator.logic.sensors.imu.IMU object at 0x72d2eb3907d0>, <pegasus.simulator.logic.sensors.magnetometer.Magnetometer object at 0x72d2eb390290>, <pegasus.simulator.logic.sensors.gps.GPS object at 0x72d2eb237290>], Graphical Sensors: [], Graphs: [], Backends: [<pegasus.simulator.logic.backends.px4_mavlink_backend.PX4MavlinkBackend object at 0x72d2eb37e210>]"
+        },
+        {
+          "stream": "stdout",
+          "line": 1134,
+          "text": "2026-11-27T18:43:32.436192713Z px4 starting."
+        },
+        {
+          "stream": "stdout",
+          "line": 1138,
+          "text": "2026-11-27T18:43:32.436266565Z \u001b[0mINFO  \u001b[37m[px4] \u001b[0mstartup script: /bin/sh /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/rcS 1\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1154,
+          "text": "2026-11-27T18:43:32.484165464Z \u001b[0m\u001b[0m  UXRCE_DDS_KEY: \u001b[0m\u001b[0mcurr: 1\u001b[0m\u001b[0m -> new: 2"
+        },
+        {
+          "stream": "stdout",
+          "line": 1158,
+          "text": "2026-11-27T18:43:32.487709628Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:32Z [125,447ms] [Warning] [pegasus.simulator.logic.backends.px4_mavlink_backend] Waiting for first hearbeat"
+        },
+        {
+          "stream": "stdout",
+          "line": 1162,
+          "text": "2026-11-27T18:43:32.492275658Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:32Z [125,451ms] [Warning] [pegasus.simulator.logic.backends.px4_mavlink_backend] Waiting for first hearbeat"
+        },
+        {
+          "stream": "stdout",
+          "line": 1166,
+          "text": "2026-11-27T18:43:32.494207276Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:32Z [125,453ms] [Warning] [pegasus.simulator.logic.backends.px4_mavlink_backend] Waiting for first hearbeat"
+        },
+        {
+          "stream": "stdout",
+          "line": 1190,
+          "text": "2026-11-27T18:43:32.705537022Z INFO  [init] PX4_SIM_HOSTNAME: localhost"
+        },
+        {
+          "stream": "stdout",
+          "line": 1192,
+          "text": "2026-11-27T18:43:32.707683224Z \u001b[0mINFO  \u001b[37m[simulator_mavlink] \u001b[0mWaiting for simulator to accept connection on TCP port 4561\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1194,
+          "text": "2026-11-27T18:43:32.707706671Z \u001b[0mINFO  \u001b[37m[simulator_mavlink] \u001b[0mSimulator connected on TCP port 4561.\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1196,
+          "text": "2026-11-27T18:43:33.710847022Z \u001b[31mERROR \u001b[37m[simulator_mavlink] \u001b[31mpoll timeout 0, 22\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1198,
+          "text": "2026-11-27T18:43:34.708115849Z \u001b[31mERROR \u001b[37m[simulator_mavlink] \u001b[31mpoll timeout 0, 22\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1200,
+          "text": "2026-11-27T18:43:35.708228922Z \u001b[31mERROR \u001b[37m[simulator_mavlink] \u001b[31mpoll timeout 0, 22\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1202,
+          "text": "2026-11-27T18:43:36.708294481Z \u001b[31mERROR \u001b[37m[simulator_mavlink] \u001b[31mpoll timeout 0, 22\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1204,
+          "text": "2026-11-27T18:43:37.708298435Z \u001b[31mERROR \u001b[37m[simulator_mavlink] \u001b[31mpoll timeout 0, 22\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1210,
+          "text": "2026-11-27T18:43:38.242810046Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:38Z [131,201ms] [Warning] [pegasus.simulator.logic.backends.px4_mavlink_backend] Waiting for first hearbeat"
+        },
+        {
+          "stream": "stdout",
+          "line": 1212,
+          "text": "2026-11-27T18:43:38.243360708Z \u001b[0m\u001b[1m\u001b[93m2026-11-27T18:43:38Z [131,202ms] [Warning] [pegasus.simulator.logic.backends.px4_mavlink_backend] Received first hearbeat"
+        },
+        {
+          "stream": "stdout",
+          "line": 1220,
+          "text": "2026-11-27T18:43:38.673860079Z \u001b[0mINFO  \u001b[37m[uxrce_dds_client] \u001b[0minit UDP agent IP:127.0.0.1, port:8888\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1222,
+          "text": "2026-11-27T18:43:38.698604585Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mmode: Normal, data rate: 4000000 B/s on udp port 18571 remote port 14550\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1224,
+          "text": "2026-11-27T18:43:38.989656007Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mmode: Onboard, data rate: 4000000 B/s on udp port 14581 remote port 14541\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1226,
+          "text": "2026-11-27T18:43:39.022071923Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mmode: Onboard, data rate: 4000 B/s on udp port 14281 remote port 14031\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1228,
+          "text": "2026-11-27T18:43:39.054665798Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mmode: Gimbal, data rate: 400000 B/s on udp port 13031 remote port 13281\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1238,
+          "text": "2026-11-27T18:43:39.108166802Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mMAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1240,
+          "text": "2026-11-27T18:43:39.108176326Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mMAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1242,
+          "text": "2026-11-27T18:43:39.112998572Z \u001b[0mINFO  \u001b[37m[px4] \u001b[0mStartup script returned successfully\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1246,
+          "text": "2026-11-27T18:43:39.458837610Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mpartner IP: 172.31.0.3\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1250,
+          "text": "2026-11-27T18:43:41.220753669Z \u001b[0m\u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mIgnore command 512 from 2/191 to 0/0\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1252,
+          "text": "2026-11-27T18:43:42.226518395Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mIgnore command 512 from 2/191 to 0/0\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1254,
+          "text": "2026-11-27T18:43:42.813218281Z \u001b[0mINFO  \u001b[37m[commander] \u001b[0m\u001b[32mReady for takeoff!\u001b[0m\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 1256,
+          "text": "2026-11-27T18:43:43.220752429Z \u001b[0mINFO  \u001b[37m[mavlink] \u001b[0mIgnore command 512 from 2/191 to 0/0\u001b[0m"
+        }
+      ],
+      "limitation": "Selected startup lines, Docker receipt clocks plus embedded producer clocks. Absence is not proof an event did not occur."
+    },
+    {
+      "container": "airstack-robot-desktop-1",
+      "argv": [
+        "docker",
+        "logs",
+        "--timestamps",
+        "--since",
+        "2026-11-27T18:40:00Z",
+        "--until",
+        "2026-11-27T18:50:00Z",
+        "airstack-robot-desktop-1"
+      ],
+      "exit_code": 0,
+      "records": [
+        {
+          "stream": "stdout",
+          "line": 37,
+          "text": "2026-11-27T18:41:26.985105055Z Errors from xkbcomp are not fatal to the X server"
+        },
+        {
+          "stream": "stdout",
+          "line": 39,
+          "text": "2026-11-27T18:41:27.872962769Z  * Restarting OpenBSD Secure Shell server sshd       \u001b[80G "
+        },
+        {
+          "stream": "stdout",
+          "line": 52,
+          "text": "Starting >>> airstack_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 54,
+          "text": "2026-11-27T18:41:28.440947738Z \u001b]0;colcon build [0/43 done] [1 ongoing]\u0007Starting >>> mav_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 56,
+          "text": "2026-11-27T18:41:28.444688170Z \u001b]0;colcon build [0/43 done] [2 ongoing]\u0007Starting >>> coordination_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 58,
+          "text": "2026-11-27T18:41:28.448223934Z \u001b]0;colcon build [0/43 done] [3 ongoing]\u0007Starting >>> disparity_graph"
+        },
+        {
+          "stream": "stdout",
+          "line": 60,
+          "text": "2026-11-27T18:41:28.451133101Z \u001b]0;colcon build [0/43 done] [4 ongoing]\u0007Starting >>> mav_state_machine_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 62,
+          "text": "2026-11-27T18:41:28.453887523Z \u001b]0;colcon build [0/43 done] [5 ongoing]\u0007Starting >>> mav_system_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 64,
+          "text": "2026-11-27T18:41:28.457362503Z \u001b]0;colcon build [0/43 done] [6 ongoing]\u0007Starting >>> pid_controller_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 66,
+          "text": "2026-11-27T18:41:28.460613027Z \u001b]0;colcon build [0/43 done] [7 ongoing]\u0007Starting >>> rviz_polygon_selection_tool"
+        },
+        {
+          "stream": "stdout",
+          "line": 68,
+          "text": "2026-11-27T18:41:28.464661805Z \u001b]0;colcon build [0/43 done] [8 ongoing]\u0007Starting >>> vdb_mapping"
+        },
+        {
+          "stream": "stdout",
+          "line": 70,
+          "text": "2026-11-27T18:41:28.468061002Z \u001b]0;colcon build [0/43 done] [9 ongoing]\u0007Starting >>> vdb_mapping_interfaces"
+        },
+        {
+          "stream": "stdout",
+          "line": 72,
+          "text": "2026-11-27T18:41:28.470969637Z \u001b]0;colcon build [0/43 done] [10 ongoing]\u0007Starting >>> waypoint_rviz2_plugin"
+        },
+        {
+          "stream": "stdout",
+          "line": 74,
+          "text": "2026-11-27T18:41:28.475404139Z \u001b]0;colcon build [0/43 done] [11 ongoing]\u0007Starting >>> bag_record_pid"
+        },
+        {
+          "stream": "stdout",
+          "line": 76,
+          "text": "2026-11-27T18:41:28.479402892Z \u001b]0;colcon build [0/43 done] [12 ongoing]\u0007Starting >>> behavior_tree_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 78,
+          "text": "2026-11-27T18:41:28.480950249Z \u001b]0;colcon build [0/43 done] [13 ongoing]\u0007Starting >>> disparity_expansion"
+        },
+        {
+          "stream": "stdout",
+          "line": 80,
+          "text": "2026-11-27T18:41:28.483779245Z \u001b]0;colcon build [0/43 done] [14 ongoing]\u0007Starting >>> exploration_planner"
+        },
+        {
+          "stream": "stdout",
+          "line": 82,
+          "text": "2026-11-27T18:41:28.486470091Z \u001b]0;colcon build [0/43 done] [15 ongoing]\u0007Starting >>> global_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 84,
+          "text": "2026-11-27T18:41:28.489158034Z \u001b]0;colcon build [0/43 done] [16 ongoing]\u0007Starting >>> interface_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 86,
+          "text": "2026-11-27T18:41:28.491738183Z \u001b]0;colcon build [0/43 done] [17 ongoing]\u0007Starting >>> lidar_point_cloud_filter"
+        },
+        {
+          "stream": "stdout",
+          "line": 88,
+          "text": "2026-11-27T18:41:28.505513921Z \u001b]0;colcon build [0/43 done] [18 ongoing]\u0007Starting >>> logging_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 90,
+          "text": "2026-11-27T18:41:28.508352050Z \u001b]0;colcon build [0/43 done] [19 ongoing]\u0007Starting >>> perception_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 92,
+          "text": "2026-11-27T18:41:28.513914926Z \u001b]0;colcon build [0/43 done] [20 ongoing]\u0007Starting >>> robot_descriptions"
+        },
+        {
+          "stream": "stdout",
+          "line": 94,
+          "text": "2026-11-27T18:41:28.514592741Z \u001b]0;colcon build [0/43 done] [21 ongoing]\u0007Starting >>> rqt_py_template"
+        },
+        {
+          "stream": "stdout",
+          "line": 506,
+          "text": "2026-11-27T18:41:44.227708107Z \u001b]0;colcon build [12/43 done] [10 ongoing]\u0007Starting >>> coordination_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 694,
+          "text": "2026-11-27T18:41:45.828666102Z \u001b]0;colcon build [15/43 done] [8 ongoing]\u0007Starting >>> autonomy_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 696,
+          "text": "2026-11-27T18:41:45.844426669Z \u001b]0;colcon build [15/43 done] [9 ongoing]\u0007Starting >>> desktop_bringup"
+        },
+        {
+          "stream": "stdout",
+          "line": 752,
+          "text": "2026-11-27T18:41:48.145930483Z \u001b]0;colcon build [19/43 done] [6 ongoing]\u0007Starting >>> mav_planning_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 878,
+          "text": "2026-11-27T18:41:49.047252931Z \u001b]0;colcon build [21/43 done] [5 ongoing]\u0007Starting >>> vdb_mapping_ros2"
+        },
+        {
+          "stream": "stdout",
+          "line": 928,
+          "text": "2026-11-27T18:41:51.292372351Z \u001b]0;colcon build [22/43 done] [5 ongoing]\u0007Starting >>> airstack_common"
+        },
+        {
+          "stream": "stdout",
+          "line": 930,
+          "text": "2026-11-27T18:41:51.298946175Z \u001b]0;colcon build [22/43 done] [6 ongoing]\u0007Starting >>> task_msgs"
+        },
+        {
+          "stream": "stdout",
+          "line": 1120,
+          "text": "2026-11-27T18:41:57.914207953Z \u001b]0;colcon build [23/43 done] [6 ongoing]\u0007Starting >>> trajectory_library"
+        },
+        {
+          "stream": "stdout",
+          "line": 1122,
+          "text": "2026-11-27T18:41:57.919423935Z \u001b]0;colcon build [23/43 done] [7 ongoing]\u0007Starting >>> drone_safety_monitor"
+        },
+        {
+          "stream": "stdout",
+          "line": 1124,
+          "text": "2026-11-27T18:41:57.924883766Z \u001b]0;colcon build [23/43 done] [8 ongoing]\u0007Starting >>> robot_interface"
+        },
+        {
+          "stream": "stdout",
+          "line": 1126,
+          "text": "2026-11-27T18:41:57.925485506Z \u001b]0;colcon build [23/43 done] [9 ongoing]\u0007Starting >>> pid_controller"
+        },
+        {
+          "stream": "stdout",
+          "line": 1302,
+          "text": "2026-11-27T18:42:01.763965016Z     \"/root/AirStack/robot/ros_ws/build/rviz_polygon_selection_tool/rosidl_typesupport_fastrtps_cpp/rviz_polygon_selection_tool/srv/detail/dds_fastrtps/get_selection__type_support.cpp\""
+        },
+        {
+          "stream": "stdout",
+          "line": 1674,
+          "text": "2026-11-27T18:42:05.226985252Z \u001b]0;colcon build [25/43 done] [8 ongoing]\u0007Starting >>> mav_comm"
+        },
+        {
+          "stream": "stdout",
+          "line": 1770,
+          "text": "2026-11-27T18:42:06.727363150Z \u001b]0;colcon build [26/43 done] [8 ongoing]\u0007Starting >>> cost_map_interface"
+        },
+        {
+          "stream": "stdout",
+          "line": 1918,
+          "text": "2026-11-27T18:42:10.293643875Z \u001b]0;colcon build [29/43 done] [6 ongoing]\u0007Starting >>> random_walk_planner"
+        },
+        {
+          "stream": "stdout",
+          "line": 1920,
+          "text": "2026-11-27T18:42:10.294611968Z \u001b]0;colcon build [29/43 done] [7 ongoing]\u0007Starting >>> rviz_tasks_panel"
+        },
+        {
+          "stream": "stdout",
+          "line": 1922,
+          "text": "2026-11-27T18:42:10.297371668Z \u001b]0;colcon build [29/43 done] [8 ongoing]\u0007Starting >>> droan_gl"
+        },
+        {
+          "stream": "stdout",
+          "line": 1924,
+          "text": "2026-11-27T18:42:10.304246086Z \u001b]0;colcon build [29/43 done] [9 ongoing]\u0007Starting >>> takeoff_landing_planner"
+        },
+        {
+          "stream": "stdout",
+          "line": 1956,
+          "text": "2026-11-27T18:42:11.699915661Z \u001b]0;colcon build [30/43 done] [9 ongoing]\u0007Starting >>> trajectory_controller"
+        },
+        {
+          "stream": "stdout",
+          "line": 1984,
+          "text": "2026-11-27T18:42:12.064574872Z \u001b]0;colcon build [31/43 done] [9 ongoing]\u0007Starting >>> disparity_graph_cost_map"
+        },
+        {
+          "stream": "stdout",
+          "line": 2426,
+          "text": "2026-11-27T18:42:24.484391561Z \u001b]0;colcon build [34/43 done] [7 ongoing]\u0007Starting >>> mavros_interface"
+        },
+        {
+          "stream": "stdout",
+          "line": 2634,
+          "text": "2026-11-27T18:42:34.566679584Z \u001b]0;colcon build [37/43 done] [5 ongoing]\u0007Starting >>> droan_local_planner"
+        },
+        {
+          "stream": "stdout",
+          "line": 3308,
+          "text": "2026-11-27T18:42:52.388644039Z  1047 |         glad_glGetError = \u001b[01;35m\u001b[K(\u001b[m\u001b[KPFNGLGETERRORPROC)load(\"glGetError\");"
+        },
+        {
+          "stream": "stdout",
+          "line": 7580,
+          "text": "2026-11-27T18:42:52.449744221Z  1047 |         glad_glGetError = \u001b[01;35m\u001b[K(\u001b[m\u001b[KPFNGLGETERRORPROC)load(\"glGetError\");"
+        },
+        {
+          "stream": "stdout",
+          "line": 12240,
+          "text": "2026-11-27T18:43:09.547812095Z \u001b[01m\u001b[K/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp:\u001b[m\u001b[K In constructor \u2018\u001b[01m\u001b[Kmavros_interface::Px4ActuationGuard::\u001b[01;32m\u001b[KPx4ActuationGuard\u001b[m\u001b[K(rclcpp::Node&)\u001b[m\u001b[K\u2019:"
+        },
+        {
+          "stream": "stdout",
+          "line": 12242,
+          "text": "2026-11-27T18:43:09.547815450Z \u001b[01m\u001b[K/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp:158:36:\u001b[m\u001b[K \u001b[01;35m\u001b[Kwarning: \u001b[m\u001b[K\u2018\u001b[01m\u001b[Ktypename rclcpp::Client<ServiceT>::SharedPtr rclcpp::Node::\u001b[01;32m\u001b[Kcreate_client\u001b[m\u001b[K(const std::string&, const rmw_qos_profile_t&, rclcpp::CallbackGroup::SharedPtr) \u001b[35m\u001b[K[with ServiceT = rcl_interfaces::srv::GetParameters; typename rclcpp::Client<ServiceT>::SharedPtr = std::shared_ptr<rclcpp::Client<rcl_interfaces::srv::GetParameters> >; std::string = std::__cxx11::basic_string<char>; rmw_qos_profile_t = rmw_qos_profile_s; rclcpp::CallbackGroup::SharedPtr = std::shared_ptr<rclcpp::CallbackGroup>]\u001b[m\u001b[K\u001b[m\u001b[K\u2019 is deprecated: use rclcpp::QoS instead of rmw_qos_profile_t [\u001b[01;35m\u001b[K\u001b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-declarations\u0007-Wdeprecated-declarations\u001b]8;;\u0007\u001b[m\u001b[K]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12270,
+          "text": "2026-11-27T18:43:09.547972157Z \u001b[01m\u001b[K/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp:160:36:\u001b[m\u001b[K \u001b[01;35m\u001b[Kwarning: \u001b[m\u001b[K\u2018\u001b[01m\u001b[Ktypename rclcpp::Client<ServiceT>::SharedPtr rclcpp::Node::\u001b[01;32m\u001b[Kcreate_client\u001b[m\u001b[K(const std::string&, const rmw_qos_profile_t&, rclcpp::CallbackGroup::SharedPtr) \u001b[35m\u001b[K[with ServiceT = rcl_interfaces::srv::SetParameters; typename rclcpp::Client<ServiceT>::SharedPtr = std::shared_ptr<rclcpp::Client<rcl_interfaces::srv::SetParameters> >; std::string = std::__cxx11::basic_string<char>; rmw_qos_profile_t = rmw_qos_profile_s; rclcpp::CallbackGroup::SharedPtr = std::shared_ptr<rclcpp::CallbackGroup>]\u001b[m\u001b[K\u001b[m\u001b[K\u2019 is deprecated: use rclcpp::QoS instead of rmw_qos_profile_t [\u001b[01;35m\u001b[K\u001b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-declarations\u0007-Wdeprecated-declarations\u001b]8;;\u0007\u001b[m\u001b[K]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12370,
+          "text": "2026-11-27T18:43:10.792139377Z [INFO] [launch.user]: [dds_router] Final interpolated config:"
+        },
+        {
+          "stream": "stdout",
+          "line": 12434,
+          "text": "2026-11-27T18:43:10.801968349Z [INFO] [launch.user]: [dds_router] Final interpolated config:"
+        },
+        {
+          "stream": "stdout",
+          "line": 12456,
+          "text": "2026-11-27T18:43:10.818292383Z [INFO] [robot_state_publisher-1]: process started with pid [20292]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12458,
+          "text": "2026-11-27T18:43:10.818320105Z [INFO] [static_transform_publisher-2]: process started with pid [20293]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12460,
+          "text": "2026-11-27T18:43:10.818344703Z [INFO] [mavros_node-3]: process started with pid [20294]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12462,
+          "text": "2026-11-27T18:43:10.818346916Z [INFO] [robot_interface_node-4]: process started with pid [20295]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12464,
+          "text": "2026-11-27T18:43:10.818348769Z [INFO] [position_setpoint_pub.py-5]: process started with pid [20296]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12466,
+          "text": "2026-11-27T18:43:10.818350661Z [INFO] [odometry_conversion-6]: process started with pid [20297]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12468,
+          "text": "2026-11-27T18:43:10.818352524Z [INFO] [lidar_point_cloud_filter_node-7]: process started with pid [20298]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12470,
+          "text": "2026-11-27T18:43:10.818354458Z [INFO] [disparity_node-8]: process started with pid [20299]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12472,
+          "text": "2026-11-27T18:43:10.818356430Z [INFO] [point_cloud_node-9]: process started with pid [20300]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12474,
+          "text": "2026-11-27T18:43:10.818358513Z [INFO] [topic_keepalive_node.py-10]: process started with pid [20301]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12476,
+          "text": "2026-11-27T18:43:10.818360516Z [INFO] [takeoff_landing_task-11]: process started with pid [20302]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12478,
+          "text": "2026-11-27T18:43:10.818362419Z [INFO] [fixed_trajectory_task-12]: process started with pid [20303]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12480,
+          "text": "2026-11-27T18:43:10.818364292Z [INFO] [droan_gl_node-13]: process started with pid [20304]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12482,
+          "text": "2026-11-27T18:43:10.818375459Z [INFO] [trajectory_controller-14]: process started with pid [20305]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12484,
+          "text": "2026-11-27T18:43:10.818377422Z [INFO] [pid_controller-15]: process started with pid [20306]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12486,
+          "text": "2026-11-27T18:43:10.818379244Z [INFO] [component_container-16]: process started with pid [20307]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12488,
+          "text": "2026-11-27T18:43:10.818381078Z [INFO] [random_walk_planner-17]: process started with pid [20308]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12490,
+          "text": "2026-11-27T18:43:10.818383070Z [INFO] [drone_safety_monitor-18]: process started with pid [20309]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12492,
+          "text": "2026-11-27T18:43:10.818385003Z [INFO] [ddsrouter-19]: process started with pid [20310]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12494,
+          "text": "2026-11-27T18:43:10.818386936Z [INFO] [ddsrouter-20]: process started with pid [20311]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12496,
+          "text": "2026-11-27T18:43:10.818388799Z [INFO] [gossip_node-21]: process started with pid [20312]"
+        },
+        {
+          "stream": "stdout",
+          "line": 12498,
+          "text": "2026-11-27T18:43:10.822846604Z [ddsrouter-20] Starting DDS Router Tool execution."
+        },
+        {
+          "stream": "stdout",
+          "line": 12500,
+          "text": "2026-11-27T18:43:10.822892904Z [ddsrouter-19] Starting DDS Router Tool execution."
+        },
+        {
+          "stream": "stdout",
+          "line": 12502,
+          "text": "2026-11-27T18:43:10.829727911Z [ddsrouter-20] DDS Router running."
+        },
+        {
+          "stream": "stdout",
+          "line": 12504,
+          "text": "2026-11-27T18:43:10.833714675Z [ddsrouter-19] DDS Router running."
+        },
+        {
+          "stream": "stdout",
+          "line": 12524,
+          "text": "2026-11-27T18:43:10.863826422Z [mavros_node-3] \u001b[0m[INFO] [1795804990.862575081] [robot_1.interface.mavros_node]: Starting mavros_node container\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12526,
+          "text": "2026-11-27T18:43:10.863828385Z [mavros_node-3] \u001b[0m[INFO] [1795804990.862651147] [robot_1.interface.mavros_node]: FCU URL: udp://:14541@172.31.0.200:14581\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12532,
+          "text": "2026-11-27T18:43:10.863847575Z [mavros_node-3] \u001b[0m[INFO] [1795804990.862664347] [robot_1.interface.mavros_node]: Starting mavros router node\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12642,
+          "text": "2026-11-27T18:43:10.881441238Z [mavros_node-3] \u001b[0m[INFO] [1795804990.880754249] [robot_1.interface.mavros_router]: Built-in MAVLink package version: 2026.9.9\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12644,
+          "text": "2026-11-27T18:43:10.881526426Z [mavros_node-3] \u001b[0m[INFO] [1795804990.880769733] [robot_1.interface.mavros_router]: Known MAVLink dialects: common ardupilotmega ASLUAV AVSSUAS all csAirLink cubepilot development icarous loweheiser marsh paparazzi standard stemstudios storm32 uAvionix\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12648,
+          "text": "2026-11-27T18:43:10.882150509Z [mavros_node-3] \u001b[0m[INFO] [1795804990.881028894] [robot_1.interface.mavros_node]: Starting mavros uas node\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12654,
+          "text": "2026-11-27T18:43:10.921118487Z [mavros_node-3] \u001b[0m[INFO] [1795804990.920300551] [robot_1.interface.mavros_router]: Requested to add endpoint: type: 0, url: udp://:14541@172.31.0.200:14581\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12860,
+          "text": "2026-11-27T18:43:12.121434017Z [mavros_node-3] \u001b[0m[INFO] [1795804992.120529650] [robot_1.interface.mavros]: Plugin px4flow created\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12862,
+          "text": "2026-11-27T18:43:12.121460607Z [mavros_node-3] \u001b[0m[INFO] [1795804992.120596822] [robot_1.interface.mavros]: Plugin px4flow initialized\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12906,
+          "text": "2026-11-27T18:43:12.513291338Z [mavros_node-3] \u001b[31m[ERROR] [1795804992.511884312] [uas.enum]: TM: Unknown mode: SYSTEM_TIME\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12956,
+          "text": "2026-11-27T18:43:12.850524034Z [mavros_node-3] \u001b[0m[INFO] [1795804992.849142867] [robot_1.interface.mavros]: Built-in MAVLink package version: 2026.9.9\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12958,
+          "text": "2026-11-27T18:43:12.850525756Z [mavros_node-3] \u001b[0m[INFO] [1795804992.849147423] [robot_1.interface.mavros]: Known MAVLink dialects: common ardupilotmega ASLUAV AVSSUAS all csAirLink cubepilot development icarous loweheiser marsh paparazzi standard stemstudios storm32 uAvionix\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 12976,
+          "text": "2026-11-27T18:43:20.937541747Z [robot_interface_node-4] \u001b[31m[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 13014,
+          "text": "2026-11-27T18:43:39.637284241Z [component_container-16] \u001b[31m[ERROR] [1795805019.636218721] [robot_1.vdb_mapping]: Could not transform map to ouster: Lookup would require extrapolation into the past.  Requested time 0.830000 but the earliest data is at time 0.920000, when looking up transform from frame [ouster] to frame [map]\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 13016,
+          "text": "2026-11-27T18:43:40.212123920Z [mavros_node-3] \u001b[0m[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 13028,
+          "text": "2026-11-27T18:43:40.901790847Z [mavros_node-3] \u001b[31m[ERROR] [1795805020.900147885] [robot_1.interface.mavros.sys]: FCU: EVENT 13835193 with args -124-0-126-0-17-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\u001b[0m"
+        },
+        {
+          "stream": "stdout",
+          "line": 13030,
+          "text": "2026-11-27T18:43:40.901829536Z [mavros_node-3] \u001b[31m[ERROR] [1795805020.900234796] [robot_1.interface.mavros.sys]: FCU: EVENT 10011251 with args -56-0-0-0-24-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\u001b[0m"
+        }
+      ],
+      "limitation": "Selected startup lines, Docker receipt clocks plus embedded producer clocks. Absence is not proof an event did not occur."
+    }
+  ],
+  "original_ros_logs": {
+    "boot_id": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+    "clk_tck": 100,
+    "logs": [
+      {
+        "path": "/root/.ros/log/robot_interface_node_20295_1795804990835.log",
+        "exists": true,
+        "bytes": 106,
+        "sha256": "8895f56fd6d02eab086af2b9c9c632dd7843b2d2004e03a586f43c644ba595b5",
+        "text": "[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE\n"
+      },
+      {
+        "path": "/root/.ros/log/mavros_node_20294_1795804990840.log",
+        "exists": true,
+        "bytes": 24981,
+        "sha256": "0ba23a2e805da1fa5ba4068ebba34233b080156d09b7c006a848012ab4cbdc9b",
+        "text": "[INFO] [1795804990.862575081] [robot_1.interface.mavros_node]: Starting mavros_node container\n[INFO] [1795804990.862651147] [robot_1.interface.mavros_node]: FCU URL: udp://:14541@172.31.0.200:14581\n[INFO] [1795804990.862655794] [robot_1.interface.mavros_node]: GCS URL: \n[INFO] [1795804990.862659099] [robot_1.interface.mavros_node]: UAS Prefix: /uas2\n[INFO] [1795804990.862664347] [robot_1.interface.mavros_node]: Starting mavros router node\n[INFO] [1795804990.880717884] [robot_1.interface.mavros_router]: Built-in SIMD instructions: SSE, SSE2\n[INFO] [1795804990.880754249] [robot_1.interface.mavros_router]: Built-in MAVLink package version: 2026.9.9\n[INFO] [1795804990.880769733] [robot_1.interface.mavros_router]: Known MAVLink dialects: common ardupilotmega ASLUAV AVSSUAS all csAirLink cubepilot development icarous loweheiser marsh paparazzi standard stemstudios storm32 uAvionix\n[INFO] [1795804990.880777284] [robot_1.interface.mavros_router]: MAVROS Router started\n[INFO] [1795804990.881028894] [robot_1.interface.mavros_node]: Starting mavros uas node\n[INFO] [1795804990.920300551] [robot_1.interface.mavros_router]: Requested to add endpoint: type: 0, url: udp://:14541@172.31.0.200:14581\n[INFO] [1795804990.920366992] [robot_1.interface.mavros_router]: Endpoint link[1000] created\n[INFO] [1795804990.920578091] [robot_1.interface.mavros_router]: link[1000] opened successfully\n[INFO] [1795804990.920589608] [robot_1.interface.mavros_router]: Requested to add endpoint: type: 2, url: /uas2\n[INFO] [1795804990.920599743] [robot_1.interface.mavros_router]: Endpoint link[1001] created\n[INFO] [1795804990.923759107] [robot_1.interface.mavros_router]: link[1001] opened successfully\n[INFO] [1795804990.930339240] [robot_1.interface.mavros]: UAS Executor started, threads: 4\n[WARN] [1795804990.930350045] [robot_1.interface.mavros]: plugin_denylist pattern 'image_pub' does not match any declared plugin\n[INFO] [1795804990.948834805] [robot_1.interface.mavros]: Plugin actuator_control created\n[INFO] [1795804990.948883679] [robot_1.interface.mavros]: Plugin actuator_control initialized\n[INFO] [1795804990.975421986] [robot_1.interface.mavros]: Plugin adsb created\n[INFO] [1795804990.975467525] [robot_1.interface.mavros]: Plugin adsb initialized\n[INFO] [1795804990.993486371] [robot_1.interface.mavros]: Plugin altitude created\n[INFO] [1795804990.993528814] [robot_1.interface.mavros]: Plugin altitude initialized\n[INFO] [1795804991.002772221] [robot_1.interface.mavros]: Plugin cam_imu_sync created\n[INFO] [1795804991.002813363] [robot_1.interface.mavros]: Plugin cam_imu_sync initialized\n[INFO] [1795804991.021408008] [robot_1.interface.mavros]: Plugin camera created\n[INFO] [1795804991.021456552] [robot_1.interface.mavros]: Plugin camera initialized\n[INFO] [1795804991.036684040] [robot_1.interface.mavros]: Plugin cellular_status created\n[INFO] [1795804991.036732182] [robot_1.interface.mavros]: Plugin cellular_status initialized\n[INFO] [1795804991.060483509] [robot_1.interface.mavros]: Plugin command created\n[INFO] [1795804991.060548578] [robot_1.interface.mavros]: Plugin command initialized\n[INFO] [1795804991.087030850] [robot_1.interface.mavros]: Plugin companion_process_status created\n[INFO] [1795804991.087086955] [robot_1.interface.mavros]: Plugin companion_process_status initialized\n[INFO] [1795804991.140462612] [robot_1.interface.mavros]: Plugin debug_value created\n[INFO] [1795804991.140536754] [robot_1.interface.mavros]: Plugin debug_value initialized\n[INFO] [1795804991.140545147] [robot_1.interface.mavros]: Plugin distance_sensor ignored\n[INFO] [1795804991.182613259] [robot_1.interface.mavros]: Plugin esc_status created\n[INFO] [1795804991.182671077] [robot_1.interface.mavros]: Plugin esc_status initialized\n[INFO] [1795804991.256197671] [robot_1.interface.mavros]: Plugin esc_telemetry created\n[INFO] [1795804991.256249899] [robot_1.interface.mavros]: Plugin esc_telemetry initialized\n[INFO] [1795804991.276928694] [robot_1.interface.mavros]: Plugin fake_gps created\n[INFO] [1795804991.276973782] [robot_1.interface.mavros]: Plugin fake_gps initialized\n[INFO] [1795804991.307511933] [robot_1.interface.mavros]: Plugin ftp created\n[INFO] [1795804991.307676833] [robot_1.interface.mavros]: Plugin ftp initialized\n[INFO] [1795804991.334352587] [robot_1.interface.mavros]: Plugin geofence created\n[INFO] [1795804991.334410165] [robot_1.interface.mavros]: Plugin geofence initialized\n[INFO] [1795804991.369785785] [robot_1.interface.mavros]: Plugin gimbal_control created\n[INFO] [1795804991.369852024] [robot_1.interface.mavros]: Plugin gimbal_control initialized\n[INFO] [1795804991.402344149] [robot_1.interface.mavros]: Plugin global_position created\n[INFO] [1795804991.402409988] [robot_1.interface.mavros]: Plugin global_position initialized\n[INFO] [1795804991.420997333] [robot_1.interface.mavros]: Plugin gps_input created\n[INFO] [1795804991.421037282] [robot_1.interface.mavros]: Plugin gps_input initialized\n[INFO] [1795804991.509681998] [robot_1.interface.mavros]: Plugin gps_rtk created\n[INFO] [1795804991.509733067] [robot_1.interface.mavros]: Plugin gps_rtk initialized\n[INFO] [1795804991.535904679] [robot_1.interface.mavros]: Plugin gps_status created\n[INFO] [1795804991.535965842] [robot_1.interface.mavros]: Plugin gps_status initialized\n[INFO] [1795804991.555146212] [robot_1.interface.mavros]: Plugin guided_target created\n[INFO] [1795804991.555199893] [robot_1.interface.mavros]: Plugin guided_target initialized\n[INFO] [1795804991.580857460] [robot_1.interface.mavros]: Plugin hil created\n[INFO] [1795804991.580913114] [robot_1.interface.mavros]: Plugin hil initialized\n[INFO] [1795804991.628928403] [robot_1.interface.mavros]: Plugin home_position created\n[INFO] [1795804991.628986560] [robot_1.interface.mavros]: Plugin home_position initialized\n[INFO] [1795804991.656720494] [robot_1.interface.mavros]: Plugin imu created\n[INFO] [1795804991.656784221] [robot_1.interface.mavros]: Plugin imu initialized\n[INFO] [1795804991.683695702] [robot_1.interface.mavros]: Plugin landing_target created\n[INFO] [1795804991.683747000] [robot_1.interface.mavros]: Plugin landing_target initialized\n[INFO] [1795804991.714844106] [robot_1.interface.mavros]: Plugin local_position created\n[INFO] [1795804991.714903546] [robot_1.interface.mavros]: Plugin local_position initialized\n[INFO] [1795804991.741985004] [robot_1.interface.mavros]: Plugin log_transfer created\n[INFO] [1795804991.742048169] [robot_1.interface.mavros]: Plugin log_transfer initialized\n[INFO] [1795804991.763999776] [robot_1.interface.mavros]: Plugin mag_calibration_status created\n[INFO] [1795804991.764049472] [robot_1.interface.mavros]: Plugin mag_calibration_status initialized\n[INFO] [1795804991.786301032] [robot_1.interface.mavros]: Plugin manual_control created\n[INFO] [1795804991.786351369] [robot_1.interface.mavros]: Plugin manual_control initialized\n[INFO] [1795804991.808436357] [robot_1.interface.mavros]: Plugin mocap_pose_estimate created\n[INFO] [1795804991.808481446] [robot_1.interface.mavros]: Plugin mocap_pose_estimate initialized\n[INFO] [1795804991.835398446] [robot_1.interface.mavros]: Plugin mount_control created\n[INFO] [1795804991.835451795] [robot_1.interface.mavros]: Plugin mount_control initialized\n[INFO] [1795804991.863154142] [robot_1.interface.mavros]: Plugin nav_controller_output created\n[INFO] [1795804991.863215124] [robot_1.interface.mavros]: Plugin nav_controller_output initialized\n[INFO] [1795804991.886788133] [robot_1.interface.mavros]: Plugin obstacle_distance created\n[INFO] [1795804991.886833360] [robot_1.interface.mavros]: Plugin obstacle_distance initialized\n[INFO] [1795804991.910133706] [robot_1.interface.mavros]: Plugin obstacle_distance_3d created\n[INFO] [1795804991.910178915] [robot_1.interface.mavros]: Plugin obstacle_distance_3d initialized\n[INFO] [1795804991.934845073] [robot_1.interface.mavros]: Plugin odometry created\n[INFO] [1795804991.934899315] [robot_1.interface.mavros]: Plugin odometry initialized\n[INFO] [1795804991.963054045] [robot_1.interface.mavros]: Plugin onboard_computer_status created\n[INFO] [1795804991.963103450] [robot_1.interface.mavros]: Plugin onboard_computer_status initialized\n[INFO] [1795804991.995184052] [robot_1.interface.mavros]: Plugin open_drone_id created\n[INFO] [1795804991.995293197] [robot_1.interface.mavros]: Plugin open_drone_id initialized\n[INFO] [1795804992.029761536] [robot_1.interface.mavros]: Plugin optical_flow created\n[INFO] [1795804992.029813495] [robot_1.interface.mavros]: Plugin optical_flow initialized\n[INFO] [1795804992.054101462] [robot_1.interface.mavros]: Plugin param created\n[INFO] [1795804992.054157967] [robot_1.interface.mavros]: Plugin param initialized\n[INFO] [1795804992.083636077] [robot_1.interface.mavros]: Plugin play_tune created\n[INFO] [1795804992.083692402] [robot_1.interface.mavros]: Plugin play_tune initialized\n[INFO] [1795804992.120529650] [robot_1.interface.mavros]: Plugin px4flow created\n[INFO] [1795804992.120596822] [robot_1.interface.mavros]: Plugin px4flow initialized\n[INFO] [1795804992.158165976] [robot_1.interface.mavros]: Plugin rallypoint created\n[INFO] [1795804992.158231294] [robot_1.interface.mavros]: Plugin rallypoint initialized\n[INFO] [1795804992.158238897] [robot_1.interface.mavros]: Plugin rangefinder ignored\n[INFO] [1795804992.186811077] [robot_1.interface.mavros]: Plugin rc_io created\n[INFO] [1795804992.186888614] [robot_1.interface.mavros]: Plugin rc_io initialized\n[INFO] [1795804992.214726575] [robot_1.interface.mavros]: Plugin setpoint_accel created\n[INFO] [1795804992.214778845] [robot_1.interface.mavros]: Plugin setpoint_accel initialized\n[INFO] [1795804992.245634134] [robot_1.interface.mavros]: Plugin setpoint_attitude created\n[INFO] [1795804992.245680024] [robot_1.interface.mavros]: Plugin setpoint_attitude initialized\n[INFO] [1795804992.278253841] [robot_1.interface.mavros]: Plugin setpoint_position created\n[INFO] [1795804992.278296576] [robot_1.interface.mavros]: Plugin setpoint_position initialized\n[INFO] [1795804992.312369968] [robot_1.interface.mavros]: Plugin setpoint_raw created\n[INFO] [1795804992.312424982] [robot_1.interface.mavros]: Plugin setpoint_raw initialized\n[INFO] [1795804992.345109927] [robot_1.interface.mavros]: Plugin setpoint_trajectory created\n[INFO] [1795804992.345159381] [robot_1.interface.mavros]: Plugin setpoint_trajectory initialized\n[INFO] [1795804992.377352803] [robot_1.interface.mavros]: Plugin setpoint_velocity created\n[INFO] [1795804992.377404531] [robot_1.interface.mavros]: Plugin setpoint_velocity initialized\n[INFO] [1795804992.419034531] [robot_1.interface.mavros]: Plugin sim_state created\n[INFO] [1795804992.419090415] [robot_1.interface.mavros]: Plugin sim_state initialized\n[INFO] [1795804992.481234130] [robot_1.interface.mavros]: Plugin sys_status created\n[INFO] [1795804992.481305318] [robot_1.interface.mavros]: Plugin sys_status initialized\n[ERROR] [1795804992.511884312] [uas.enum]: TM: Unknown mode: SYSTEM_TIME\n[INFO] [1795804992.511980617] [robot_1.interface.mavros.time]: TM: Timesync mode: NONE\n[INFO] [1795804992.519119343] [robot_1.interface.mavros]: Plugin sys_time created\n[INFO] [1795804992.519158852] [robot_1.interface.mavros]: Plugin sys_time initialized\n[INFO] [1795804992.548484531] [robot_1.interface.mavros]: Plugin tdr_radio created\n[INFO] [1795804992.548558704] [robot_1.interface.mavros]: Plugin tdr_radio initialized\n[INFO] [1795804992.579496879] [robot_1.interface.mavros]: Plugin terrain created\n[INFO] [1795804992.579549950] [robot_1.interface.mavros]: Plugin terrain initialized\n[INFO] [1795804992.609185657] [robot_1.interface.mavros]: Plugin trajectory created\n[INFO] [1795804992.609271526] [robot_1.interface.mavros]: Plugin trajectory initialized\n[INFO] [1795804992.643987350] [robot_1.interface.mavros]: Plugin tunnel created\n[INFO] [1795804992.644045779] [robot_1.interface.mavros]: Plugin tunnel initialized\n[INFO] [1795804992.673307540] [robot_1.interface.mavros]: Plugin vfr_hud created\n[INFO] [1795804992.673374863] [robot_1.interface.mavros]: Plugin vfr_hud initialized\n[INFO] [1795804992.673382324] [robot_1.interface.mavros]: Plugin vibration ignored\n[INFO] [1795804992.705228250] [robot_1.interface.mavros]: Plugin vision_pose created\n[INFO] [1795804992.705281902] [robot_1.interface.mavros]: Plugin vision_pose initialized\n[INFO] [1795804992.747145425] [robot_1.interface.mavros]: Plugin vision_speed created\n[INFO] [1795804992.747210523] [robot_1.interface.mavros]: Plugin vision_speed initialized\n[INFO] [1795804992.809584096] [robot_1.interface.mavros]: Plugin waypoint created\n[INFO] [1795804992.809657246] [robot_1.interface.mavros]: Plugin waypoint initialized\n[INFO] [1795804992.809667291] [robot_1.interface.mavros]: Plugin wheel_odometry ignored\n[INFO] [1795804992.844199096] [robot_1.interface.mavros]: Plugin wind_estimation created\n[INFO] [1795804992.844272477] [robot_1.interface.mavros]: Plugin wind_estimation initialized\n[INFO] [1795804992.849107693] [robot_1.interface.mavros]: Built-in SIMD instructions: SSE, SSE2\n[INFO] [1795804992.849142867] [robot_1.interface.mavros]: Built-in MAVLink package version: 2026.9.9\n[INFO] [1795804992.849147423] [robot_1.interface.mavros]: Known MAVLink dialects: common ardupilotmega ASLUAV AVSSUAS all csAirLink cubepilot development icarous loweheiser marsh paparazzi standard stemstudios storm32 uAvionix\n[INFO] [1795804992.849152561] [robot_1.interface.mavros]: MAVROS UAS via /uas2 started. MY ID 2.191, TARGET ID 2.1\n[INFO] [1795804993.458629108] [robot_1.interface.mavros_router]: link[1001] detected remote address 2.191\n[WARN] [1795804994.493576351] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 4\n[WARN] [1795804995.497858939] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 3\n[WARN] [1795804996.498147661] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 2\n[WARN] [1795804997.500027335] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 1\n[WARN] [1795804998.496046001] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 0\n[WARN] [1795804999.495350698] [robot_1.interface.mavros.sys]: VER: your FCU don't support AUTOPILOT_VERSION, switched to default capabilities\n[INFO] [1795805019.483200359] [robot_1.interface.mavros_router]: link[1000] detected remote address 2.1\n[INFO] [1795805019.483657861] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\n[INFO] [1795805020.211190379] [robot_1.interface.mavros.mission]: WP: detected enable_partial_push: 0\n[INFO] [1795805020.211479266] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795805020.215123592] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[WARN] [1795805020.900066192] [robot_1.interface.mavros.sys]: FCU: UNK(8): EVENT 11047904 with args -0-0-0-2-1-128-0-0-0-128-123-1-128-128-123-1-128-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[ERROR] [1795805020.900147885] [robot_1.interface.mavros.sys]: FCU: EVENT 13835193 with args -124-0-126-0-17-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[ERROR] [1795805020.900234796] [robot_1.interface.mavros.sys]: FCU: EVENT 10011251 with args -56-0-0-0-24-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[INFO] [1795805020.900252443] [robot_1.interface.mavros.sys]: FCU: EVENT 377561 with args -8-0-0-0-20-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[WARN] [1795805020.900264181] [robot_1.interface.mavros.sys]: FCU: EVENT 453929 with args -255-255-255-255-7-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[INFO] [1795805020.900305222] [robot_1.interface.mavros.sys]: FCU: EVENT 6801787 with args -255-255-255-255-12-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[WARN] [1795805020.900339785] [robot_1.interface.mavros.sys]: FCU: UNK(8): EVENT 1914663 with args -0-2-13-2-56-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[WARN] [1795805022.238244503] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 4\n[WARN] [1795805023.227606004] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 3\n[WARN] [1795805023.388894019] [robot_1.interface.mavros.sys]: FCU: UNK(8): EVENT 11047904 with args -0-0-0-0-0-128-0-0-0-176-123-127-128-176-123-127-128-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[INFO] [1795805023.388966509] [robot_1.interface.mavros.sys]: FCU: EVENT 377561 with args -8-0-0-0-20-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[WARN] [1795805023.389029023] [robot_1.interface.mavros.sys]: FCU: EVENT 453929 with args -255-255-255-255-7-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[INFO] [1795805023.389040330] [robot_1.interface.mavros.sys]: FCU: EVENT 6801787 with args -255-255-255-255-12-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[WARN] [1795805023.389060871] [robot_1.interface.mavros.sys]: FCU: UNK(8): EVENT 1914663 with args -0-10-13-2-56-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-\n[INFO] [1795805024.234311880] [robot_1.interface.mavros.geofence]: GF: Using MISSION_ITEM_INT\n[INFO] [1795805024.234378872] [robot_1.interface.mavros.rallypoint]: RP: Using MISSION_ITEM_INT\n[INFO] [1795805024.234391751] [robot_1.interface.mavros.mission]: WP: Using MISSION_ITEM_INT\n[INFO] [1795805024.234401065] [robot_1.interface.mavros.sys]: VER: 2.1: Capabilities         0x000000000000e8ff\n[INFO] [1795805024.234412262] [robot_1.interface.mavros.sys]: VER: 2.1: Flight software:     011001ff (94cb201279000000)\n[INFO] [1795805024.234417470] [robot_1.interface.mavros.sys]: VER: 2.1: Middleware software: 011001ff (94cb201279000000)\n[INFO] [1795805024.234426844] [robot_1.interface.mavros.sys]: VER: 2.1: OS software:         060800ff (886acbbdb4f061e5)\n[INFO] [1795805024.234431280] [robot_1.interface.mavros.sys]: VER: 2.1: Board hardware:      00000001\n[INFO] [1795805024.234435226] [robot_1.interface.mavros.sys]: VER: 2.1: VID/PID:             0000:0000\n[INFO] [1795805024.234439352] [robot_1.interface.mavros.sys]: VER: 2.1: UID:                 4954414c44494e50\n[WARN] [1795805024.239409962] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 2\n[INFO] [1795805035.213594134] [robot_1.interface.mavros.mission]: WP: mission received\n[INFO] [1795805040.213271203] [robot_1.interface.mavros.rallypoint]: RP: mission received\n[INFO] [1795805045.212957644] [robot_1.interface.mavros.geofence]: GF: mission received\n[WARN] [1795811726.444756544] [robot_1.interface.mavros]: CON: Lost connection, HEARTBEAT timed out.\n[INFO] [1795811727.163492383] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795811727.163644112] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[INFO] [1795811727.167924394] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\n[INFO] [1795811727.168007911] [robot_1.interface.mavros.mission]: WP: detected enable_partial_push: 0\n[INFO] [1795811727.276937264] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795811727.277471411] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[WARN] [1795811729.197040939] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 4\n[WARN] [1795811730.192210556] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 3\n[INFO] [1795811731.185447878] [robot_1.interface.mavros.sys]: VER: 2.1: Capabilities         0x000000000000e8ff\n[INFO] [1795811731.185504372] [robot_1.interface.mavros.sys]: VER: 2.1: Flight software:     011001ff (94cb201279000000)\n[INFO] [1795811731.185511383] [robot_1.interface.mavros.sys]: VER: 2.1: Middleware software: 011001ff (94cb201279000000)\n[INFO] [1795811731.185515560] [robot_1.interface.mavros.sys]: VER: 2.1: OS software:         060800ff (886acbbdb4f061e5)\n[INFO] [1795811731.185519155] [robot_1.interface.mavros.sys]: VER: 2.1: Board hardware:      00000001\n[INFO] [1795811731.185522379] [robot_1.interface.mavros.sys]: VER: 2.1: VID/PID:             0000:0000\n[INFO] [1795811731.185525744] [robot_1.interface.mavros.sys]: VER: 2.1: UID:                 4954414c44494e50\n[WARN] [1795811731.216257109] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 2\n[INFO] [1795811742.170172729] [robot_1.interface.mavros.mission]: WP: mission received\n[INFO] [1795811747.170346762] [robot_1.interface.mavros.rallypoint]: RP: mission received\n[INFO] [1795811752.170531992] [robot_1.interface.mavros.geofence]: GF: mission received\n[WARN] [1795813682.948548696] [robot_1.interface.mavros]: CON: Lost connection, HEARTBEAT timed out.\n[INFO] [1795813682.999286475] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795813682.999374237] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[INFO] [1795813683.764389738] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\n[INFO] [1795813683.764858666] [robot_1.interface.mavros.mission]: WP: detected enable_partial_push: 0\n[INFO] [1795813683.765015203] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795813683.765194433] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[WARN] [1795813685.797077347] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 4\n[WARN] [1795813686.778634635] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 3\n[INFO] [1795813687.780747336] [robot_1.interface.mavros.sys]: VER: 2.1: Capabilities         0x000000000000e8ff\n[INFO] [1795813687.780807937] [robot_1.interface.mavros.sys]: VER: 2.1: Flight software:     011001ff (94cb201279000000)\n[INFO] [1795813687.780815248] [robot_1.interface.mavros.sys]: VER: 2.1: Middleware software: 011001ff (94cb201279000000)\n[INFO] [1795813687.780819444] [robot_1.interface.mavros.sys]: VER: 2.1: OS software:         060800ff (886acbbdb4f061e5)\n[INFO] [1795813687.780823090] [robot_1.interface.mavros.sys]: VER: 2.1: Board hardware:      00000001\n[INFO] [1795813687.780827137] [robot_1.interface.mavros.sys]: VER: 2.1: VID/PID:             0000:0000\n[INFO] [1795813687.780831152] [robot_1.interface.mavros.sys]: VER: 2.1: UID:                 4954414c44494e50\n[WARN] [1795813687.799359014] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 2\n[INFO] [1795813698.766900602] [robot_1.interface.mavros.mission]: WP: mission received\n[INFO] [1795813703.767518721] [robot_1.interface.mavros.rallypoint]: RP: mission received\n[INFO] [1795813708.768710967] [robot_1.interface.mavros.geofence]: GF: mission received\n[WARN] [1795813781.786198386] [robot_1.interface.mavros]: CON: Lost connection, HEARTBEAT timed out.\n[INFO] [1795813782.022865428] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795813782.022991427] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[INFO] [1795813782.521626840] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\n[INFO] [1795813782.522207648] [robot_1.interface.mavros.mission]: WP: detected enable_partial_push: 0\n[INFO] [1795813782.615369493] [robot_1.interface.mavros.imu]: IMU: High resolution IMU detected!\n[INFO] [1795813782.615829428] [robot_1.interface.mavros.imu]: IMU: Attitude quaternion IMU detected!\n[WARN] [1795813784.539222980] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 4\n[WARN] [1795813785.550835014] [robot_1.interface.mavros.sys]: VER: broadcast request timeout, retries left 3\n[INFO] [1795813786.553970186] [robot_1.interface.mavros.sys]: VER: 2.1: Capabilities         0x000000000000e8ff\n[INFO] [1795813786.554018068] [robot_1.interface.mavros.sys]: VER: 2.1: Flight software:     011001ff (94cb201279000000)\n[INFO] [1795813786.554024218] [robot_1.interface.mavros.sys]: VER: 2.1: Middleware software: 011001ff (94cb201279000000)\n[INFO] [1795813786.554028454] [robot_1.interface.mavros.sys]: VER: 2.1: OS software:         060800ff (886acbbdb4f061e5)\n[INFO] [1795813786.554032260] [robot_1.interface.mavros.sys]: VER: 2.1: Board hardware:      00000001\n[INFO] [1795813786.554035414] [robot_1.interface.mavros.sys]: VER: 2.1: VID/PID:             0000:0000\n[INFO] [1795813786.554038530] [robot_1.interface.mavros.sys]: VER: 2.1: UID:                 4954414c44494e50\n[WARN] [1795813786.690716494] [robot_1.interface.mavros.sys]: VER: unicast request timeout, retries left 2\n[INFO] [1795813797.523400168] [robot_1.interface.mavros.mission]: WP: mission received\n[INFO] [1795813802.525460276] [robot_1.interface.mavros.rallypoint]: RP: mission received\n[INFO] [1795813807.527895721] [robot_1.interface.mavros.geofence]: GF: mission received\n"
+      }
+    ],
+    "processes": [
+      {
+        "pid": 20295,
+        "start_ticks": 137885338,
+        "exe": "/root/AirStack/robot/ros_ws/build/robot_interface/robot_interface_node"
+      },
+      {
+        "pid": 20294,
+        "start_ticks": 137885338,
+        "exe": "/opt/ros/jazzy/lib/mavros/mavros_node"
+      }
+    ],
+    "clock_map": "No historical realtime-to-monotonic calibration; do not map process ticks onto UTC by current uptime."
+  },
+  "isaac_processes": {
+    "boot_id": "f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc",
+    "clk_tck": 100,
+    "processes": [
+      {
+        "pid": 210,
+        "start_ticks": 137874926,
+        "exe": "/isaac-sim/kit/python/bin/python3.11"
+      },
+      {
+        "pid": 975,
+        "start_ticks": 137887500,
+        "exe": "/isaac-sim/PX4-Autopilot/build/px4_sitl_default/bin/px4"
+      }
+    ]
+  }
+}

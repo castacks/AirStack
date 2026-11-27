@@ -1,0 +1,165 @@
+{
+  "algorithm": "SHA-256",
+  "created_utc": "2026-11-27T21:38:19.192813+00:00",
+  "starting_head": "93b8196e835effc3da34cac5677eab4d30c1378a",
+  "excluded_tracked_paths": [
+    "RRM/evidence/M00-C/M00C_EVIDENCE_MANIFEST.json",
+    "RRM/evidence/M00-C/SHA256SUMS",
+    "RRM/evidence/M00-C/verification-results.json"
+  ],
+  "exclusion_reason": "Avoid self/circular hashes. Detached SHA256SUMS includes this manifest. Final validation output authenticated by containing Git commit. Ignored local receipt records actual final SHA.",
+  "artifacts": [
+    {
+      "path": "RRM/PROJECT_STATUS.md",
+      "bytes": 6929,
+      "sha256": "c124cfdd6851790fda5395d4259a3e2f10ac730b7b9e8b9e7955a8ca7e01092f"
+    },
+    {
+      "path": "RRM/ROADMAP_MANDATE.md",
+      "bytes": 12640,
+      "sha256": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57"
+    },
+    {
+      "path": "RRM/evidence/M00-C/.gitignore",
+      "bytes": 27,
+      "sha256": "2d9ed3052e450b6bcea6666933c689919c73cc9393536f8fc7d8b8518872b8da"
+    },
+    {
+      "path": "RRM/evidence/M00-C/EXECUTION_DIRECTIVE.md",
+      "bytes": 8484,
+      "sha256": "20291555a0e40b8cea59d0ffbf020de83eed89981d7ca2476ff20f7892992739"
+    },
+    {
+      "path": "RRM/evidence/M00-C/GOVERNANCE_MANDATE.md",
+      "bytes": 5444,
+      "sha256": "f0b1029f19ae44ffbb575b4966501e28c073f7215341c87a51f9d85910fc45a0"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_BLOCKER_DISPOSITION.csv",
+      "bytes": 7748,
+      "sha256": "3f12c884490dda138a8a1b8fc51f6e6255695fefa9adef12815d772c9385aac8"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_CHANGED_FILES.txt",
+      "bytes": 1390,
+      "sha256": "19368433ab1619ed823de2843cd346459e1a78230ffabbf096b7ffde685dd850"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_CORRECTIVE_ACTIONS.csv",
+      "bytes": 5922,
+      "sha256": "52a4680119635eca9867af1418e62bb01c2f0b7cd09c7ab4134aa659cdada30d"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_REQUIREMENTS_IMPACT.csv",
+      "bytes": 24510,
+      "sha256": "58af9a21a35f217a7518aae67071af837c8c1c08aea91166c45cc973e242f946"
+    },
+    {
+      "path": "RRM/evidence/M00-C/diagnostic-scope-audit.json",
+      "bytes": 1271,
+      "sha256": "169d6a148b8e437c530b83cdf4b0c36e3932c68c5ced3191c1f51cad336294fe"
+    },
+    {
+      "path": "RRM/evidence/M00-C/history-and-availability.json",
+      "bytes": 1631,
+      "sha256": "91c29fb41a11dc654890cd6689a55b1e31ec7ba28c548a126fb81b58d9bd6019"
+    },
+    {
+      "path": "RRM/evidence/M00-C/passive-readiness.json",
+      "bytes": 56006,
+      "sha256": "d1284a02ce727a3d4ebf9018f09bac22e9d85e9f3ec9db0903c9deae381ddf51"
+    },
+    {
+      "path": "RRM/evidence/M00-C/reference-catalog.csv",
+      "bytes": 2195,
+      "sha256": "2db5960fd17e6f298ea87af760ccd00c2bffd3f218720ea26350ca56fa7d540f"
+    },
+    {
+      "path": "RRM/evidence/M00-C/repository-before.json",
+      "bytes": 393629,
+      "sha256": "cf375aa8a2813217ae146828924bc551db5659827ff725960344f8980aee2d3a"
+    },
+    {
+      "path": "RRM/evidence/M00-C/runtime-after.json",
+      "bytes": 1450,
+      "sha256": "c77d065d7255cab01029bc90b63fa499e59dc547f6593bfdf312429ddf1e4490"
+    },
+    {
+      "path": "RRM/evidence/M00-C/source-locations.json",
+      "bytes": 4113,
+      "sha256": "923da65deb30bfad46e0104a9ddda96ce12824f21b33c94a3f0f84c09509433a"
+    },
+    {
+      "path": "RRM/evidence/M00-C/source-manifest.json",
+      "bytes": 12993,
+      "sha256": "5bdc547020b9a31fe2b96101fc7ffc9900339eb67c196e4c2f744c036b98a5fb"
+    },
+    {
+      "path": "RRM/evidence/M00-C/startup-source-records.json",
+      "bytes": 131648,
+      "sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+    },
+    {
+      "path": "RRM/evidence/M00-C/timing-analysis.json",
+      "bytes": 880,
+      "sha256": "0ad10b8da0ea2ecfee2a1e4722d60e82c0325967f4e9454f2671acc7fe1ceabe"
+    },
+    {
+      "path": "RRM/evidence/M00-C/timing-regression-tests.txt",
+      "bytes": 1227,
+      "sha256": "b8f31d0edceda156863cddfd1f15ec1513b7ab3c1cbe3bded713e1b5ec3ce854"
+    },
+    {
+      "path": "RRM/handoffs/M00C_HANDOFF.md",
+      "bytes": 4183,
+      "sha256": "eebe9a22f609a5755d1f89fee9ba5df74f9292689aae73d0a729d8561c35ca34"
+    },
+    {
+      "path": "RRM/scripts/m00c_analyze_startup.py",
+      "bytes": 11587,
+      "sha256": "1afab9772152c7530ceed1bf039a7bdc6f3faf4b8e815b0ecf989090decd359c"
+    },
+    {
+      "path": "RRM/scripts/m00c_collect_startup.py",
+      "bytes": 4119,
+      "sha256": "1fbb4c1b6d881002b4a9c36ea92c7a714dd5891a4fcd8f960e280075e37405d1"
+    },
+    {
+      "path": "RRM/scripts/validate_m00c.py",
+      "bytes": 13392,
+      "sha256": "5c52029b2776401e860093a8354fdb4d543c9814e754c9925da6755dbc8ba96d"
+    },
+    {
+      "path": "RRM/tests/test_m00c_timing.py",
+      "bytes": 3395,
+      "sha256": "c31cf1f2e724e63cd9ef1f035b9daede912bec3c2a80d5b686c5d94e8ef04998"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_CORRECTIVE_ACTION_PLAN.md",
+      "bytes": 5005,
+      "sha256": "931b6b763392f0649246a6c5eab0cbc52c39cb1c5510f8644cc0276e2f03a442"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_G0_REASSESSMENT.md",
+      "bytes": 4780,
+      "sha256": "ec6a5250a37db3796a902479d6118d84203eed27bff663ca8fd88e7767bf5e4d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_HYPOTHESIS_MATRIX.csv",
+      "bytes": 8654,
+      "sha256": "4f0e506f09be664253240ce7ca6c11a2e11bfc78dc861eecf8ee3b3e6a841c5b"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_ROOT_CAUSE_ANALYSIS.md",
+      "bytes": 8167,
+      "sha256": "6e05283805d39d286f12ebea78550ae463630cea837e8e28173a6dcadfc45d59"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_STARTUP_TIMELINE.csv",
+      "bytes": 8015,
+      "sha256": "35678f0f7cc9d80aa3f91f12ed6742862e84cced2e1155ab419e70b5e4558dde"
+    }
+  ],
+  "external_raw_artifacts_created": [],
+  "limits": "Existing original runtime logs may continue growing; retained snapshots preserve the analyzed bytes. Source inventory authenticates prior evidence against local files, not missing originals."
+}

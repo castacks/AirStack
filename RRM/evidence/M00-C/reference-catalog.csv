@@ -1,0 +1,15 @@
+reference_id,kind,location,availability,limitation
+REF01,LOCAL,RRM/evidence/M00-C/startup-source-records.json,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF02,LOCAL,RRM/evidence/M00-C/timing-analysis.json,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF03,LOCAL,RRM/evidence/M00-C/source-locations.json,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF04,LOCAL,RRM/evidence/M00-C/passive-readiness.json,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF05,LOCAL,RRM/verification/matrices/M00-B/M00B_FROZEN_RECORDS.csv,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF06,LOCAL,RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF07,LOCAL,RRM/verification/reports/M00-B/M00B_QUALIFICATION_FINDINGS.md,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF08,LOCAL,RRM/RRM-C001-F00-EXT/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF09,LOCAL,RRM/ROADMAP_MANDATE.md,EXISTS,Source authority/measurement scope as stated in referenced artifact
+REF10,LOCAL,RRM/PROJECT_STATUS.md,EXISTS,Source authority/measurement scope as stated in referenced artifact
+OSMO_WORKFLOW_LIFECYCLE_RECORD,EXTERNAL_DEPENDENCY,EXTERNAL:OSMO_WORKFLOW_LIFECYCLE_RECORD,UNAVAILABLE,Actual workflow identity/submission/outer-init timestamp and deployed outer-entrypoint source/hash not supplied
+GUARD_STARTUP_CALLBACK_AND_TRANSACTION_TRACE,EXTERNAL_DEPENDENCY,EXTERNAL:GUARD_STARTUP_CALLBACK_AND_TRANSACTION_TRACE,UNAVAILABLE,"Guard steady initialization, timer/state/ground callback/service transaction history not recorded"
+AUTHORITATIVE_F00_STARTUP_REQUIREMENT,EXTERNAL_DEPENDENCY,EXTERNAL:AUTHORITATIVE_F00_STARTUP_REQUIREMENT,UNAVAILABLE,Original F00/SRS startup timing allocation/budget not supplied; FR-07/10/14/19
+APPROVED_WP_GATE_ALLOCATION,EXTERNAL_DEPENDENCY,EXTERNAL:APPROVED_WP_GATE_ALLOCATION,UNAVAILABLE,Detailed approved F00 WP01–WP08/G1–G8 mapping absent; RA01 pending PD

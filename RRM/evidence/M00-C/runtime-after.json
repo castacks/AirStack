@@ -1,0 +1,49 @@
+{
+  "captured_utc": "2026-11-27T21:36:38.437079+00:00",
+  "containers": [
+    {
+      "name": "/isaac-sim-livestream",
+      "image": "sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf",
+      "started": "2026-11-27T18:41:25.413772267Z",
+      "restart_count": 0
+    },
+    {
+      "name": "/airstack-robot-desktop-1",
+      "image": "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290",
+      "started": "2026-11-27T18:41:26.092998749Z",
+      "restart_count": 0
+    },
+    {
+      "name": "/airstack-gcs-1",
+      "image": "sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e",
+      "started": "2026-11-27T18:41:24.673861086Z",
+      "restart_count": 0
+    }
+  ],
+  "processes": [
+    {
+      "container": "isaac-sim-livestream",
+      "pid": 210,
+      "start_ticks": 137874926,
+      "exe": "/isaac-sim/kit/python/bin/python3.11"
+    },
+    {
+      "container": "isaac-sim-livestream",
+      "pid": 975,
+      "start_ticks": 137887500,
+      "exe": "/isaac-sim/PX4-Autopilot/build/px4_sitl_default/bin/px4"
+    },
+    {
+      "container": "airstack-robot-desktop-1",
+      "pid": 20294,
+      "start_ticks": 137885338,
+      "exe": "/opt/ros/jazzy/lib/mavros/mavros_node"
+    },
+    {
+      "container": "airstack-robot-desktop-1",
+      "pid": 20295,
+      "start_ticks": 137885338,
+      "exe": "/root/AirStack/robot/ros_ws/build/robot_interface/robot_interface_node"
+    }
+  ]
+}

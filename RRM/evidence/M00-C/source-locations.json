@@ -1,0 +1,112 @@
+[
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 23,
+    "text": "  using Clock = std::chrono::steady_clock;"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 41,
+    "text": "  const Clock::time_point started_ = Clock::now();"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 42,
+    "text": "  double startup_timeout_ = 10.0;"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 67,
+    "text": "      state_.connected && !state_.armed &&"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 94,
+    "text": "        if (unsafe_seen_ || std::chrono::duration<double>(Clock::now() - started_).count() >= startup_timeout_) {"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 96,
+    "text": "          startup_reason_ = unsafe_seen_ ? \"UNSAFE_BEFORE_INITIALIZATION\" : \"STARTUP_DEADLINE\";"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 140,
+    "text": "      startup_timeout_ = node_.declare_parameter<double>(\"actuation_startup_timeout_s\", 10.0);"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 178,
+    "text": "    timer_ = node_.create_wall_timer(std::chrono::milliseconds(200),"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 182,
+    "text": "  bool ready() {"
+  },
+  {
+    "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+    "line": 184,
+    "text": "    return initialized_ && verified_at_ != Clock::time_point{} &&"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 16,
+    "text": "#   6. cd /root/AirStack && ./airstack.sh up"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 270,
+    "text": "reconcile_isaac_clock_epoch() {"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 300,
+    "text": "  local sim_started robot_started stale_robots=()"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 307,
+    "text": "    robot_started=$(docker inspect -f '{{.State.StartedAt}}' \"$robot_container\" 2>/dev/null)"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 308,
+    "text": "    if [ -n \"$robot_started\" ] && [[ \"$robot_started\" < \"$sim_started\" ]]; then"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 314,
+    "text": "    docker restart \"${stale_robots[@]}\" >/dev/null \\"
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 323,
+    "text": "  ./airstack.sh up || log \"WARN: airstack up exited non-zero \u2014 pod stays alive for debugging via SSH\""
+  },
+  {
+    "path": "osmo/workspace/entrypoint.sh",
+    "line": 326,
+    "text": "  log \"OSMO_AIRSTACK_UP=false \u2014 skipping airstack up; SSH in and run ./airstack.sh up manually\""
+  },
+  {
+    "path": "simulation/isaac-sim/launch_scripts/pegasus_app.py",
+    "line": 464,
+    "text": "        # This only creates the graph topology. The actual drones + PX4"
+  },
+  {
+    "path": "simulation/isaac-sim/launch_scripts/pegasus_app.py",
+    "line": 713,
+    "text": "            self.timeline.play()"
+  },
+  {
+    "path": "simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py",
+    "line": 498,
+    "text": "    def start(self):"
+  },
+  {
+    "path": "simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py",
+    "line": 527,
+    "text": "            self.px4_tool.launch_px4()"
+  }
+]

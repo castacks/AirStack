@@ -1,0 +1,17 @@
+{
+  "heartbeat_after_deadline_s_exact_decimal": "19.276162179",
+  "deadline_log_epoch_s": "1795805000.934741647",
+  "heartbeat_log_epoch_s": "1795805020.210903826",
+  "px4_process_after_interface_s": "21.62",
+  "prior_excerpt_lines_verified_in_original_logs": true,
+  "deadline_semantic_origin": "Px4ActuationGuard::started_ steady-clock non-static member initialization",
+  "deadline_origin_numeric_observed": false,
+  "timeout_s_observed_in_M00B_GetParameters": "10.0",
+  "limitation": "Producer log deltas assume no realtime discontinuity between events; no calibrated uncertainty/clock-step trace. Docker receipts and kernel ticks are not mixed; no inferred exact guard initialization UTC.",
+  "current_readiness_samples": 61,
+  "current_false_count": 61,
+  "current_status_values": [
+    "STARTUP_DEADLINE"
+  ],
+  "current_observed_utc": "2026-11-27T21:30:59.879056+00:00"
+}
