@@ -1,0 +1,62 @@
+{
+  "captured_utc": "2026-11-27T19:31:45.760661+00:00",
+  "probes": [
+    {
+      "argv": [
+        "docker",
+        "ps",
+        "--format",
+        "{{.Names}}\t{{.Image}}\t{{.Status}}"
+      ],
+      "exit_code": 0,
+      "stdout": "airstack-gcs-1\tairlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_gcs\tUp 50 minutes\nairstack-robot-desktop-1\tairlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev\tUp 50 minutes\nisaac-sim-livestream\tairlab-docker.andrew.cmu.edu/airstack/airstack\tUp 50 minutes\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "--format",
+        "{{.Name}} image={{.Image}} started={{.State.StartedAt}} ports={{json .NetworkSettings.Ports}}",
+        "isaac-sim-livestream",
+        "airstack-robot-desktop-1",
+        "airstack-gcs-1"
+      ],
+      "exit_code": 0,
+      "stdout": "/isaac-sim-livestream image=sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf started=2026-11-27T18:41:25.413772267Z ports={\"47998/udp\":null,\"49099/udp\":[{\"HostIp\":\"0.0.0.0\",\"HostPort\":\"49099\"},{\"HostIp\":\"::\",\"HostPort\":\"49099\"}],\"49100/tcp\":[{\"HostIp\":\"0.0.0.0\",\"HostPort\":\"49100\"},{\"HostIp\":\"::\",\"HostPort\":\"49100\"}]}\n/airstack-robot-desktop-1 image=sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290 started=2026-11-27T18:41:26.092998749Z ports={\"22/tcp\":[{\"HostIp\":\"0.0.0.0\",\"HostPort\":\"2223\"},{\"HostIp\":\"::\",\"HostPort\":\"2223\"}]}\n/airstack-gcs-1 image=sha256:9e44be1c0c38e297ba5b9fc463f472ca5c224091969f50e417825a412e61aa7e started=2026-11-27T18:41:24.673861086Z ports={\"22/tcp\":[{\"HostIp\":\"0.0.0.0\",\"HostPort\":\"2222\"},{\"HostIp\":\"::\",\"HostPort\":\"2222\"}],\"8765/tcp\":[{\"HostIp\":\"0.0.0.0\",\"HostPort\":\"8766\"},{\"HostIp\":\"::\",\"HostPort\":\"8766\"}]}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "exec",
+        "-e",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "isaac-sim-livestream",
+        "/isaac-sim/python.sh",
+        "-B",
+        "-c",
+        "import numpy; print(numpy.__version__)"
+      ],
+      "exit_code": 0,
+      "stdout": "1.26.4\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "docker",
+        "exec",
+        "isaac-sim-livestream",
+        "printenv",
+        "ISAAC_SIM_SCENE",
+        "ISAAC_SIM_STAGE_SCALE",
+        "ISAAC_SIM_SCRIPT_NAME"
+      ],
+      "exit_code": 1,
+      "stdout": "\n\n",
+      "stderr": ""
+    }
+  ],
+  "osmo_cli_available": false,
+  "osmo_state_file_present": false
+}

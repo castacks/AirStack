@@ -1,0 +1,9 @@
+# M00 technical-review handoff
+
+Review [assessment](../verification/reports/M00_ASSESSMENT.md), [G0](../verification/reports/M00_G0_READINESS.md), the [requirements](../verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv), [KPI](../verification/matrices/M00_KPI_MATRIX.csv), [IV&V](../verification/matrices/M00_IVV_MATRIX.csv) and [blocker](../verification/matrices/M00_BLOCKERS.csv) matrices, [operational assessment](../integration/M00_OPERATIONAL_ASSESSMENT.md) and [configuration comparison](../configurations/M00_CONFIGURATION_COMPARISON.md).
+
+Repository: castacks/AirStack, branch ore_proj. Parent baseline:169c83a58bbb387e9a9086ef49ca2dd5887a7eb7. Local commit message: `RRM-F00 M00: establish baseline and requirements assessment`. The final commit SHA and exact committed file list are recorded after creation in `RRM/evidence/M00/local-commit-receipt.json` (local, ignored to avoid a self-referential commit hash) and returned in chat. The committed files can also be obtained with `git show --format=fuller --stat HEAD` and `git diff-tree --no-commit-id --name-only -r HEAD`.
+
+The controlled input remains local and read-only, excluded from the engineering commit. Source/input/reference manifests and validation results are committed. Reproducing the input checks requires the same package accessible at its supplied path; the input has not been represented as a repository-owned requirements baseline.
+
+G0 recommendation: HOLD WP01 pending technical review. Obtain upstream frozen source/approval evidence, disposition configuration differences, and resolve the applicable blockers. No powered action, runtime repair, container image change, cloud release, outreach, HIL or REAL test occurred. No GitHub push occurred. Only the Program Director may push origin/ore_proj. No branch creation or history rewriting is authorized.

@@ -1,0 +1,120 @@
+{
+  "scope": "M00 repository/input/matrix integrity; no functional or independent IVV qualification",
+  "all_passed": true,
+  "checks": [
+    {
+      "check": "repository",
+      "passed": true,
+      "detail": "Origin URL compared"
+    },
+    {
+      "check": "branch",
+      "passed": true,
+      "detail": "Existing ore_proj"
+    },
+    {
+      "check": "history",
+      "passed": true,
+      "detail": "At baseline or one direct successor commit; no rewrite"
+    },
+    {
+      "check": "protected_tracked_content",
+      "passed": true,
+      "detail": {
+        "entries": 1871,
+        "changed": []
+      }
+    },
+    {
+      "check": "protected_reference_tree",
+      "passed": true,
+      "detail": {
+        "before": 648,
+        "after": 648
+      }
+    },
+    {
+      "check": "outside_workspace_status",
+      "passed": true,
+      "detail": {
+        "initial_status": "",
+        "current_outside": []
+      }
+    },
+    {
+      "check": "outside_workspace_diff",
+      "passed": true,
+      "detail": "Tracked diff to baseline empty outside RRM"
+    },
+    {
+      "check": "reference_source_hashes",
+      "passed": true,
+      "detail": {
+        "changed": []
+      }
+    },
+    {
+      "check": "controlled_input_unchanged",
+      "passed": true,
+      "detail": {
+        "input_files": 48,
+        "supplied_path": "/root/AirStack/RRM/RRM-C001-F00-EXT"
+      }
+    },
+    {
+      "check": "input_SHA256SUMS",
+      "passed": true,
+      "detail": {
+        "exit_code": 0,
+        "entries_ok": 26,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "input_RELEASE_MANIFEST.sha256",
+      "passed": true,
+      "detail": {
+        "exit_code": 0,
+        "entries_ok": 20,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "d2_row_and_acceptance_coverage",
+      "passed": true,
+      "detail": {
+        "source_rows": 29,
+        "mapped_rows": 29
+      }
+    },
+    {
+      "check": "matrix_cross_references",
+      "passed": true,
+      "detail": "One-to-one requirement, KPI and IVV mapping and exact criterion propagation"
+    },
+    {
+      "check": "no_claimed_campaign_passes",
+      "passed": true,
+      "detail": "All new measurements and IVV remain unperformed"
+    },
+    {
+      "check": "local_document_links",
+      "passed": true,
+      "detail": {
+        "broken": []
+      }
+    },
+    {
+      "check": "staged_path_scope",
+      "passed": true,
+      "detail": {
+        "staged_files": 29
+      }
+    },
+    {
+      "check": "staged_whitespace",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

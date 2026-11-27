@@ -1,0 +1,50 @@
+{
+  "observed_utc": "2026-11-27T19:31:28.045240+00:00",
+  "duration_wall_s": 10.029457859927788,
+  "ros_domain_id": 1,
+  "channels": {
+    "/clock": {
+      "count": 242,
+      "last_clock": {
+        "sec": 2177,
+        "nanosec": 869951320
+      },
+      "receipt_age_s": 3.332993946969509e-05
+    },
+    "/robot_1/sensors/front_stereo/left/image_rect": {
+      "count": 236,
+      "last_source_stamp": {
+        "sec": 2177,
+        "nanosec": 779951322
+      },
+      "last_dimensions": [
+        480,
+        300
+      ],
+      "last_data_bytes": 432000,
+      "receipt_age_s": 0.03542175004258752
+    },
+    "/robot_1/sensors/ouster/point_cloud_raw": {
+      "count": 77,
+      "last_source_stamp": {
+        "sec": 2177,
+        "nanosec": 749951323
+      },
+      "last_points": 12128,
+      "last_data_bytes": 145536,
+      "receipt_age_s": 0.10773234604857862
+    },
+    "/robot_1/vdb_mapping/vdb_map_visualization": {
+      "count": 0
+    },
+    "/robot_1/mavros/state": {
+      "count": 0
+    },
+    "/robot_1/interface/actuation_ready": {
+      "count": 50,
+      "last_value": false,
+      "receipt_age_s": 0.1102056079544127
+    }
+  },
+  "limitations": "Passive subscription sample only; topic names are candidates. Missing messages do not establish source absence. No physical ground truth, image interpretation, clock mapping, transport latency, readiness qualification or dispatch."
+}

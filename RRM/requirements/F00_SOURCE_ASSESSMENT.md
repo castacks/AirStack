@@ -1,0 +1,13 @@
+# F00 controlled-source assessment
+
+The initial missing-location blocker was resolved when the user supplied the package at `RRM/RRM-C001-F00-EXT/`. It was read in place and not modified. Both bundled hash manifests pass. The complete inventory is retained under `evidence/M00/controlled-package-manifest.json`.
+
+The supplied README identifies preparation P0 complete and verification not started. D1 calls this a PREPARATION DRAFT. D2 transcribes the frozen qualification matrix and SRS requirements, while E4 declares D2 the governing criteria for the EXT cards. These are the applicable supplied references; M00 does not certify unseen originals.
+
+Missing upstream inputs: `RRM-C001-F00/final_qualification_closure/F00_FINAL_QUALIFICATION_MATRIX.csv`, `RRM-SRS-001_v1.md`, sealed closure/amendment A1/A2 records, pending amendment A3 approval, REC-01 details and BOUNDARY REQ-01–06/C1–C3 source/evidence. EXT contains references and abbreviated hashes, which cannot authenticate those originals. Obtain read-only copies or verifiable access before claiming a reconciled frozen baseline.
+
+[Requirements reconciliation](../verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv) includes every D2 requirement row, retaining original requirement labels, acceptance text, result, source section and SIL/HIL/REAL applicability. Local MAP/KPI/IVV identifiers are traceability aids, not new authoritative requirement IDs. Compound D2 rows remain compound; no omitted clauses or new numerical tolerances are inferred. Source results remain NOT TESTED or out-of-scope dashes. Historic F00 PASS/PASS_REPORTED descriptions remain attributed and do not become new-campaign passes.
+
+Reconciliation: AUT-17 K1–K6 and AUT-16 T1–T5 map to successor measurement cards; inherited failsafes map separately from registered-boundary corrective tests; recorder independence and telemetry completeness remain admissibility gates; UAV-10/11/12 physical requirements retain level limits; survey rung 4 stays outside F00. EXT E9 decisions, dependencies and qualification blockers remain open. Prototype C01–C09/S01–S10 and SYS-REQ-001–011 are historical reasoning architecture references, not interchangeable with AUT/K/T/UAV/SAFE identifiers. No cross-baseline equivalence is asserted.
+
+Draft values are not adopted: D4 clock skew ≤5 ms, sampling rates, 100 ms gap allowance and retention; D2 REAL ground-truth accuracy; E5 MCU load/overrun criteria; UAV-09 trial design. D2 zero telemetry loss is not relaxed by D4's proposed gap threshold. E9-T2 describes 95% two-sided Wilson lower bound ≥0.99 per category, 381 zero-failure trials (563 with one failure), but seeds/timing/safe-state/trial-plan approval is still required. No pooling across fault categories.

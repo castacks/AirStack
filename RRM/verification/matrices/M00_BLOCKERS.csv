@@ -1,0 +1,11 @@
+blocker_id,finding,blocks,owner,closure_condition,status
+M00-B01,Upstream controlled originals unavailable,Technical baseline authentication,PD / requirements owner,"Supply read-only frozen qualification matrix, SRS, sealed amendments/receipts, REC-01 and BOUNDARY originals; authenticate hashes",OPEN
+M00-B02,Source and running executable identities differ from E4,CFG-SIL-01 equivalence,Codex / technical review,Approved successor configuration disposition with exact source/images/binaries/parameters; no tag-based substitution,OPEN
+M00-B03,actuation_ready=false in fresh passive sample,Execution readiness,AirStack technical owner / PD,Investigate under separately approved scope; demonstrate required readiness and physical-state evidence before execution,OPEN
+M00-B04,F00-01 recorder process health remains open,Qualification / evidence admissibility,Codex implementation then independent review,Successor REC-01 supervisor survives executor-parent kill; recorder crash and normal completion independently recorded,OPEN
+M00-B05,F00-02 horizontal/vertical registered boundary remains open,Boundary tests / qualification,Codex / Kiro / technical authority,Deliver BOUNDARY C1–C3 and reviewed REQ-01–06 evidence; preserve frozen DR-03/04/05 findings,OPEN
+M00-B06,EXT E9 release decisions unresolved,Provider release,PD / technical authority,"Resolve A1–A6, C1/A3 approval, C2 image integrity/redistribution and C4 runnable package; no provider release in M00",OPEN
+M00-B07,Draft thresholds and test definitions unresolved,Affected successor tests,Technical authority / PD,"Resolve E9 T1–T8 as applicable, including UAV09 unpooled plan, mocap equivalence and MCU criteria; retain D4 proposal status",OPEN
+M00-B08,Missing map/vehicle samples and runtime epoch/scene attestation,Integration evidence coverage,Future approved integration work,Resolve actual topic names/QoS and source/frame/clock/scene identity; fresh independent truth and evidence coverage,OPEN
+M00-B09,REAL safety/aircraft/environment decisions unresolved,REAL only,PD / provider,E9 S1–S4 plus staged TRR G5 and written authorization; not needed for documentation-only M00,OPEN
+M00-B10,M00 technical review not yet performed,WP01 entry / G0,Technical reviewer / Program Director,"Review M00 reports and accept scope, dependencies, unresolved blockers and proposed next work explicitly",OPEN

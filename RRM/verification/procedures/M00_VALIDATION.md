@@ -1,0 +1,10 @@
+# M00 validation procedure
+
+1. Confirm origin, branch, starting HEAD and initial status from repository-before.json. Preserve initial staged/unrelated paths. This run began clean.
+2. Verify supplied package SHA256SUMS and candidate release manifest in their own directories. Compare every input file with controlled-package-manifest.json. Do not run packaged scripts or apply packaged configurations.
+3. Confirm all D2 requirement rows map one-to-one into requirements/KPI/IVV matrices, with acceptance strings unchanged and no current performance or IV&V pass claim.
+4. Run `python3 -B RRM/scripts/validate_m00.py`. It checks protected tracked hashes/modes/gitlinks, all reference/input inventory entries, outside-RRM status, source identities, row coverage, local Markdown links and staged path scope. Any mismatch is a validation failure.
+5. Review RRM deliverables and unresolved blockers. Stage explicitly listed generated files only. The user input directory and local commit receipt are excluded by RRM/.gitignore. Inspect `git diff --cached --name-status` and `git diff --cached --check`; every staged path must start with RRM/ and belong to generated deliverables.
+6. Create a local commit with the authorized M00 message. Verify its parent equals starting HEAD, changed paths are confined to RRM, and the resulting working tree has no task-related changes. Record resulting SHA and exact committed paths in ignored local-commit-receipt.json and report to the user. No push.
+
+Scope: documentation/data validation and read-only runtime probes only. No regression suite was executed in RRM-transfer because its bootstrap creates dependencies there. No software, flight, HIL, independent IV&V or qualification acceptance is claimed. Hash comparisons do not cover ignored operational artifacts, submodule internal edits or entire container filesystems. Passive subscription infrastructure may produce ordinary ROS discovery traffic; no command publisher, goal, service request or mission was created.

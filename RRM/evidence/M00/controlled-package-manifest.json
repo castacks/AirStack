@@ -1,0 +1,264 @@
+{
+  "supplied_path": "/root/AirStack/RRM/RRM-C001-F00-EXT",
+  "user_confirmation": "User supplied package in RRM subdirectory during M00; accessed in place as read-only input.",
+  "files": [
+    {
+      "path": "F00_EXT_AWS_ACCESS_AND_SECURITY.md",
+      "bytes": 7284,
+      "sha256": "4ce8b9b1b1f34e74f8a8a61cc8d904a434b46a09779aa777fcefabdcd1539e6a"
+    },
+    {
+      "path": "F00_EXT_AWS_DATA_LAYOUT.md",
+      "bytes": 2263,
+      "sha256": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d"
+    },
+    {
+      "path": "F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md",
+      "bytes": 4821,
+      "sha256": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4"
+    },
+    {
+      "path": "F00_EXT_COST_AND_SCHEDULE_ESTIMATE.md",
+      "bytes": 4598,
+      "sha256": "684f301ae16897ff6a675838f1d239be697e46c04439094e99baa3818b4b5cc7"
+    },
+    {
+      "path": "F00_EXT_DATA_DELIVERY_SPECIFICATION.md",
+      "bytes": 5283,
+      "sha256": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d"
+    },
+    {
+      "path": "F00_EXT_DATA_REUSE_MATRIX.md",
+      "bytes": 3969,
+      "sha256": "d2ac919d7839f845792928c86a0ff6c938aa9e39b8829022ddafec90db521610"
+    },
+    {
+      "path": "F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md",
+      "bytes": 2240,
+      "sha256": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d"
+    },
+    {
+      "path": "F00_EXT_EXECUTIVE_DECISION_BRIEF.md",
+      "bytes": 6056,
+      "sha256": "faafd09008085fb4d23d6734d7f9c758c5e403c68e84915ae8b646a2702cabd7"
+    },
+    {
+      "path": "F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3633,
+      "sha256": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40"
+    },
+    {
+      "path": "F00_EXT_OPEN_DECISIONS.md",
+      "bytes": 5688,
+      "sha256": "1763f214075d2ce3885ccbb125d95b1399ca94c99018e6e1987ac123e9e9f205"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_CONFIGURATION_FORM.md",
+      "bytes": 2444,
+      "sha256": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_CONTACT_LOG.md",
+      "bytes": 2791,
+      "sha256": "955f101b5fb6af7d2e10881dde456bfe03ef05536d135e54bf8a38e32b474aca"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_EVALUATION_MATRIX.md",
+      "bytes": 2918,
+      "sha256": "109534232a6bf9f65919467c2b35a9c720decd3b15f226ae54b1e66667a2e7eb"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_HANDOFF_README.md",
+      "bytes": 3268,
+      "sha256": "f244a59322970350ae3d58ec5c1f7c980bced9b7402ea5a57c288ebefb5dcd22"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_QUICKSTART.md",
+      "bytes": 3791,
+      "sha256": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_REQUIREMENTS.md",
+      "bytes": 5198,
+      "sha256": "b6b1e8868ca3cefdcef849b5a8132f6e1a2b03b6efffbc97e7309300d8017cf3"
+    },
+    {
+      "path": "F00_EXT_PROVIDER_SHORTLIST.md",
+      "bytes": 8937,
+      "sha256": "3f34378945201e185e7b52231ce395df1f8c61dfb5041dd76d95c3b4a4fce0ea"
+    },
+    {
+      "path": "F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3651,
+      "sha256": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397"
+    },
+    {
+      "path": "F00_EXT_REQUEST_FOR_INFORMATION.md",
+      "bytes": 5230,
+      "sha256": "88d74af9a97cbcd54c66d23e143e8483f4c62854a1881076bab4024df8a6c494"
+    },
+    {
+      "path": "F00_EXT_REQUIREMENTS_TEST_MATRIX.md",
+      "bytes": 9391,
+      "sha256": "2042b3930ab1a03fb7893f97172f7c554ca5ede746ad03e6a04285e025f6f619"
+    },
+    {
+      "path": "F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 8316,
+      "sha256": "6f0a45d13c28d82bddf590b8d7fd9f5d06635fc92d05f0c01c48cfbe36220f44"
+    },
+    {
+      "path": "F00_EXT_SOURCES.md",
+      "bytes": 5074,
+      "sha256": "18e125634e8a7c8d0cb4dee666d88e987eee9df4acafcdd19484327cab263062"
+    },
+    {
+      "path": "F00_EXT_VERIFICATION_PLAN.md",
+      "bytes": 11344,
+      "sha256": "38881621745eb53932da9a39c40f1b2bd18cb295cb55f71ac48e054e657a93b0"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1143,
+      "sha256": "ae48fd6d0ecee15a42ab0c05bafe0445f16a7d850f42dc572187a170ca8d01e6"
+    },
+    {
+      "path": "SHA256SUMS",
+      "bytes": 2611,
+      "sha256": "5ae3c9cbcabd2434494597641a6e20b9ad6fa3e77fa1e3238b5117785c2526e4"
+    },
+    {
+      "path": "evidence/C2_AirStack_a6dad8ca_LICENSE.txt",
+      "bytes": 1711,
+      "sha256": "795c8184ed0d30f7d7b4dcf7f71361e5fefbaa61ac63ff61eb274a70204de466"
+    },
+    {
+      "path": "evidence/C2_image_6bdb5e2f_isaac-sim_LICENSE.txt",
+      "bytes": 49043,
+      "sha256": "e8a684e1278cc1de7a4b3fce180228f3195f02c3b208a5722122d95cce29ca20"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/RELEASE_MANIFEST.sha256",
+      "bytes": 2129,
+      "sha256": "f05473ca609e07d7c732a4067c3b37ed2131fef786faca3b5d5077029c7da74f"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/bridge.launch.xml",
+      "bytes": 173,
+      "sha256": "9d224a2c79cf9c93025d7978ffdd7de150a4ce8b65ada4904c325f7245f13020"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/compose.json",
+      "bytes": 3202,
+      "sha256": "3a6bb0610cf999e8cc1d5f5b784fb175ed8de8502ba8dc3e641b075eeca1b1c6"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/controller.launch.xml",
+      "bytes": 1186,
+      "sha256": "302fa3f0f3c0ed82cde783ded700d6685086673172453cbccf1d89a9bf06274d"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/fastdds.xml",
+      "bytes": 1346,
+      "sha256": "70561d8b76dad39595298057dff5febdf8fd4ea703f3565561ebcc78f2fc941c"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/fixedtraj_goal.yaml",
+      "bytes": 311,
+      "sha256": "2d099f7168b26a7356d14792ef3343147aed737dee843c900cbc26be875be344"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/assets/config/launch_r8.py",
+      "bytes": 4310,
+      "sha256": "40120029bd59e923ba7430dc1807c42057d6f84bde19eb7020a6d9bbe7471b0e"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/packages/README.md",
+      "bytes": 98,
+      "sha256": "cfcc5c8fdabe8abd1932847dcbbe4f8eaa0d0433b59efdb061b6e88bbf93effc"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_AWS_ACCESS_AND_SECURITY.md",
+      "bytes": 5091,
+      "sha256": "126ae5a08a4b433afbfd4cc730237c96f5fe1cfebd9e111e5b24930046f49c2c"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_AWS_DATA_LAYOUT.md",
+      "bytes": 2263,
+      "sha256": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md",
+      "bytes": 4821,
+      "sha256": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_DATA_DELIVERY_SPECIFICATION.md",
+      "bytes": 5283,
+      "sha256": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md",
+      "bytes": 2240,
+      "sha256": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3633,
+      "sha256": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_CONFIGURATION_FORM.md",
+      "bytes": 2444,
+      "sha256": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_HANDOFF_README.md",
+      "bytes": 942,
+      "sha256": "6cb037283e02a04ae8d922340e1c004fc1e26b1c7847f26954f5896693e637ea"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_QUICKSTART.md",
+      "bytes": 3791,
+      "sha256": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3651,
+      "sha256": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_REQUIREMENTS_TEST_MATRIX.md",
+      "bytes": 9231,
+      "sha256": "7909b2800c65b69fb610007c26bc19ce97660cff93fbc74e814fd0a646ab2fa5"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 8341,
+      "sha256": "b672551d1124e40eefd417c5911b3948f626ddf93036659b7906d665072eb26a"
+    },
+    {
+      "path": "release_staging/F00X-REL-001/procedures/RELEASE_NOTE.md",
+      "bytes": 1267,
+      "sha256": "5a52c8fc344d4fd3f260664e15f85d3d435b0981fce456518d9fe227aaaf0d67"
+    }
+  ],
+  "checks": [
+    {
+      "cwd": "/root/AirStack/RRM/RRM-C001-F00-EXT",
+      "manifest": "SHA256SUMS",
+      "exit_code": 0,
+      "stdout": "F00_EXT_AWS_ACCESS_AND_SECURITY.md: OK\nF00_EXT_AWS_DATA_LAYOUT.md: OK\nF00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md: OK\nF00_EXT_COST_AND_SCHEDULE_ESTIMATE.md: OK\nF00_EXT_DATA_DELIVERY_SPECIFICATION.md: OK\nF00_EXT_DATA_REUSE_MATRIX.md: OK\nF00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md: OK\nF00_EXT_EXECUTIVE_DECISION_BRIEF.md: OK\nF00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md: OK\nF00_EXT_OPEN_DECISIONS.md: OK\nF00_EXT_PROVIDER_CONFIGURATION_FORM.md: OK\nF00_EXT_PROVIDER_CONTACT_LOG.md: OK\nF00_EXT_PROVIDER_EVALUATION_MATRIX.md: OK\nF00_EXT_PROVIDER_HANDOFF_README.md: OK\nF00_EXT_PROVIDER_QUICKSTART.md: OK\nF00_EXT_PROVIDER_REQUIREMENTS.md: OK\nF00_EXT_PROVIDER_SHORTLIST.md: OK\nF00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md: OK\nF00_EXT_REQUEST_FOR_INFORMATION.md: OK\nF00_EXT_REQUIREMENTS_TEST_MATRIX.md: OK\nF00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md: OK\nF00_EXT_SOURCES.md: OK\nF00_EXT_VERIFICATION_PLAN.md: OK\nREADME.md: OK\nevidence/C2_image_6bdb5e2f_isaac-sim_LICENSE.txt: OK\nevidence/C2_AirStack_a6dad8ca_LICENSE.txt: OK\n",
+      "stderr": ""
+    },
+    {
+      "cwd": "/root/AirStack/RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001",
+      "manifest": "RELEASE_MANIFEST.sha256",
+      "exit_code": 0,
+      "stdout": "assets/config/bridge.launch.xml: OK\nassets/config/compose.json: OK\nassets/config/controller.launch.xml: OK\nassets/config/fastdds.xml: OK\nassets/config/fixedtraj_goal.yaml: OK\nassets/config/launch_r8.py: OK\npackages/README.md: OK\nprocedures/F00_EXT_AWS_ACCESS_AND_SECURITY.md: OK\nprocedures/F00_EXT_AWS_DATA_LAYOUT.md: OK\nprocedures/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md: OK\nprocedures/F00_EXT_DATA_DELIVERY_SPECIFICATION.md: OK\nprocedures/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md: OK\nprocedures/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md: OK\nprocedures/F00_EXT_PROVIDER_CONFIGURATION_FORM.md: OK\nprocedures/F00_EXT_PROVIDER_HANDOFF_README.md: OK\nprocedures/F00_EXT_PROVIDER_QUICKSTART.md: OK\nprocedures/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md: OK\nprocedures/F00_EXT_REQUIREMENTS_TEST_MATRIX.md: OK\nprocedures/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md: OK\nprocedures/RELEASE_NOTE.md: OK\n",
+      "stderr": ""
+    }
+  ],
+  "git_policy": "User-supplied input excluded from engineering commit; no files edited.",
+  "authority_limit": "EXT is a preparation package referencing frozen F00/SRS/BOUNDARY originals not included here. Hash match establishes package integrity against bundled manifests, not independent frozen-baseline authentication."
+}

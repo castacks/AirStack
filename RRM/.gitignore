@@ -1,0 +1,5 @@
+# Read-only user-supplied controlled input; integrity inventory is tracked.
+/RRM-C001-F00-EXT/
+/evidence/M00/local-commit-receipt.json
+__pycache__/
+*.pyc

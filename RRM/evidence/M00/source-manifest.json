@@ -1,0 +1,95 @@
+{
+  "algorithm": "SHA-256",
+  "sources": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 40037,
+      "sha256": "ba49022483f163171c07846a619c5d54f960ede4d32aaa61f357ea8d1d415ed7"
+    },
+    {
+      "path": ".env",
+      "bytes": 4690,
+      "sha256": "ce3bb389420f80d3614cfd7f2957ac1a9ab2b60a02e6a6095d9c0a3bbcf33380"
+    },
+    {
+      "path": "simulation/isaac-sim/docker/Dockerfile.isaac-ros",
+      "bytes": 8565,
+      "sha256": "3020c1ff6e2c4776ff4beb60f43082a4320259453c72c4b59f34bb2281150b26"
+    },
+    {
+      "path": "simulation/isaac-sim/docker/docker-compose.yaml",
+      "bytes": 11360,
+      "sha256": "67f46254fa10c4567a8532eb895f2ec7bedcd460957d416bb8398abddbf3b88e"
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-ore-proj.yaml",
+      "bytes": 3425,
+      "sha256": "7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1"
+    },
+    {
+      "path": "osmo/README.md",
+      "bytes": 14558,
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5"
+    },
+    {
+      "path": "docs/simulation/isaac_sim/index.md",
+      "bytes": 19349,
+      "sha256": "130f0fbc04976804c12fbee2e93f391914d276432c2b5f8b18c986f4be7e8ab3"
+    },
+    {
+      "path": "docs/robot/autonomy/integration_checklist.md",
+      "bytes": 13851,
+      "sha256": "c80ebe2f0ef88558d3241c1c66252813b8ffb800b61d5f8b44fbc0b0273836cf"
+    },
+    {
+      "path": "docs/robot/autonomy/system_architecture.md",
+      "bytes": 13316,
+      "sha256": "e3c3e1f9c7e7255bce5c04bafc4da186047c77034baf2741e2bd2d24436a5a9c"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/requirements.txt",
+      "bytes": 383,
+      "sha256": "9116a7b87c3293935c372b2e802c9f5107359e93d5414c3eb342705976fa3a4a"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/WORK_PHASES.md",
+      "bytes": 7058,
+      "sha256": "c84ec8f5750d26490ad70c36595ef25df9c6c145925fd66eee7d2e846814973f"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/scrum-8/architecture.md",
+      "bytes": 11348,
+      "sha256": "7ff894e16c9c32df85fa7dd29270c5ab1417bd840768ad3c5d9770bb32753672"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/scrum-8/evaluation.md",
+      "bytes": 16395,
+      "sha256": "a277d7b215a86ce9eb34be9993708d5afc384feed1546df62682c81e0259f1b0"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/scrum-8/end-to-end-status.md",
+      "bytes": 8488,
+      "sha256": "411d374dcd17aba1b3ebc9b7827b39a5ede41b6a946f409ff76b0fa610764683"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/docs/uav-current-status.md",
+      "bytes": 10633,
+      "sha256": "f7b1c67dee94b980605aa0f4ab3459c4ea3004ce0ad4318cec7f00fcfbd40850"
+    }
+  ],
+  "controlled_input": {
+    "expected_path": "/root/Downloads/RRM-C001-F00-EXT",
+    "supplied_path": "/root/AirStack/RRM/RRM-C001-F00-EXT",
+    "exists": true,
+    "status": "ASSESSED",
+    "inventory": "controlled-package-manifest.json",
+    "original_location_missing": true
+  },
+  "raw_artifacts": [],
+  "raw_artifact_policy": "No raw sensor recordings, images, models or caches created. Future external artifacts require immutable URI/path, byte count, SHA-256, capture epoch, owner, retention and accessibility in a reviewed evidence manifest."
+}

@@ -1,0 +1,19 @@
+# M00 engineering assessment
+
+M00 repository-control and assessment deliverables are prepared for technical review. **G0 recommendation: HOLD for WP01.** No execution, independent IV&V or F00 qualification is claimed.
+
+The existing castacks/AirStack checkout is on ore_proj at starting HEAD `169c83a58bbb387e9a9086ef49ca2dd5887a7eb7`; its working tree/index were initially clean. A new RRM workspace was created. The user amendment takes precedence over root notebook/MkDocs placement guidance; all new deliverables are confined to RRM. Protected tracked entries and all RRM-transfer files have a pre-change integrity inventory.
+
+The initially absent Downloads package was supplied by the user in RRM/RRM-C001-F00-EXT. It was assessed in place, left untouched and excluded from staging. Its 48 files total 238,449 bytes. Root manifest passes26/26 entries; staged-release manifest passes20/20. Both are local integrity checks against supplied manifests, not verification against independently obtained originals.
+
+All29 D2 requirement rows are reconciled one-to-one into requirements, KPI and IV&V matrices. They preserve criteria, applicability, source result, pending qualifiers and the out-of-scope survey row. The29 mappings include28 in-scope rows and1 out-of-scope row. No test outcome was promoted. KPI acceptance is inherited from the supplied source; no prototype numerical target supersedes F00. IV&V entries are future independent work, not Codex self-certification.
+
+Controlled limits retained include AUT17 5.0±0.3m hover, ≤0.3m overshoot, ≤0.5m drift, ≤15° tilt, ≤1rad/s yaw rate, ≤15s to90% target, and landed/disarmed outcome; AUT16 RMS≤0.5m and max≤1.0m cross-track, AGL error≤0.5m throughout, speed≤2.3m/s, ≤20° tilt through5s after completion and landed/disarmed outcome. These summaries are navigation aids; D2 acceptance strings in the reconciliation matrix govern and retain all qualifications. UAV09 confidence/trial design remains approval-dependent; the proposed two-sided design is381 zero-failure trials per category, unpooled. D2 zero telemetry loss is not weakened to D4's proposed100ms gap threshold.
+
+F00-01 independent recorder process status and F00-02 registered-boundary enforcement remain qualification blockers. EXT itself remains an unreleased preparation package: executable images and runnable R4/R5C composition are absent; upstream frozen sources, amendment approvals and BOUNDARY evidence are not included. M00 cannot close these findings or amend frozen F00, whose disposition remains CLOSED / FROZEN / QUALIFICATION BLOCKED.
+
+Runtime assessment observed NumPy1.26.4, camera/LiDAR traffic and published Foxglove/WebRTC ports. The passive capture received50 actuation_ready messages; its retained latest value was false. Intermediate values were not retained. VDB/vehicle candidate topics yielded no samples; state, map coverage, scene/epoch and physical readiness remain unqualified. Current source and image IDs differ from the supplied F00 reproduction reference. No historical fix was reapplied or service restarted.
+
+Validation is recorded in [M00 results](M00_VALIDATION_RESULTS.json), using the [validation procedure](../procedures/M00_VALIDATION.md). Checks cover repository/path boundaries, input/reference integrity and matrix/source consistency. No autonomy regressions, HIL, real flight, model inference or independent review ran. [Blockers](../matrices/M00_BLOCKERS.csv) identify owners and closure conditions. [G0](M00_G0_READINESS.md) separates M00 administrative completion from WP01 entry and qualification.
+
+Pre-commit validation caught CSV CRLF line endings and Markdown hard-break trailing spaces in the generated directive copy. These formatting issues were corrected under RRM and the checks rerun. The supplied input and protected files were unchanged.
