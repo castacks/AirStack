@@ -1,0 +1,11 @@
+# Prerequisite and G0 continuity
+
+**DESIGN REVIEW ONLY — NO CONSTRUCTION, DEPLOYMENT, OR TIER B EXECUTION AUTHORIZED**
+
+All20 original M00-E1A identifiers/requirements and current E1C dispositions preserved:3 SATISFIED document checks,8 UNSATISFIED,9 UNVERIFIED;17 unresolved; zero whole closures by E1D. The impact CSV traces each to its inherited source/closure evidence/owner and architectural effect. Proposed mitigation, review completion and checksums do not demonstrate actual controls or close prerequisites.
+
+All original M00-B01–B10 remain open under the unchanged E1C blocker register: B01 authentic originals; B02 configuration equivalence; B03 startup readiness; B04 REC-01; B05 BOUNDARY; B06 image/release rights/A3/assets; B07 criteria/technical decisions; B08 scene/truth/frame/clock integration gaps; B09 REAL-only safety authority; B10 independent review/PD progression. E1D adds decision/owner/measurement detail but no original blocker closure. Existing property-level matches do not establish whole-baseline equivalence.
+
+G0 remains BLOCKED BY EXTERNAL INPUT with engineering blockers. RA01 PENDING PD REVIEW. WP01 NOT AUTHORIZED. Target designation UNVERIFIED. PD configuration-change decision pending; no approval field populated. Requirements remain29 mapped D2 rows,28 in-scope NOT_TESTED,1 OUT_OF_SCOPE; zero verified/failed/qualified. Original F00 remains CLOSED / FROZEN / QUALIFICATION BLOCKED; roadmap and supplied criteria unchanged. Diagnostic investigation, equivalent configuration and qualified baseline remain separate claims. No Tier B/C execution, implementation, startup/restart or external owner delivery occurred.
+
+Smallest proposed next engineering milestone, subject to a new directive: **M00-E1E owner-evidence and exact offline design disposition**. PD routes the prepared six-item existing-record RFI, appoints owners and reviews C's claim limits; then an explicitly authorized offline scope can bind source/executor/API/clock/queue/security/resource manifests and review concrete diffs without applying protected changes or building/starting. This name and scope are a proposal, not an authorized work package. Construction, deployment, inert active tests and startup trials require separate exact decisions after evidence review; no immediate M00-E2 or WP01 progression.

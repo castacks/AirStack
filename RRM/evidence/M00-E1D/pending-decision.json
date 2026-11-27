@@ -1,0 +1,17 @@
+{
+  "recommendation": "PREFER_SEPARATED_SAFETY_AND_DIAGNOSTIC_COMPONENTS",
+  "selected_option": null,
+  "approved_scope": null,
+  "conditions": null,
+  "date": null,
+  "authorization_reference": null,
+  "target_designation": "UNVERIFIED",
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "active_verification_authorized": false,
+  "tier_b_authorized": false,
+  "tier_c_authorized": false,
+  "wp01_authorized": false,
+  "external_owner_requests_sent": 0,
+  "whole_prerequisite_closures": 0
+}

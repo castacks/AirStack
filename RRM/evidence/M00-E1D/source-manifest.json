@@ -1,0 +1,220 @@
+{
+  "kind": "INHERITED_READ_ONLY_NOT_CURRENT_RUNTIME",
+  "files": [
+    {
+      "path": "RRM/ROADMAP_MANDATE.md",
+      "bytes": 12640,
+      "sha256": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57"
+    },
+    {
+      "path": "RRM/evidence/M00-C/startup-source-records.json",
+      "bytes": 131648,
+      "sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+    },
+    {
+      "path": "RRM/evidence/M00-E1C/M00E1C_PREREQUISITE_IMPACT.csv",
+      "bytes": 10200,
+      "sha256": "66921288b9395694e0f54c908f869d6fa257a5e8405d381ee4cd4d4d433282d0"
+    },
+    {
+      "path": "RRM/handoffs/M00E1C_HANDOFF.md",
+      "bytes": 5296,
+      "sha256": "0db103a8f35ccd0828c6671d26da40d1b4baf556b8d49c2bb910f49d049619df"
+    },
+    {
+      "path": "RRM/requirements/F00_SOURCE_ASSESSMENT.md",
+      "bytes": 2761,
+      "sha256": "aabf875d542cd9736fd565acfe5ae8df0d33d9614599f8fb584f1c829e5c56b1"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_BLOCKER_REGISTER.csv",
+      "bytes": 7410,
+      "sha256": "8fa1ba3852c4f00f4042624a0e55f2167d356dae2df90306a434be363ed307af"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv",
+      "bytes": 10812,
+      "sha256": "5f010a082b39bcc84dd5045557cb9e69ae4ee71334ec6df24e77c067d72f092e"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_FROZEN_RECORDS.csv",
+      "bytes": 9942,
+      "sha256": "6dc0be6cbdc19de9eb4a75a6a798782b97742bcb1088e9d528cebfc78ae6bfc2"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_REQUIREMENTS_IMPACT.csv",
+      "bytes": 16815,
+      "sha256": "e3bcb788a364c9bfa18a033f28b30b6b7936e1d2707b9a9b6a09bf93bc9bb68a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_DEPENDENCY_GRAPH.md",
+      "bytes": 3215,
+      "sha256": "8591da534f9a9af5a0535542f373dbd461505d8aeb15f7266b36044347d4a106"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_G0_REASSESSMENT.md",
+      "bytes": 5338,
+      "sha256": "308903043c7b642be6ba5f743cb188e414e91976daf62cdac78798b7e0f4ba0d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_HYPOTHESIS_MATRIX.csv",
+      "bytes": 7059,
+      "sha256": "d3a4ff8307da7e6ad1c18f0aacb59df7de71a91f3a4a6a4836b665ebffeaf80f"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_INSTRUMENTATION_PLAN.md",
+      "bytes": 3682,
+      "sha256": "a78d0ec48c34c9c6471bead70208f479b732a0484a57c158f57cd4b417359f33"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_LATENCY_CHARACTERIZATION.md",
+      "bytes": 5481,
+      "sha256": "1673ff7d29dfed95f30de7cdbf6552b2380a323efbd16254a6c9978dd5218a4e"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_CONFIGURATION_CLOSURE.csv",
+      "bytes": 16581,
+      "sha256": "9e1a2b16c12c920bb8b719cb6d1454fa57ba653148aa73f9e2e8c60862289567"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_FINAL_TRIAL_MATRIX.csv",
+      "bytes": 61213,
+      "sha256": "2d07e9370b9de6f64282b1b3b011fff12c2ec0a16712c56d286cf04a69df6152"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_G0_CONTINUITY.md",
+      "bytes": 2919,
+      "sha256": "ff09b40a21fccec79d62d6008165a0149fbed4a19e6a3fd59d656f72b51d7704"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_INSTRUMENTATION_READINESS.csv",
+      "bytes": 7272,
+      "sha256": "a38815801eed07ec4101654ecd7d5f5a3b107a4cf8d0857ca5bf3be384adb710"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_ISOLATION_ASSURANCE.md",
+      "bytes": 4219,
+      "sha256": "afcb3119af89636306231990f46808ef3860c64e875e808c1778bcf961d46b24"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_MATRIX_REVIEW.md",
+      "bytes": 3950,
+      "sha256": "a59236d1c68d2fbe0f30ac2203472a3a7ee3987b9a131af88e3ae2ab12112586"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_PD_DECISION_SHEET.md",
+      "bytes": 4598,
+      "sha256": "f36e78fcb5d6294f14d2f3d6f2d78eac8cdfe97215907a0b796270842fbf0d1c"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_SAFETY_READINESS.md",
+      "bytes": 6388,
+      "sha256": "c5a6556355ea9ad60bc95435d698c5ba686ae2b9487db720b9916b20a296eb10"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_CONFIGURATION_TRACEABILITY.csv",
+      "bytes": 9912,
+      "sha256": "9ece52334a3d2bebf8b8dae165b0f997596212ce98088ad80af973f8209103be"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ENVIRONMENT_INVENTORY.md",
+      "bytes": 5584,
+      "sha256": "380214d3cec9dddac6ab0652db69f9efbdbc8d357f013a8112f0350b3fdb1113"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_EXPOSURE_REGISTER.csv",
+      "bytes": 7186,
+      "sha256": "bd0507f5dc0409cd7ff74c5d6a401ab582d7c3866a34b98a8fa51b39e12786f1"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_INSTRUMENTATION_ASSESSMENT.md",
+      "bytes": 4909,
+      "sha256": "0e4c5e4610b44d053528e79e7ce42fceb8304ef1850515b81a0f6cfd4a4b9fad"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ISOLATION_BOUNDARY.md",
+      "bytes": 3779,
+      "sha256": "6d400670daca3e242cab346a1c9aa1da800f75e82a889bbc750eb580aa6f1721"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_READINESS_DISPOSITION.md",
+      "bytes": 4440,
+      "sha256": "fd37c5de09ab4785cad4c8fc8e748b14789bd849013fe3ea6b4feabefe44232d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_CONFIGURATION_MANIFEST_SPEC.md",
+      "bytes": 5088,
+      "sha256": "5f49dd5a2e74a255e6063e4944236ad96868352c4b04aaf4e59898d143094d0a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_DESIGN_ACCEPTANCE_CHECKLIST.csv",
+      "bytes": 6187,
+      "sha256": "d00cb161ad3eaf0e936f30c12962ab3d3c817927080101af4bcf6c3f09f6006b"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_ENVIRONMENT_OWNER_MATRIX.csv",
+      "bytes": 5107,
+      "sha256": "ebbd2f252f2d9ba288d34dc49cd882b36976eacdead5f50d928a6eab2f57ca60"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_EVENT_CATALOG.csv",
+      "bytes": 5715,
+      "sha256": "c508e37d385db020574aec8a380a801b7265f1ced0e66e58baabf5b1645113a3"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_EXISTING_VS_INDEPENDENT.csv",
+      "bytes": 6384,
+      "sha256": "cff7209f46100864e929f1226d50fd27ec123205a6dba0295b0ca086ba57b59d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_G0_CONTINUITY.md",
+      "bytes": 2413,
+      "sha256": "ba1935ae4084c37a0242263f7a2d16a108f88f8787974cfec55558c7b1096a52"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_INSTRUMENTATION_ARCHITECTURE.md",
+      "bytes": 5437,
+      "sha256": "a81a3413f8952f4dd38ef69fc64a41835c1071138addb875f3e41bcb0de59016"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_ISOLATION_CONTROL_MATRIX.csv",
+      "bytes": 10705,
+      "sha256": "a6948a824c72f80bd941322687c1184ec1e754a735b4b4da057168cbae5fec2a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_OWNER_EVIDENCE_ITEMS.csv",
+      "bytes": 5112,
+      "sha256": "0b3adc6f1c551e6eb8ad0bc3ba2def5c0ff1ce66d3974413f453e4e66aabf747"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_OWNER_EVIDENCE_REQUEST.md",
+      "bytes": 5542,
+      "sha256": "7840df2b989231a0dc92c317dd9e653e22b321c9d185249834ada10a47c00f87"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_PD_ARCHITECTURE_DECISION.md",
+      "bytes": 6806,
+      "sha256": "787bcba22d9b0c821b31881a85686317442fe2bfdb7c1269861cdf5416affb81"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_RIG_ARCHITECTURE.md",
+      "bytes": 10039,
+      "sha256": "3bb37bc11b1f8531d64c0af67c666c862bd302bcf807e3a0e02cc9109b9b8692"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "bytes": 9493,
+      "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/src/mavros_interface.cpp",
+      "bytes": 35957,
+      "sha256": "b582c618a030bd2c6ae75c94c447c3863c5d46c77e5a4cd9d04e964c256ff79b"
+    }
+  ]
+}
