@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "scope": "offline_cpu_only",
+  "date_utc": "2026-11-27",
+  "base_commit": "0eb2b159a",
+  "native_contract": {
+    "isaac_sim": "5.1.0",
+    "replicator": "1.12.27",
+    "public_camera_source_sha256": "f5392a11c22e460e979c19a2ddcef505ba88a9908fd3a9a09069bb833f8438ce",
+    "frame_identity": "Native ReferenceTime numerator and denominator in each separate writer packet on one render product",
+    "max_render_attempts": 8,
+    "native_runtime_verified": false
+  },
+  "tests": {
+    "r3_passed": 17,
+    "r2_passed": 10
+  },
+  "mock_association_trace": {
+    "source": "CPU test doubles",
+    "events": [
+      {
+        "attempt": 1,
+        "status": "STARTED"
+      },
+      {
+        "attempt": 1,
+        "status": "FRAME_MISMATCH",
+        "depth": {
+          "reference": [
+            7,
+            60
+          ],
+          "shape": [
+            25,
+            33
+          ],
+          "dtype": "float32",
+          "status": "valid"
+        },
+        "instances": {
+          "reference": [
+            8,
+            60
+          ],
+          "shape": [
+            25,
+            33
+          ],
+          "dtype": "uint32",
+          "status": "valid"
+        }
+      },
+      {
+        "attempt": 2,
+        "status": "STARTED"
+      },
+      {
+        "attempt": 2,
+        "status": "PAYLOAD_NOT_READY",
+        "depth": {
+          "reference": [
+            8,
+            60
+          ],
+          "shape": [
+            25,
+            33
+          ],
+          "dtype": "float32",
+          "status": "valid"
+        },
+        "instances": {
+          "reference": null,
+          "shape": null,
+          "dtype": null,
+          "status": "missing"
+        }
+      },
+      {
+        "attempt": 3,
+        "status": "STARTED"
+      },
+      {
+        "attempt": 3,
+        "status": "READY",
+        "depth": {
+          "reference": [
+            9,
+            60
+          ],
+          "shape": [
+            25,
+            33
+          ],
+          "dtype": "float32",
+          "status": "valid"
+        },
+        "instances": {
+          "reference": [
+            9,
+            60
+          ],
+          "shape": [
+            25,
+            33
+          ],
+          "dtype": "uint32",
+          "status": "valid"
+        },
+        "association": {
+          "source": "replicator_writer_reference_time",
+          "depth_reference": [
+            9,
+            60
+          ],
+          "instance_reference": [
+            9,
+            60
+          ],
+          "rendering_time_s": 0.15,
+          "attempt": 3
+        }
+      }
+    ]
+  },
+  "checks": {
+    "mismatched_or_unverified_native_references": "PASS",
+    "bounded_missing_or_malformed_payload_handling": "PASS",
+    "same_reference_and_valid_payload_acceptance": "PASS",
+    "logged_exception_and_incomplete_shutdown_rejection": "PASS",
+    "completion_marker_and_artifact_hashes": "PASS",
+    "r1_r2_retained_manifest_and_frozen_m05_m08_integrity": "PASS",
+    "pinned_runtime_writer_payload_and_returning_shutdown": "NOT_RUN"
+  }
+}
