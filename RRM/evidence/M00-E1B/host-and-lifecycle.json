@@ -1,0 +1,65 @@
+{
+  "captured_utc": "2026-11-27T22:24:11.651334+00:00",
+  "clock_ticks_per_second": 100,
+  "self_cgroup": "0::/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640/45b73065bf664be5f2027b458076230e030d10cecb5214f79011832751570a70\n",
+  "visible_enclosing_limits": {
+    "cpu.max": "1000000 100000",
+    "memory.max": "51539607552",
+    "memory.swap.max": "0",
+    "cpuset.cpus.effective": "0-47"
+  },
+  "container_namespaces": {
+    "/isaac-sim-livestream": {
+      "net": "net:[4026534850]",
+      "pid": "pid:[4026534845]",
+      "mnt": "mnt:[4026534842]",
+      "user": "user:[4026531837]"
+    },
+    "/airstack-robot-desktop-1": {
+      "net": "net:[4026535190]",
+      "pid": "pid:[4026535188]",
+      "mnt": "mnt:[4026535185]",
+      "user": "user:[4026531837]"
+    },
+    "/airstack-gcs-1": {
+      "net": "net:[4026534765]",
+      "pid": "pid:[4026534763]",
+      "mnt": "mnt:[4026534760]",
+      "user": "user:[4026531837]"
+    }
+  },
+  "after_lifecycle": {
+    "argv": [
+      "docker",
+      "inspect",
+      "--format",
+      "{\"id\":{{json .Id}},\"started\":{{json .State.StartedAt}},\"restarts\":{{.RestartCount}},\"pid\":{{.State.Pid}}}",
+      "isaac-sim-livestream",
+      "airstack-robot-desktop-1",
+      "airstack-gcs-1"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"id\":\"9f2da7b82b6bf4b22d2a2cbed2f680d11755a31abc0d409fae4fb3b96efb36aa\",\"started\":\"2026-11-27T18:41:25.413772267Z\",\"restarts\":0,\"pid\":37812}\n{\"id\":\"9f7f06a9bed31ab952291823512f563cac36e0e42efa1799a9277d20e0b8d269\",\"started\":\"2026-11-27T18:41:26.092998749Z\",\"restarts\":0,\"pid\":38229}\n{\"id\":\"7d1f67fa7010da3991d92a0a7a8c0383f0d23528648550df7507dfbb58ae181c\",\"started\":\"2026-11-27T18:41:24.673861086Z\",\"restarts\":0,\"pid\":37584}\n",
+    "stderr": ""
+  },
+  "target_designation": "UNVERIFIED",
+  "credential_exclusion": "OSMO login.yaml/config.yaml contents not read",
+  "known_record_locations": [
+    {
+      "path": "/root/RRM-C001-F00",
+      "exists": false
+    },
+    {
+      "path": "/root/Downloads/RRM-C001-F00",
+      "exists": false
+    },
+    {
+      "path": "/root/.airstack/osmo-state",
+      "exists": false
+    },
+    {
+      "path": "/root/AirStack/RRM/RRM-C001-F00-EXT",
+      "exists": true
+    }
+  ]
+}

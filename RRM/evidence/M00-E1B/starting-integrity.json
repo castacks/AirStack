@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "sha256sum",
+        "-c",
+        "RRM/evidence/M00-E1A/SHA256SUMS"
+      ],
+      "exit_code": 0,
+      "stdout": "RRM/PROJECT_STATUS.md: OK\nRRM/evidence/M00-E1A/.gitignore: OK\nRRM/evidence/M00-E1A/EXECUTION_DIRECTIVE.md: OK\nRRM/evidence/M00-E1A/M00E1A_BLOCKER_DISPOSITION.csv: OK\nRRM/evidence/M00-E1A/M00E1A_CHANGED_FILES.txt: OK\nRRM/evidence/M00-E1A/M00E1A_EVIDENCE_MANIFEST.json: OK\nRRM/evidence/M00-E1A/M00E1A_PREREQUISITE_REGISTER.csv: OK\nRRM/evidence/M00-E1A/command-results.json: OK\nRRM/evidence/M00-E1A/host-limits.json: OK\nRRM/evidence/M00-E1A/input-inventory.json: OK\nRRM/evidence/M00-E1A/local-config-source.json: OK\nRRM/evidence/M00-E1A/offline-tests-first.txt: OK\nRRM/evidence/M00-E1A/offline-tests.txt: OK\nRRM/evidence/M00-E1A/offline-timing-replay.json: OK\nRRM/evidence/M00-E1A/passive-after.json: OK\nRRM/evidence/M00-E1A/passive-before.json: OK\nRRM/evidence/M00-E1A/pending-decision.json: OK\nRRM/evidence/M00-E1A/repository-before.json: OK\nRRM/evidence/M00-E1A/scope-audit.json: OK\nRRM/evidence/M00-E1A/source-manifest.json: OK\nRRM/evidence/M00-E1A/starting-integrity.json: OK\nRRM/evidence/M00-E1A/validation-attempts.json: OK\nRRM/handoffs/M00E1A_HANDOFF.md: OK\nRRM/scripts/m00e1a_analyze.py: OK\nRRM/scripts/m00e1a_inspect.py: OK\nRRM/scripts/validate_m00e1a.py: OK\nRRM/tests/test_m00e1a_analyze.py: OK\nRRM/verification/reports/M00-E1A/M00E1A_CONFIGURATION_CLOSURE.csv: OK\nRRM/verification/reports/M00-E1A/M00E1A_FINAL_TRIAL_MATRIX.csv: OK\nRRM/verification/reports/M00-E1A/M00E1A_G0_CONTINUITY.md: OK\nRRM/verification/reports/M00-E1A/M00E1A_INSTRUMENTATION_READINESS.csv: OK\nRRM/verification/reports/M00-E1A/M00E1A_ISOLATION_ASSURANCE.md: OK\nRRM/verification/reports/M00-E1A/M00E1A_MATRIX_REVIEW.md: OK\nRRM/verification/reports/M00-E1A/M00E1A_PD_DECISION_SHEET.md: OK\nRRM/verification/reports/M00-E1A/M00E1A_SAFETY_READINESS.md: OK\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00d_characterize.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"startup_episode_count\": 1,\n  \"new_startup_trials\": 0,\n  \"measured_characterization_intervals\": 12,\n  \"missing_measurements\": 7,\n  \"independent_deadline_interval_s\": \"19.276162179\",\n  \"startup_variability\": \"NOT_ESTIMABLE_N1; no standard deviation, p95 or confidence interval reported\",\n  \"tier_executed\": \"A_OFFLINE_AND_READ_ONLY_METADATA_ONLY\",\n  \"acceptance_thresholds_created\": false\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00e1a_analyze.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"source\": \"RRM/evidence/M00-C/startup-source-records.json\",\n  \"startup_episodes\": 1,\n  \"heartbeat_messages_in_retained_log\": 4,\n  \"later_reconnections_are_trials\": false,\n  \"measurements\": [\n    {\n      \"measurement_id\": \"L11\",\n      \"seconds\": \"19.276162179\",\n      \"domain\": \"ROS_PRODUCER_EPOCH\",\n      \"start\": {\n        \"domain\": \"ROS_PRODUCER_EPOCH\",\n        \"time\": \"1795805000.934741647\",\n        \"episode\": \"20261127_STARTUP_01\",\n        \"boot\": \"f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc\",\n        \"source\": \"#/original_ros_logs/logs/0/text:line1\",\n        \"raw_line\": \"[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE\"\n      },\n      \"stop\": {\n        \"domain\": \"ROS_PRODUCER_EPOCH\",\n        \"time\": \"1795805020.210903826\",\n        \"episode\": \"20261127_STARTUP_01\",\n        \"boot\": \"f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc\",\n        \"source\": \"#/original_ros_logs/logs/1/text:line158\",\n        \"raw_line\": \"[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\"\n      },\n      \"interpretation_limit\": \"First recorded MAVROS connection minus deadline error, not total PX4 startup; historical n=1, clock calibration/buffering uncertainty unmeasured; not an acceptance threshold\"\n    },\n    {\n      \"measurement_id\": \"L03\",\n      \"seconds\": \"74.228771713\",\n      \"domain\": \"DOCKER_RECEIPT_UTC\",\n      \"start\": {\n        \"domain\": \"DOCKER_RECEIPT_UTC\",\n        \"time\": \"1795804929.695796205\",\n        \"episode\": \"20261127_STARTUP_01\",\n        \"boot\": \"f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc\",\n        \"source\": \"#/filtered_logs/0/records/341/text\",\n        \"raw_line\": \"2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete\"\n      },\n      \"stop\": {\n        \"domain\": \"DOCKER_RECEIPT_UTC\",\n        \"time\": \"1795805003.924567918\",\n        \"episode\": \"20261127_STARTUP_01\",\n        \"boot\": \"f6d84e23-ffb3-4d65-8ea9-5ba1e59e16fc\",\n        \"source\": \"#/filtered_logs/0/records/357/text\",\n        \"raw_line\": \"2026-11-27T18:43:23.924567918Z \\u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph.\"\n      },\n      \"interpretation_limit\": \"Broad application-complete to graph receipt interval, not exclusive scene latency; historical n=1, clock calibration/buffering uncertainty unmeasured; not an acceptance threshold\"\n    }\n  ],\n  \"new_startup_trials\": 0,\n  \"execution_authorized\": false,\n  \"acquisition_readiness_verified\": false,\n  \"requirement_verdict\": \"NOT_ASSESSED\"\n}\n",
+      "stderr": ""
+    }
+  ],
+  "starting_discrepancies": [],
+  "prior_full_validator": "E1A full validator passed before successor writes; successor validation uses pinned hashes, never reruns old exact-package horizon against new files."
+}

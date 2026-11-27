@@ -1,0 +1,192 @@
+{
+  "algorithm": "SHA-256",
+  "parent_commit": "df8ebd18a6e16909cca461e18dfba882b53c8120",
+  "scope": "Exact E1B passive-investigation package and authorized status update; no target designation/execution",
+  "files": [
+    {
+      "path": "RRM/PROJECT_STATUS.md",
+      "bytes": 8536,
+      "sha256": "7c6413697abe63ab7d623b557b83b8e715853c7f92a2b498893f96acb52dfbbc"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/.gitignore",
+      "bytes": 27,
+      "sha256": "2d9ed3052e450b6bcea6666933c689919c73cc9393536f8fc7d8b8518872b8da"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/EXECUTION_DIRECTIVE.md",
+      "bytes": 12922,
+      "sha256": "ceff0d9deb3058ed4a179ed79f40e68aab852012bab553ff7bc3f7648a51d798"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/M00E1B_BLOCKER_DISPOSITION.csv",
+      "bytes": 21029,
+      "sha256": "911828563e0f4067e5dc7b28855422dfad7e5ad91460bf937083ea13d8a39bb5"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/M00E1B_CHANGED_FILES.txt",
+      "bytes": 1791,
+      "sha256": "e57f236dfe9c4cae9d5b26628cf4043f4013c942bf0a8be67d921aba91244484"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/M00E1B_PASSIVE_EVIDENCE_INDEX.csv",
+      "bytes": 4184,
+      "sha256": "ebdc0c4b3fe081ebb3900f1ae7690bd74c463d629047aac0525b351dd12d299b"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/M00E1B_PREREQUISITE_DELTA.csv",
+      "bytes": 21422,
+      "sha256": "5e3dcd12ef55079052d62b6c366c83ee839d006c03d1d728adc65914594269af"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/TARGET_CLARIFICATION.md",
+      "bytes": 1135,
+      "sha256": "de16e9db6d7d01e754c0c404c3e22b0102e24c86665a5e84c0ebe8d482eca36f"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/command-results.json",
+      "bytes": 2303,
+      "sha256": "19784e74bd5f4440001ec46bb1fad16b1e403cdad39c23e68b0deee2507fce96"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/discovery-findings.json",
+      "bytes": 6545,
+      "sha256": "4b13f3925b3abe954351ea15d704047122bad59f9db23ef1b66c13c89129f770"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/historical-d-replay.json",
+      "bytes": 715,
+      "sha256": "c401ce9aad5985910d284a9e6f19423a9ec9dbc650face31d22958528c73b912"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/historical-e1a-replay.json",
+      "bytes": 3043,
+      "sha256": "b79c2eb2f8480084df4d20299926b01502646c9adad0b66768449da2a66482d0"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/host-and-lifecycle.json",
+      "bytes": 2245,
+      "sha256": "d647c06e6ec2b870c4accff005f4cdfaf2c405a702602c2d242ef33532f032ae"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/input-inventory.json",
+      "bytes": 9805,
+      "sha256": "9e46e57f43e24638b77593eb1276f3c476bb911318badac40c112eb0e9dc259e"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/installed-artifacts.json",
+      "bytes": 72824,
+      "sha256": "3814e11c4fb23709a49f57e3cede72c757ed8f2645c4cbcaf7c92d1d8d5bf8b9"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/offline-tests-initial12.txt",
+      "bytes": 1491,
+      "sha256": "3a439a7d1c29e14ea19e0163e63a066ec0467ba94b54f6c825d6ba3c9297195f"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/offline-tests.txt",
+      "bytes": 1613,
+      "sha256": "b3a6538727dfe77c6bae851da4948fa3a42db7906228c04bf694d2e6abd9ee8a"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "bytes": 364488,
+      "sha256": "57b0873ab95d99875d17c44d0548f8d23260d8def630329d54e296e33a9df149"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/repository-before.json",
+      "bytes": 417451,
+      "sha256": "a8299d6bed059403143cf5ec66dd3de018feefa7b7dc04e24652ddb9c509cd26"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/scope-audit.json",
+      "bytes": 1299,
+      "sha256": "6e546523d6fe470d786c3c7c80498003eccb939e681d2b385ec37ff08bd83c2f"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/source-manifest.json",
+      "bytes": 25001,
+      "sha256": "689801f1376bb2cf943b878d49ed96d3b087b36803a0abf922369c61c9d33bd1"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/starting-integrity.json",
+      "bytes": 5743,
+      "sha256": "293733695f3c1de27be242ec91739136b9edb667d997dd5cefce3efe8867b146"
+    },
+    {
+      "path": "RRM/evidence/M00-E1B/validation-attempts.json",
+      "bytes": 259,
+      "sha256": "12b9e66145c13433ec501322873c8884a64f3153a98367c97744a7ac6f592ab1"
+    },
+    {
+      "path": "RRM/handoffs/M00E1B_HANDOFF.md",
+      "bytes": 5552,
+      "sha256": "76a3ebba81ca641f0d24567212cdb53e16e0ea9ae7f5544d3c1f6203bc5e8b62"
+    },
+    {
+      "path": "RRM/scripts/m00e1b_analyze.py",
+      "bytes": 4965,
+      "sha256": "748e80bcfb5b4a424268a42372cea11ab9dd4c2c47d865642e11ca0731e864f6"
+    },
+    {
+      "path": "RRM/scripts/m00e1b_discover.py",
+      "bytes": 11373,
+      "sha256": "5da36be5fac0dbd3be0a6034ff38f4c3b21e93bcd0bed74bdc7704d0a4debb25"
+    },
+    {
+      "path": "RRM/scripts/m00e1b_supplement.py",
+      "bytes": 3829,
+      "sha256": "e4c66fdb5b1efc32fcff83d030b25b6483e7b9cdd8738a6a46602426c80fb33e"
+    },
+    {
+      "path": "RRM/scripts/validate_m00e1b.py",
+      "bytes": 15740,
+      "sha256": "59c7163bc60cbd2f9e7934eda625102f67867f225e991058011f48ce52dbf045"
+    },
+    {
+      "path": "RRM/tests/test_m00e1b_discovery.py",
+      "bytes": 4660,
+      "sha256": "6cc6a4610fcfb37a9898bc71ad264adcb68f0ab32bcb2444df7d17f8eab1aa95"
+    },
+    {
+      "path": "RRM/verification/procedures/M00E1B_ACTIVE_VERIFICATION_PROPOSAL.md",
+      "bytes": 8310,
+      "sha256": "f62368caeb20b827e27f28c02b976ea3c06f883d83cc454997cddd3f6d39b4aa"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_CONFIGURATION_TRACEABILITY.csv",
+      "bytes": 9912,
+      "sha256": "9ece52334a3d2bebf8b8dae165b0f997596212ce98088ad80af973f8209103be"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ENVIRONMENT_INVENTORY.md",
+      "bytes": 5584,
+      "sha256": "380214d3cec9dddac6ab0652db69f9efbdbc8d357f013a8112f0350b3fdb1113"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_EXPOSURE_REGISTER.csv",
+      "bytes": 7186,
+      "sha256": "bd0507f5dc0409cd7ff74c5d6a401ab582d7c3866a34b98a8fa51b39e12786f1"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_INSTRUMENTATION_ASSESSMENT.md",
+      "bytes": 4909,
+      "sha256": "0e4c5e4610b44d053528e79e7ce42fceb8304ef1850515b81a0f6cfd4a4b9fad"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ISOLATION_BOUNDARY.md",
+      "bytes": 3779,
+      "sha256": "6d400670daca3e242cab346a1c9aa1da800f75e82a889bbc750eb580aa6f1721"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_READINESS_DISPOSITION.md",
+      "bytes": 4440,
+      "sha256": "fd37c5de09ab4785cad4c8fc8e748b14789bd849013fe3ea6b4feabefe44232d"
+    }
+  ],
+  "exclusions": {
+    "M00E1B_EVIDENCE_MANIFEST.json": "Self-reference; detached SHA256SUMS covers manifest",
+    "SHA256SUMS": "Self-reference",
+    "verification-results.json": "Output after sealed inputs; excluded to avoid recursion. Final Git object binds result bytes."
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "milestone": "M00-E1B",
+  "basis": "Codex performed-action record with retained passive command/file outputs; not independent external-process audit",
+  "passive_operations": [
+    "Docker ps/inspect/top and bounded existing logs only; no exec/follow",
+    "Read-only existing proc roots/exe backing files/maps/selected env/argv/configs/socket tables/routes/fd symlinks/device lstat",
+    "Read current cgroups/pressure/namespaces and existing package/version/source/workflow/log-directory metadata",
+    "Read immutable history, replay offline and compare hashes/Git; write new RRM package and authorized PROJECT_STATUS only"
+  ],
+  "credentials_excluded": [
+    "No OSMO login.yaml/config.yaml contents read",
+    "No token/secret environment values or unrestricted argv retained"
+  ],
+  "active_operations_performed": [],
+  "tier_b_starts": 0,
+  "tier_c_operations": 0,
+  "container_execs": 0,
+  "ros_queries_publications_or_service_requests": 0,
+  "parameter_writes": 0,
+  "device_nodes_opened": 0,
+  "active_network_scans_or_packet_injection": 0,
+  "infrastructure_mutations": 0,
+  "protected_edits": 0,
+  "push_performed": false,
+  "limitation": "Lifecycle metadata unchanged during collection; cannot prove absence of transient unrelated external actions or safe physical containment."
+}

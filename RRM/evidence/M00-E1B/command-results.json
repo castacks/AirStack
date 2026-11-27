@@ -1,0 +1,74 @@
+{
+  "results": [
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00d_characterize.py",
+        "--check"
+      ],
+      "result": "PASS",
+      "artifact": "historical-d-replay.json"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00e1a_analyze.py",
+        "--check"
+      ],
+      "result": "PASS",
+      "artifact": "historical-e1a-replay.json"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "RRM/tests",
+        "-p",
+        "test_m00e1b_discovery.py",
+        "-v"
+      ],
+      "result": "PASS",
+      "tests": 12,
+      "artifact": "offline-tests-initial12.txt",
+      "note": "Initial12 cases passed; added direct new-tail interval/missing-event test and reran13 cases after parser extension."
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "RRM/tests",
+        "-p",
+        "test_m00e1b_discovery.py",
+        "-v"
+      ],
+      "result": "PASS",
+      "tests": 13,
+      "artifact": "offline-tests.txt"
+    }
+  ],
+  "expected_access_limits": [
+    "No formal target designated (user clarification); no authenticated OSMO control-plane discovery performed.",
+    "OSMO login credential configuration left unread.",
+    "Fixed installation paths absent in unrelated containers are recorded INACCESSIBLE/FileNotFoundError, not instrument failures.",
+    "Initial32MiB bound skipped50,993,040-byte PX4 executable; separate128MiB bounded read succeeded. Original skip retained.",
+    "Bounded existing Docker log tails are incomplete; robot tail lacks original deadline. Historical original raw log is used for L11."
+  ],
+  "skipped_active_checks": [
+    "ROS graph discovery/subscriptions/service requests/parameter readback",
+    "Active network scans, packet injection and vehicle commands",
+    "Hardware/device opens and connectivity tests",
+    "New startup/restart/kill/fault/recorder behavior or instrumentation overhead tests",
+    "OSMO workflow submission/provisioning/assignment or credential login"
+  ],
+  "reason": "M00-E1B authorizes passive metadata/existing file inspection and offline replay only; no active tests authorized."
+}

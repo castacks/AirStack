@@ -1,0 +1,4 @@
+{
+  "attempts": [],
+  "note": "All failures/warnings/corrections retained if encountered. Expected file access/size/tail limitations and skipped active checks in command-results.json. No prior full validator invoked after new milestone files were created."
+}

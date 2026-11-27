@@ -1,0 +1,266 @@
+{
+  "target_designation": "UNVERIFIED",
+  "startup_trials_executed": 0,
+  "whole_unresolved_prerequisites_closed": [],
+  "newly_read_existing_log_app_to_graph_s": "74.228771713",
+  "existing_log_scope": "New read of old Docker receipt events, not a new episode; missing/ambiguous tail events remain null",
+  "observed_process_birth_separation_s": "21.62",
+  "process_birth_scope": "Current host proc start ticks, same boot; no wall-clock readiness duration or new startup episode",
+  "serial_node_metadata": {
+    "/isaac-sim-livestream": [
+      "ttyS0",
+      "ttyS1",
+      "ttyS10",
+      "ttyS11",
+      "ttyS12",
+      "ttyS13",
+      "ttyS14",
+      "ttyS15",
+      "ttyS16",
+      "ttyS17",
+      "ttyS18",
+      "ttyS19",
+      "ttyS2",
+      "ttyS20",
+      "ttyS21",
+      "ttyS22",
+      "ttyS23",
+      "ttyS24",
+      "ttyS25",
+      "ttyS26",
+      "ttyS27",
+      "ttyS28",
+      "ttyS29",
+      "ttyS3",
+      "ttyS30",
+      "ttyS31",
+      "ttyS4",
+      "ttyS5",
+      "ttyS6",
+      "ttyS7",
+      "ttyS8",
+      "ttyS9"
+    ],
+    "/airstack-robot-desktop-1": [
+      "ttyS0",
+      "ttyS1",
+      "ttyS10",
+      "ttyS11",
+      "ttyS12",
+      "ttyS13",
+      "ttyS14",
+      "ttyS15",
+      "ttyS16",
+      "ttyS17",
+      "ttyS18",
+      "ttyS19",
+      "ttyS2",
+      "ttyS20",
+      "ttyS21",
+      "ttyS22",
+      "ttyS23",
+      "ttyS24",
+      "ttyS25",
+      "ttyS26",
+      "ttyS27",
+      "ttyS28",
+      "ttyS29",
+      "ttyS3",
+      "ttyS30",
+      "ttyS31",
+      "ttyS4",
+      "ttyS5",
+      "ttyS6",
+      "ttyS7",
+      "ttyS8",
+      "ttyS9"
+    ],
+    "/airstack-gcs-1": [
+      "ttyS0",
+      "ttyS1",
+      "ttyS10",
+      "ttyS11",
+      "ttyS12",
+      "ttyS13",
+      "ttyS14",
+      "ttyS15",
+      "ttyS16",
+      "ttyS17",
+      "ttyS18",
+      "ttyS19",
+      "ttyS2",
+      "ttyS20",
+      "ttyS21",
+      "ttyS22",
+      "ttyS23",
+      "ttyS24",
+      "ttyS25",
+      "ttyS26",
+      "ttyS27",
+      "ttyS28",
+      "ttyS29",
+      "ttyS3",
+      "ttyS30",
+      "ttyS31",
+      "ttyS4",
+      "ttyS5",
+      "ttyS6",
+      "ttyS7",
+      "ttyS8",
+      "ttyS9"
+    ]
+  },
+  "socket_ownership": [
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "tcp",
+      "socket": {
+        "local_address": "127.0.0.1",
+        "local_port": 4561,
+        "remote_address": "0.0.0.0",
+        "remote_port": 0,
+        "state_hex": "0A",
+        "uid": "0",
+        "inode": "298338956"
+      },
+      "owners": [
+        {
+          "pid": 38758,
+          "comm": "python3",
+          "fd": "408"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "tcp",
+      "socket": {
+        "local_address": "0.0.0.0",
+        "local_port": 49100,
+        "remote_address": "0.0.0.0",
+        "remote_port": 0,
+        "state_hex": "0A",
+        "uid": "0",
+        "inode": "298309885"
+      },
+      "owners": [
+        {
+          "pid": 38758,
+          "comm": "python3",
+          "fd": "342"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "tcp",
+      "socket": {
+        "local_address": "127.0.0.1",
+        "local_port": 49318,
+        "remote_address": "127.0.0.1",
+        "remote_port": 4561,
+        "state_hex": "01",
+        "uid": "0",
+        "inode": "298298915"
+      },
+      "owners": [
+        {
+          "pid": 68483,
+          "comm": "px4",
+          "fd": "7"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "tcp",
+      "socket": {
+        "local_address": "127.0.0.1",
+        "local_port": 49100,
+        "remote_address": "127.0.0.1",
+        "remote_port": 47158,
+        "state_hex": "01",
+        "uid": "0",
+        "inode": "298291394"
+      },
+      "owners": [
+        {
+          "pid": 38758,
+          "comm": "python3",
+          "fd": "343"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "tcp",
+      "socket": {
+        "local_address": "127.0.0.1",
+        "local_port": 4561,
+        "remote_address": "127.0.0.1",
+        "remote_port": 49318,
+        "state_hex": "01",
+        "uid": "0",
+        "inode": "298339113"
+      },
+      "owners": [
+        {
+          "pid": 38758,
+          "comm": "python3",
+          "fd": "445"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "protocol": "udp",
+      "socket": {
+        "local_address": "0.0.0.0",
+        "local_port": 14581,
+        "remote_address": "0.0.0.0",
+        "remote_port": 0,
+        "state_hex": "07",
+        "uid": "0",
+        "inode": "298311596"
+      },
+      "owners": [
+        {
+          "pid": 68483,
+          "comm": "px4",
+          "fd": "11"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "protocol": "udp",
+      "socket": {
+        "local_address": "0.0.0.0",
+        "local_port": 14541,
+        "remote_address": "0.0.0.0",
+        "remote_port": 0,
+        "state_hex": "07",
+        "uid": "0",
+        "inode": "298337623"
+      },
+      "owners": [
+        {
+          "pid": 67510,
+          "comm": "mavros_node",
+          "fd": "25"
+        }
+      ],
+      "limitation": "Instantaneous namespace socket/FD metadata; no payload inspected, source/remote peer or actuation safety not authenticated"
+    }
+  ],
+  "simulator_isolation": "UNVERIFIED",
+  "live_instrumentation_ready": false,
+  "execution_authorized": false,
+  "interpretation": "Metadata establishes current configuration/exposure and selected installed artifact identity, not runtime safety, connected physical hardware, mission state or qualification"
+}

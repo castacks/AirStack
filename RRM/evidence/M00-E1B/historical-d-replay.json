@@ -1,0 +1,13 @@
+{
+  "acquired_utc": "2026-11-27T22:24:57.318785+00:00",
+  "argv": [
+    "python3",
+    "-B",
+    "RRM/scripts/m00d_characterize.py",
+    "--check"
+  ],
+  "exit_code": 0,
+  "stdout": "{\n  \"startup_episode_count\": 1,\n  \"new_startup_trials\": 0,\n  \"measured_characterization_intervals\": 12,\n  \"missing_measurements\": 7,\n  \"independent_deadline_interval_s\": \"19.276162179\",\n  \"startup_variability\": \"NOT_ESTIMABLE_N1; no standard deviation, p95 or confidence interval reported\",\n  \"tier_executed\": \"A_OFFLINE_AND_READ_ONLY_METADATA_ONLY\",\n  \"acceptance_thresholds_created\": false\n}\n",
+  "stderr": "",
+  "source": "Inherited immutable M00-C raw records replayed anew; not a new startup"
+}

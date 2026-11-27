@@ -1,0 +1,2897 @@
+{
+  "captured_utc": "2026-11-27T22:23:35.369613+00:00",
+  "scope": "Existing candidate only; no target designation",
+  "process_artifacts": [
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 37812,
+      "comm": "sleep",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38013,
+      "comm": "tmux: server",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "6",
+          "target": "socket:[298261165]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298261207]"
+        }
+      ]
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38144,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38146,
+      "comm": "sh",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298261208]"
+        }
+      ]
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38148,
+      "comm": "cat",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298261208]"
+        }
+      ]
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38738,
+      "comm": "python.sh",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 38758,
+      "comm": "python3",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "17",
+          "target": "socket:[298254780]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298254781]"
+        },
+        {
+          "fd": "27",
+          "target": "socket:[298252549]"
+        },
+        {
+          "fd": "28",
+          "target": "socket:[298252550]"
+        },
+        {
+          "fd": "100",
+          "target": "socket:[298255067]"
+        },
+        {
+          "fd": "342",
+          "target": "socket:[298309885]"
+        },
+        {
+          "fd": "343",
+          "target": "socket:[298291394]"
+        },
+        {
+          "fd": "344",
+          "target": "socket:[298309886]"
+        },
+        {
+          "fd": "357",
+          "target": "socket:[298351702]"
+        },
+        {
+          "fd": "364",
+          "target": "socket:[298322474]"
+        },
+        {
+          "fd": "392",
+          "target": "socket:[298313122]"
+        },
+        {
+          "fd": "393",
+          "target": "socket:[298313123]"
+        },
+        {
+          "fd": "398",
+          "target": "socket:[298338948]"
+        },
+        {
+          "fd": "402",
+          "target": "socket:[298338950]"
+        },
+        {
+          "fd": "403",
+          "target": "socket:[298338951]"
+        },
+        {
+          "fd": "404",
+          "target": "socket:[298338952]"
+        },
+        {
+          "fd": "405",
+          "target": "socket:[298338953]"
+        },
+        {
+          "fd": "406",
+          "target": "socket:[298338954]"
+        },
+        {
+          "fd": "407",
+          "target": "socket:[298338955]"
+        },
+        {
+          "fd": "408",
+          "target": "socket:[298338956]"
+        },
+        {
+          "fd": "445",
+          "target": "socket:[298339113]"
+        }
+      ]
+    },
+    {
+      "container": "/isaac-sim-livestream",
+      "host_pid": 68483,
+      "comm": "px4",
+      "files": [
+        {
+          "path": "/proc/68483/exe",
+          "acquired_utc": "2026-11-27T22:23:35.373250+00:00",
+          "bytes": 50993040,
+          "mtime_ns": 1791071984000000000,
+          "result": "READ",
+          "sha256": "8382c08cd06e2917e11c3d9bf22f1cd037b3ef8592f7e8caa6355f3e7a41504f",
+          "read_bytes": 50993040,
+          "stable_during_read": true
+        }
+      ],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298344126]"
+        },
+        {
+          "fd": "5",
+          "target": "socket:[298276494]"
+        },
+        {
+          "fd": "7",
+          "target": "socket:[298298915]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298342695]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298311596]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298344734]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298311599]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38229,
+      "comm": "sleep",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38782,
+      "comm": "tmux: server",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "6",
+          "target": "socket:[298265961]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298265989]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298266109]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38912,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38915,
+      "comm": "sh",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298265990]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38916,
+      "comm": "Xvfb",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "6",
+          "target": "socket:[298148343]"
+        },
+        {
+          "fd": "7",
+          "target": "socket:[298148344]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298308311]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38917,
+      "comm": "cat",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298265990]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 38918,
+      "comm": "tee",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 39259,
+      "comm": "sshd",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298233321]"
+        },
+        {
+          "fd": "4",
+          "target": "socket:[298233323]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 39262,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 39264,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 39268,
+      "comm": "sh",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298266110]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 39274,
+      "comm": "cat",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298266110]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67437,
+      "comm": "ros2",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "5",
+          "target": "socket:[298330244]"
+        },
+        {
+          "fd": "6",
+          "target": "socket:[298330245]"
+        },
+        {
+          "fd": "7",
+          "target": "socket:[298330246]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298330247]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67508,
+      "comm": "robot_state_pub",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_91xvc12n",
+          "acquired_utc": "2026-11-27T22:23:35.443351+00:00",
+          "bytes": 6422,
+          "mtime_ns": 1795804990235066230,
+          "result": "READ",
+          "sha256": "e7569802c8e406e84a9f7324b7c5f6a03b0f7d37c7a57bb21278e2f5db6fd569",
+          "read_bytes": 6422,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    use_sim_time: true"
+          ]
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298331382]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298331393]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298331394]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298331396]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298331395]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298331397]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298331403]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67509,
+      "comm": "static_transfor",
+      "files": [],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298340690]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298340702]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298340703]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298340705]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298340704]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298340706]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298340714]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67510,
+      "comm": "mavros_node",
+      "files": [
+        {
+          "path": "/proc/67510/exe",
+          "acquired_utc": "2026-11-27T22:23:35.444061+00:00",
+          "bytes": 199568,
+          "mtime_ns": 1793892738000000000,
+          "result": "READ",
+          "sha256": "f9169b41f3759561205ca3443f9defbe5ee55203cc2e2aa71968e4f3e5c52c94",
+          "read_bytes": 199568,
+          "stable_during_read": true
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_0b79vhqq",
+          "acquired_utc": "2026-11-27T22:23:35.444389+00:00",
+          "bytes": 69,
+          "mtime_ns": 1795804990381067690,
+          "result": "READ",
+          "sha256": "efa07c3952c975fbbeb88384a84057844decbd86b6232007324eaeebfe855623",
+          "read_bytes": 69,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    fcu_url: udp://:14541@172.31.0.200:14581"
+          ]
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_08e6xqh0",
+          "acquired_utc": "2026-11-27T22:23:35.444437+00:00",
+          "bytes": 40,
+          "mtime_ns": 1795804990381067690,
+          "result": "READ",
+          "sha256": "4286263fb454e3b1073f5514e01ba2321d20f8f8b5c2b3082394aa95e8ea04ab",
+          "read_bytes": 40,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    gcs_url: ''"
+          ]
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_605s47qj",
+          "acquired_utc": "2026-11-27T22:23:35.444471+00:00",
+          "bytes": 42,
+          "mtime_ns": 1795804990382067700,
+          "result": "READ",
+          "sha256": "03fe7afbc0fb5b06d3e5879067962606e1dfd511e19a324eb12082bea59f7cac",
+          "read_bytes": 42,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_iulob29p",
+          "acquired_utc": "2026-11-27T22:23:35.444507+00:00",
+          "bytes": 45,
+          "mtime_ns": 1795804990382067700,
+          "result": "READ",
+          "sha256": "9520d086ef5d7afb37d99a2eaa14d833fa42a8a2eab58040fade39e181337034",
+          "read_bytes": 45,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_rti2z5cu",
+          "acquired_utc": "2026-11-27T22:23:35.444537+00:00",
+          "bytes": 47,
+          "mtime_ns": 1795804990382067700,
+          "result": "READ",
+          "sha256": "b5da93bdc5ee2497a75740c393da192d0b8e7b35507b4d7bf43753bdfe3f14cb",
+          "read_bytes": 47,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/opt/ros/jazzy/share/mavros/launch/px4_pluginlists.yaml",
+          "acquired_utc": "2026-11-27T22:23:35.444575+00:00",
+          "bytes": 222,
+          "mtime_ns": 1790506488000000000,
+          "result": "READ",
+          "sha256": "eae30a111079e5e287eade4b7b909858b9f4e121676a58f7952f2dd09f221690",
+          "read_bytes": 222,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/config/px4_config.yaml",
+          "acquired_utc": "2026-11-27T22:23:35.444633+00:00",
+          "bytes": 8837,
+          "mtime_ns": 1795804028435286135,
+          "result": "READ",
+          "sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c",
+          "read_bytes": 8837,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    thrust_scaling: 1.0       # used in setpoint_raw attitude callback.",
+            "    fix_type: 3             # type of GPS fix (default: 3D)",
+            "    land_target_type: \"VISION_FIDUCIAL\""
+          ]
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/interface",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298337598]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298337611]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298337612]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298337613]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298337614]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298337615]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298337622]"
+        },
+        {
+          "fd": "25",
+          "target": "socket:[298337623]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67511,
+      "comm": "robot_interface",
+      "files": [
+        {
+          "path": "/proc/67511/exe",
+          "acquired_utc": "2026-11-27T22:23:35.445061+00:00",
+          "bytes": 19653384,
+          "mtime_ns": 1795804943890600145,
+          "result": "READ",
+          "sha256": "5badb2bb1c660e64012d88e09f695181e8ec7132fee91b9bdd9e85a7d34e52ab",
+          "read_bytes": 19653384,
+          "stable_during_read": true
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_zxe3mlcg",
+          "acquired_utc": "2026-11-27T22:23:35.467551+00:00",
+          "bytes": 173,
+          "mtime_ns": 1795804990384067720,
+          "result": "READ",
+          "sha256": "8b6c16fbc6c8b8fca6bc1459144a9c02acc46dc75710c0f405943ed0119d3082",
+          "read_bytes": 173,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+          "acquired_utc": "2026-11-27T22:23:35.468990+00:00",
+          "bytes": 41140792,
+          "mtime_ns": 1795804989000000000,
+          "result": "READ",
+          "sha256": "5173ece556bed1d09911c17c690f3702d42d4bcb1b95c9322a8d8d01e45e667b",
+          "read_bytes": 41140792,
+          "stable_during_read": true
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/interface",
+        "use_sim_time:=True"
+      ],
+      "guard_maps": [
+        "7d4442820000-7d4443920000 r--p 00000000 00:20a 483429647                 /root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "7d4443920000-7d4443dab000 r-xp 01100000 00:20a 483429647                 /root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "7d4443dab000-7d4443f9d000 r--p 0158b000 00:20a 483429647                 /root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "7d4443f9d000-7d4443fb0000 r--p 0177d000 00:20a 483429647                 /root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so",
+        "7d4443fb0000-7d4444000000 rw-p 01790000 00:20a 483429647                 /root/AirStack/robot/ros_ws/install/mavros_interface/lib/libmavros_interface.so"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298276414]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298276432]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298276433]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298276435]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298276436]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298276434]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298276438]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67512,
+      "comm": "position_setpoi",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_0j72t4kd",
+          "acquired_utc": "2026-11-27T22:23:35.521804+00:00",
+          "bytes": 118,
+          "mtime_ns": 1795804990385067730,
+          "result": "READ",
+          "sha256": "e3bf00ba709061a2deba196908b6e1e0c0050e28cfa158e9573b0cfbbdf6adb4",
+          "read_bytes": 118,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    command_type: 0"
+          ]
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/interface",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298308206]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298308231]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298308232]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298308234]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298308233]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298308235]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298308255]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67513,
+      "comm": "odometry_conver",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_3ubmkw73",
+          "acquired_utc": "2026-11-27T22:23:35.522092+00:00",
+          "bytes": 267,
+          "mtime_ns": 1795804990386067740,
+          "result": "READ",
+          "sha256": "3c7d72d1d2745016ece5b636266ff33a71a4ef4d673a33b70d648e75ab671454",
+          "read_bytes": 267,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    odometry_output_type: 2"
+          ]
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/odometry_conversion",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298342516]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298342525]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298342526]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298342528]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298342527]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298342529]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298342533]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67514,
+      "comm": "lidar_point_clo",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_i17ru8r0",
+          "acquired_utc": "2026-11-27T22:23:35.522312+00:00",
+          "bytes": 675,
+          "mtime_ns": 1795804990396067840,
+          "result": "READ",
+          "sha256": "f6ef75149cc4c9840eae55695e41074fbea5aa4e16d55eb0317cb7b7741b8233",
+          "read_bytes": 675,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_qessiuco",
+          "acquired_utc": "2026-11-27T22:23:35.522377+00:00",
+          "bytes": 119,
+          "mtime_ns": 1795804990397067850,
+          "result": "READ",
+          "sha256": "94e36f8ce83b362ca15e8027e9802f8cbe4e89df0b9954c31a079a3a680b75b4",
+          "read_bytes": 119,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_uuxhudx1",
+          "acquired_utc": "2026-11-27T22:23:35.522417+00:00",
+          "bytes": 116,
+          "mtime_ns": 1795804990397067850,
+          "result": "READ",
+          "sha256": "009870c05b9b57ab69b68f58b656a8ae67813c7dad9d0b4b76447bb0e7b050ea",
+          "read_bytes": 116,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/sensors",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298319846]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298319868]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298319869]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298319871]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298319870]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298319872]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298349585]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67515,
+      "comm": "disparity_node",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_e4vrnc1q",
+          "acquired_utc": "2026-11-27T22:23:35.522648+00:00",
+          "bytes": 46,
+          "mtime_ns": 1795804990410067980,
+          "result": "READ",
+          "sha256": "957d5bf4c10c40968d61644b384f4444d7394f5db76c85f6e6bd30d36ee8847e",
+          "read_bytes": 46,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_ysnzmyq9",
+          "acquired_utc": "2026-11-27T22:23:35.522689+00:00",
+          "bytes": 51,
+          "mtime_ns": 1795804990411067990,
+          "result": "READ",
+          "sha256": "febc545b17672dff0709e09664212c734b21af3756395edf9f7e868ff99ff167",
+          "read_bytes": 51,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/perception/stereo_image_proc",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298317206]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298317225]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298317226]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298317227]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298317228]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298317229]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298317244]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67516,
+      "comm": "point_cloud_nod",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_w30uiyir",
+          "acquired_utc": "2026-11-27T22:23:35.522908+00:00",
+          "bytes": 85,
+          "mtime_ns": 1795804990413068010,
+          "result": "READ",
+          "sha256": "09ddaccf826dc1359106e29294633cfde1f9904e7f8b95b278900bbde75f6d49",
+          "read_bytes": 85,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/perception",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298294046]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298294066]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298294067]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298294068]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298294069]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298294070]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298294084]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67517,
+      "comm": "python3",
+      "files": [],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298298021]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298298045]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298298046]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298298048]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298298047]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298298049]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298298068]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67518,
+      "comm": "takeoff_landing",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_77pu65a6",
+          "acquired_utc": "2026-11-27T22:23:35.523278+00:00",
+          "bytes": 972,
+          "mtime_ns": 1795804990435068231,
+          "result": "READ",
+          "sha256": "9ca041c68bc497b2633409cb74d90ab794bf7823a2092627453796c92e2832a5",
+          "read_bytes": 972,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/takeoff_landing_planner",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298272735]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298272753]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298272754]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298272755]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298272756]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298272757]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298348546]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67519,
+      "comm": "fixed_trajector",
+      "files": [],
+      "selected_settings": [
+        "__ns:=/robot_1/trajectory_controller",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298345872]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298345889]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298345890]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298345892]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298345891]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298345893]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298345905]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67520,
+      "comm": "droan_gl_node",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_l7h0f5px",
+          "acquired_utc": "2026-11-27T22:23:35.523704+00:00",
+          "bytes": 921,
+          "mtime_ns": 1795804990459068470,
+          "result": "READ",
+          "sha256": "76aec4adc1572635e22643437d191222c085543e9132aa34ba265abe5a973d6f",
+          "read_bytes": 921,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/droan",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298311381]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298311402]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298311403]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298311404]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298311405]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298311406]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298311422]"
+        },
+        {
+          "fd": "22",
+          "target": "socket:[298311558]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67521,
+      "comm": "trajectory_cont",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_5h2dc23y",
+          "acquired_utc": "2026-11-27T22:23:35.523995+00:00",
+          "bytes": 1370,
+          "mtime_ns": 1795804990468068560,
+          "result": "READ",
+          "sha256": "e1a9a6905aea12cda4204521f571c4b0409e0acd8581c755f1c29c40d77484af",
+          "read_bytes": 1370,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/trajectory_controller",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298327562]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298327578]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298327579]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298327581]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298327580]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298327582]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298327593]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67522,
+      "comm": "pid_controller",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_8wp286es",
+          "acquired_utc": "2026-11-27T22:23:35.524235+00:00",
+          "bytes": 1111,
+          "mtime_ns": 1795804990482068701,
+          "result": "READ",
+          "sha256": "870b3a9e9f8d0716af6b5eeffa9895dfc99bbfeb3d8231e76d0b3359ddfcc152",
+          "read_bytes": 1111,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_hnd6jpzt",
+          "acquired_utc": "2026-11-27T22:23:35.524300+00:00",
+          "bytes": 72,
+          "mtime_ns": 1795804990482068701,
+          "result": "READ",
+          "sha256": "b174edad32a12313cb136bebf923b58a2b5c0f7f8edfbdc7792fef47e1a68bf0",
+          "read_bytes": 72,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params__hwvt3ue",
+          "acquired_utc": "2026-11-27T22:23:35.524345+00:00",
+          "bytes": 78,
+          "mtime_ns": 1795804990483068710,
+          "result": "READ",
+          "sha256": "242f43fdd669798096cbaf416f9b731b45a944b7522350acc589a42cde46d4ff",
+          "read_bytes": 78,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/control",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298328551]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298328565]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298328566]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298328567]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298328568]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298328569]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298328578]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67523,
+      "comm": "component_conta",
+      "files": [],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298341630]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298341638]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298341639]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298341640]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298341641]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298341642]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298341645]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67524,
+      "comm": "random_walk_pla",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_ehx_yo9u",
+          "acquired_utc": "2026-11-27T22:23:35.524724+00:00",
+          "bytes": 1008,
+          "mtime_ns": 1795804990751071391,
+          "result": "READ",
+          "sha256": "a8f0fbcd4519b62536741fd35241a845d60c7e1d7f30b0bf78afb9419a0f6b45",
+          "read_bytes": 1008,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298285869]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298285884]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298285885]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298285886]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298285887]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298285888]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298285898]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67525,
+      "comm": "drone_safety_mo",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_xpy_6xkz",
+          "acquired_utc": "2026-11-27T22:23:35.525082+00:00",
+          "bytes": 56,
+          "mtime_ns": 1795804990779071671,
+          "result": "READ",
+          "sha256": "7547d87373de9233e30cb5541536de623a037e3cbf44256fec868422df3347f5",
+          "read_bytes": 56,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1/behavior/drone_safety_monitor",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298323395]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298323405]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298323406]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298323407]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298323408]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298323409]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298323414]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67526,
+      "comm": "ddsrouter",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298305467]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298305471]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298305472]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298305473]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298305474]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298305475]"
+        },
+        {
+          "fd": "25",
+          "target": "socket:[298305477]"
+        },
+        {
+          "fd": "27",
+          "target": "socket:[298305478]"
+        },
+        {
+          "fd": "29",
+          "target": "socket:[298305479]"
+        },
+        {
+          "fd": "30",
+          "target": "socket:[298305480]"
+        },
+        {
+          "fd": "31",
+          "target": "socket:[298305481]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67527,
+      "comm": "ddsrouter",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298335567]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298335570]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298335571]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298335572]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298335573]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298335574]"
+        },
+        {
+          "fd": "26",
+          "target": "socket:[298335576]"
+        },
+        {
+          "fd": "27",
+          "target": "socket:[298335577]"
+        },
+        {
+          "fd": "29",
+          "target": "socket:[298335578]"
+        },
+        {
+          "fd": "30",
+          "target": "socket:[298335579]"
+        },
+        {
+          "fd": "31",
+          "target": "socket:[298335580]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-robot-desktop-1",
+      "host_pid": 67528,
+      "comm": "python3",
+      "files": [
+        {
+          "path": "/proc/38229/root/tmp/launch_params_9pdl2xz4",
+          "acquired_utc": "2026-11-27T22:23:35.526083+00:00",
+          "bytes": 65,
+          "mtime_ns": 1795804990802071901,
+          "result": "READ",
+          "sha256": "84bcca2a2cf8aba3413d9d2ab89919a0d5a72c7015ecc3037639559efd11aa0b",
+          "read_bytes": 65,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_dvpd6mnt",
+          "acquired_utc": "2026-11-27T22:23:35.526126+00:00",
+          "bytes": 63,
+          "mtime_ns": 1795804990802071901,
+          "result": "READ",
+          "sha256": "ac4fe1e3dbf3f8b11f7c134a9ca487e2e96a004f862f0183e78107f43af70734",
+          "read_bytes": 63,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/38229/root/tmp/launch_params_pe9_daax",
+          "acquired_utc": "2026-11-27T22:23:35.526160+00:00",
+          "bytes": 180,
+          "mtime_ns": 1795804990802071901,
+          "result": "READ",
+          "sha256": "3139dc2e90640b20e723c019f0f91a0f85a08359ace30751a1920b312dd01965",
+          "read_bytes": 180,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [
+        "__ns:=/robot_1",
+        "use_sim_time:=True"
+      ],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298323419]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298323442]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298330254]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298323443]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298323444]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298323445]"
+        },
+        {
+          "fd": "14",
+          "target": "socket:[298330259]"
+        },
+        {
+          "fd": "15",
+          "target": "socket:[298330258]"
+        },
+        {
+          "fd": "16",
+          "target": "socket:[298330260]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298330261]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298330262]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298330263]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298323446]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298323464]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37584,
+      "comm": "sleep",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37720,
+      "comm": "sshd",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298244481]"
+        },
+        {
+          "fd": "4",
+          "target": "socket:[298244483]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37752,
+      "comm": "tmux: server",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "6",
+          "target": "socket:[298240751]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298240778]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37828,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37830,
+      "comm": "bash",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": []
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37834,
+      "comm": "sh",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298240779]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 37835,
+      "comm": "cat",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "0",
+          "target": "socket:[298240779]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66789,
+      "comm": "ros2",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "5",
+          "target": "socket:[298297752]"
+        },
+        {
+          "fd": "6",
+          "target": "socket:[298297753]"
+        },
+        {
+          "fd": "7",
+          "target": "socket:[298297754]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298297755]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66795,
+      "comm": "foxglove_bridge",
+      "files": [
+        {
+          "path": "/proc/37584/root/tmp/launch_params_8pkrjwtk",
+          "acquired_utc": "2026-11-27T22:23:35.527169+00:00",
+          "bytes": 39,
+          "mtime_ns": 1795804958184744461,
+          "result": "READ",
+          "sha256": "3d93b83c25766a5e4ad73f690bc5cd8ee953c912bd592ebbfec2c60902f7e527",
+          "read_bytes": 39,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_ct4d2k24",
+          "acquired_utc": "2026-11-27T22:23:35.527216+00:00",
+          "bytes": 45,
+          "mtime_ns": 1795804958184744461,
+          "result": "READ",
+          "sha256": "c624f660fe42b572594304b39debcc97634fbbef7e32853fc3f3720a332a0e54",
+          "read_bytes": 45,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_8evo07cy",
+          "acquired_utc": "2026-11-27T22:23:35.527246+00:00",
+          "bytes": 47,
+          "mtime_ns": 1795804958184744461,
+          "result": "READ",
+          "sha256": "463d1dd3f25275a4f76c6fb3079fe92a6e75a2473524f56c9b2acd8a3af0375a",
+          "read_bytes": 47,
+          "stable_during_read": true,
+          "selected_lines": [
+            "    use_sim_time: true"
+          ]
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_s31g1uli",
+          "acquired_utc": "2026-11-27T22:23:35.527276+00:00",
+          "bytes": 56,
+          "mtime_ns": 1795804958184744461,
+          "result": "READ",
+          "sha256": "fe2e462b136d10d19000dbac831b87179dbb9cb100ccfa31f0c59f2004b8a9b7",
+          "read_bytes": 56,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_99rw9wqe",
+          "acquired_utc": "2026-11-27T22:23:35.527306+00:00",
+          "bytes": 49,
+          "mtime_ns": 1795804958185744472,
+          "result": "READ",
+          "sha256": "a8732007b9461a708b390ca6db42d8fc9018f672c4049e6503f6a1e00880a904",
+          "read_bytes": 49,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298339477]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298339488]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298339489]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298339491]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298339490]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298339492]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298339493]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298339495]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298339496]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298339495]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298339497]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66796,
+      "comm": "ddsrouter",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "3",
+          "target": "socket:[298291486]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298291488]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298291489]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298291490]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298291491]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298291492]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298291495]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298291494]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298291496]"
+        },
+        {
+          "fd": "22",
+          "target": "socket:[298291497]"
+        },
+        {
+          "fd": "23",
+          "target": "socket:[298291498]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66797,
+      "comm": "foxglove_visual",
+      "files": [
+        {
+          "path": "/proc/37584/root/tmp/launch_params_tbso0cjk",
+          "acquired_utc": "2026-11-27T22:23:35.527719+00:00",
+          "bytes": 53,
+          "mtime_ns": 1795804958194744562,
+          "result": "READ",
+          "sha256": "67622fd344704703ccf90c7213825e5df7894c51d4d69b249d46b1fe18884ce2",
+          "read_bytes": 53,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_pe5tq3pm",
+          "acquired_utc": "2026-11-27T22:23:35.527754+00:00",
+          "bytes": 53,
+          "mtime_ns": 1795804958194744562,
+          "result": "READ",
+          "sha256": "5936abe446c383c3a70e0ce340dacd1c53701cdf62a324a8bb5262452c30a98b",
+          "read_bytes": 53,
+          "stable_during_read": true,
+          "selected_lines": []
+        },
+        {
+          "path": "/proc/37584/root/tmp/launch_params_e6woldqw",
+          "acquired_utc": "2026-11-27T22:23:35.527784+00:00",
+          "bytes": 63,
+          "mtime_ns": 1795804958195744572,
+          "result": "READ",
+          "sha256": "6e78e8537540934f600e61d57496a64f51012c765cb161efcbfb8970eab420d4",
+          "read_bytes": 63,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298316686]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298316696]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298316697]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298316699]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298316698]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298316700]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298316707]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66798,
+      "comm": "payload_visuali",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298308071]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298308080]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298308081]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298308082]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298308083]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298308084]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298308088]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66799,
+      "comm": "waypoint_collec",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298326718]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298326724]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298326725]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298326726]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298326727]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298326728]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298326730]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66800,
+      "comm": "polygon_collect",
+      "files": [],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298303199]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298303207]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298303208]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298303209]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298303210]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298303211]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298303216]"
+        }
+      ]
+    },
+    {
+      "container": "/airstack-gcs-1",
+      "host_pid": 66801,
+      "comm": "action_relay_no",
+      "files": [
+        {
+          "path": "/proc/37584/root/tmp/launch_params_56v32ufc",
+          "acquired_utc": "2026-11-27T22:23:35.528296+00:00",
+          "bytes": 68,
+          "mtime_ns": 1795804958198744603,
+          "result": "READ",
+          "sha256": "75642c04c4680db105a9433a123bd8440725ddd28f3319eab8690a2ca2f49f12",
+          "read_bytes": 68,
+          "stable_during_read": true,
+          "selected_lines": []
+        }
+      ],
+      "selected_settings": [],
+      "selected_fd_targets": [
+        {
+          "fd": "4",
+          "target": "socket:[298311256]"
+        },
+        {
+          "fd": "8",
+          "target": "socket:[298311275]"
+        },
+        {
+          "fd": "9",
+          "target": "socket:[298311276]"
+        },
+        {
+          "fd": "10",
+          "target": "socket:[298311278]"
+        },
+        {
+          "fd": "11",
+          "target": "socket:[298311277]"
+        },
+        {
+          "fd": "12",
+          "target": "socket:[298311279]"
+        },
+        {
+          "fd": "13",
+          "target": "socket:[298311282]"
+        },
+        {
+          "fd": "17",
+          "target": "socket:[298311284]"
+        },
+        {
+          "fd": "18",
+          "target": "socket:[298311285]"
+        },
+        {
+          "fd": "19",
+          "target": "socket:[298311286]"
+        },
+        {
+          "fd": "20",
+          "target": "socket:[298311287]"
+        },
+        {
+          "fd": "21",
+          "target": "socket:[298311288]"
+        },
+        {
+          "fd": "22",
+          "target": "socket:[298311294]"
+        }
+      ]
+    }
+  ],
+  "static_workflow_sources": [
+    {
+      "path": "/root/AirStack/osmo/workflows/airstack-dev.yaml",
+      "acquired_utc": "2026-11-27T22:23:35.528746+00:00",
+      "bytes": 4812,
+      "mtime_ns": 1795804028425286054,
+      "result": "READ",
+      "sha256": "2882952f8310fbaf7d2a61a3291a4f83cea7297686e66e7ed67f5663e7eef33a",
+      "read_bytes": 4812,
+      "stable_during_read": true,
+      "selected_lines": [
+        "  name: airstack-dev",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest",
+        "      privileged: true",
+        "        AUTOLAUNCH: \"true\"             # boot AirStack on startup",
+        "        ISAAC_SIM_LIVESTREAM: \"true\"   # use the isaac-sim-livestream profile",
+        "        AIRSTACK_BRANCH: \"main\"        # branch entrypoint.sh clones",
+        "      cpu: 12",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 500Gi"
+      ],
+      "state": "SOURCE_DEFINITION_ONLY_NOT_DEPLOYMENT_EVIDENCE"
+    },
+    {
+      "path": "/root/AirStack/osmo/workflows/airstack-live-replan-dev.yaml",
+      "acquired_utc": "2026-11-27T22:23:35.528940+00:00",
+      "bytes": 2873,
+      "mtime_ns": 1795804028425286054,
+      "result": "READ",
+      "sha256": "694d565e6d65f39c8c36499f136489e6a4fbf551c8b9b39d6bf40723f32b8311",
+      "read_bytes": 2873,
+      "stable_during_read": true,
+      "selected_lines": [
+        "  name: airstack-live-replan-dev",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:ore-proj-epoch-numpy126-1",
+        "      privileged: true",
+        "        AUTOLAUNCH: \"true\"",
+        "        ISAAC_SIM_LIVESTREAM: \"true\"",
+        "        AIRSTACK_BRANCH: \"ore_proj\"",
+        "      image: \"{{worker_dev_image}}\"",
+        "      cpu: 10",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 500Gi",
+        "      cpu: 10",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 200Gi"
+      ],
+      "state": "SOURCE_DEFINITION_ONLY_NOT_DEPLOYMENT_EVIDENCE"
+    },
+    {
+      "path": "/root/AirStack/osmo/workflows/airstack-live-replan-ore-proj.yaml",
+      "acquired_utc": "2026-11-27T22:23:35.529020+00:00",
+      "bytes": 3425,
+      "mtime_ns": 1795804028425286054,
+      "result": "READ",
+      "sha256": "7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1",
+      "read_bytes": 3425,
+      "stable_during_read": true,
+      "selected_lines": [
+        "  name: airstack-live-replan-ore-proj",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:ore-proj-epoch-numpy126-1",
+        "      privileged: true",
+        "        AUTOLAUNCH: \"true\"",
+        "        ISAAC_SIM_LIVESTREAM: \"true\"",
+        "        AIRSTACK_BRANCH: \"ore_proj\"",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:8ffbf30a140d3565d8c95510aeb0f9762fe6566cfcae39cc1b3f0b9e146cbe52",
+        "      cpu: 12",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 500Gi",
+        "      cpu: 12",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 200Gi"
+      ],
+      "state": "SOURCE_DEFINITION_ONLY_NOT_DEPLOYMENT_EVIDENCE"
+    },
+    {
+      "path": "/root/AirStack/osmo/workflows/airstack-live-replan.yaml",
+      "acquired_utc": "2026-11-27T22:23:35.529087+00:00",
+      "bytes": 3798,
+      "mtime_ns": 1795804028425286054,
+      "result": "READ",
+      "sha256": "13f9713581919e21a7977f2c4568f715adc0cdca82876dd2b8a02f6a9d9b2efd",
+      "read_bytes": 3798,
+      "stable_during_read": true,
+      "selected_lines": [
+        "  name: airstack-live-replan",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest",
+        "      privileged: true",
+        "        AUTOLAUNCH: \"true\"",
+        "        ISAAC_SIM_LIVESTREAM: \"true\"",
+        "        AIRSTACK_BRANCH: \"main\"",
+        "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker:latest",
+        "      cpu: 12",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 500Gi",
+        "      cpu: 12",
+        "      gpu: 1",
+        "      memory: 48Gi",
+        "      storage: 200Gi"
+      ],
+      "state": "SOURCE_DEFINITION_ONLY_NOT_DEPLOYMENT_EVIDENCE"
+    }
+  ],
+  "limitations": [
+    "Executable file hashes identify backing files via proc, not in-memory/reproducible build attestation.",
+    "Selected params are startup-file contents, not service readback of current effective parameters.",
+    "Open socket/device FDs and namespace tables are an instantaneous bounded observation, not proof of physical path exclusion.",
+    "No credential/config login file read; no active socket, ROS, OSMO or vehicle query."
+  ]
+}
