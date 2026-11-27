@@ -126,6 +126,104 @@ class ClockProbeTests(unittest.TestCase):
         self.assertIn("KeyboardInterrupt: fixture interruption", self.journal()[-1]["traceback"])
 
 
+class ClockEpochTests(unittest.TestCase):
+    def setUp(self):
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.output = Path(tmp.name)
+        self.now = 0.0
+        self.frame = 0
+        self.sim_time = 0.0
+        self.publish_time = 0.0
+        self.count = 0
+        self.pending = []
+        self.probe = ClockProbe(self.output, self.graph, self.endpoints, self.spin,
+                                monotonic=lambda: self.now, physics_index=lambda: self.frame)
+
+    def graph(self):
+        return {"exists": True, "enabled": True, "counts": {"Publish": self.count},
+                "ports": {"Time.outputs:simulationTime": self.sim_time,
+                          "Publish.inputs:timeStamp": self.publish_time}}
+
+    def endpoints(self):
+        return {"publishers": [{"type": CLOCK_TYPE, "compatibility": "OK"}]}
+
+    def spin(self, timeout):
+        self.now += timeout
+        if self.pending:
+            sec, nano = divmod(self.pending.pop(0), 1_000_000_000)
+            self.probe.callback(Obj(clock=Obj(sec=sec, nanosec=nano)))
+
+    def step(self, seconds, *stamps, advanced=True, offered=None):
+        def render():
+            self.frame += int(advanced)
+            self.count += 3
+            self.sim_time = seconds
+            self.publish_time = seconds if offered is None else offered
+            self.pending = list(stamps)
+            return "rendered"
+
+        return self.probe.step(render)
+
+    def test_duplicate_callbacks_preserved_and_one_epoch_accepted(self):
+        self.assertEqual(self.step(.30000000447034836, 300000004, 300000004, 300000004), "rendered")
+        self.assertEqual(self.probe.samples, [300000004])
+        self.assertEqual(self.probe.callbacks, 3)
+        raw = (self.output / "clock-raw.jsonl").read_text().splitlines()
+        self.assertEqual([json.loads(line)["nanosec"] for line in raw], [300000004] * 3)
+
+    def test_advancing_epochs_allow_accumulated_prior_duplicates(self):
+        self.step(.3, 300000000)
+        self.step(.4, 300000000, 300000000, 400000000, 400000000)
+        self.assertEqual(self.probe.samples, [300000000, 400000000])
+        self.assertEqual(self.probe.callbacks, 5)
+
+    def test_backward_timestamp_rejected_across_steps(self):
+        self.step(.3, 300000000)
+        with self.assertRaisesRegex(RuntimeError, "INVALID_CLOCK_DATA"):
+            self.step(.4, 299999999, 400000000)
+        self.assertEqual(self.probe.samples, [300000000])
+
+    def test_prior_duplicates_alone_time_out_without_admitting_an_epoch(self):
+        self.step(.3, 300000000)
+        with self.assertRaisesRegex(RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+            self.step(.4, 300000000, 300000000)
+        self.assertEqual(self.probe.samples, [300000000])
+        self.assertGreaterEqual(self.now, 3)
+
+    def test_stalled_physics_or_graph_time_fails_closed(self):
+        self.step(.3, 300000000)
+        for seconds, stamp, advanced in ((.3, 300000000, True), (.4, 400000000, False)):
+            with self.subTest(seconds=seconds), self.assertRaisesRegex(
+                    RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+                self.step(seconds, stamp, advanced=advanced)
+        self.assertEqual(self.probe.samples, [300000000])
+
+    def test_wrong_stamp_and_extra_distinct_unwitnessed_epoch_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+            self.step(.30000000447034836, 300000005)
+        with self.assertRaisesRegex(RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+            self.step(.4, 350000000, 400000000)
+        self.assertEqual(self.probe.samples, [])
+
+    def test_graph_and_publisher_input_must_agree(self):
+        with self.assertRaisesRegex(RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+            self.step(.4, 400000000, offered=.399999999)
+        self.assertEqual(self.probe.samples, [])
+
+    def test_physics_advance_during_subscriber_wait_rejected(self):
+        base_spin = self.spin
+
+        def extra_step(timeout):
+            self.frame += 1
+            base_spin(timeout)
+
+        self.probe.spin = extra_step
+        with self.assertRaisesRegex(RuntimeError, "CLOCK_ASSOCIATION_UNVERIFIED"):
+            self.step(.3, 300000000)
+        self.assertEqual(self.probe.samples, [])
+
+
 class ApiObservationTests(unittest.TestCase):
     def test_graph_snapshot_samples_counters_ports_and_timeline(self):
         graph = Obj(is_valid=lambda: True, is_disabled=lambda: False,

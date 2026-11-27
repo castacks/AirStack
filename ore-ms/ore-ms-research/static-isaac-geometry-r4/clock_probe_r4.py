@@ -117,12 +117,14 @@ def classify(before, after, discovery_result, spins):
 
 
 class ClockProbe:
-    def __init__(self, output, graph, endpoint, spin, *, monotonic=time.monotonic):
+    def __init__(self, output, graph, endpoint, spin, *, monotonic=time.monotonic, physics_index=None):
         self.output = output
         self.graph = graph
         self.endpoint = endpoint
         self.spin = spin
         self.monotonic = monotonic
+        self.physics_index = physics_index
+        self.received = []
         self.samples = []
         self.invalid = []
         self.callbacks = 0
@@ -137,26 +139,59 @@ class ClockProbe:
         append_record(self.output / "clock-raw.jsonl", {"sec": sec, "nanosec": nanosec})
         valid = type(sec) is int and type(nanosec) is int and sec >= 0 and 0 <= nanosec < NS
         stamp = sec * NS + nanosec if valid else None
-        if stamp is None or (self.samples and stamp <= self.samples[-1]):
+        last = self.received[-1] if self.received else None
+        if stamp is None or (last is not None and stamp < last):
             self.invalid.append(stamp)
             status = "INVALID_CLOCK_DATA"
         else:
-            self.samples.append(stamp)
-            status = "valid"
+            repeated = stamp == last
+            self.received.append(stamp)
+            if self.physics_index is None and repeated:
+                self.invalid.append(stamp)
+                status = "INVALID_CLOCK_DATA"
+            else:
+                if self.physics_index is None:
+                    self.samples.append(stamp)
+                status = "duplicate" if repeated else "valid"
         self.record("callback", status=status, callback_count=self.callbacks, stamp_ns=stamp)
 
     def snapshot(self):
         errors = {}
         graph = observed(self.graph, errors, "graph")
         endpoint = observed(self.endpoint, errors, "dds")
-        return {"graph": graph, "dds": endpoint, "callback_count": self.callbacks, "errors": errors}
+        snapshot = {"graph": graph, "dds": endpoint, "callback_count": self.callbacks, "errors": errors}
+        if self.physics_index is not None:
+            snapshot["physics_step_index"] = observed(self.physics_index, errors, "physics_step_index")
+        return snapshot
+
+    def epoch_status(self, before, rendered, final, stamps):
+        """Admit one bridged simulation epoch from one witnessed physics boundary."""
+        if self.invalid:
+            return "INVALID_CLOCK_DATA", None
+        stamp = bridge_stamp(before, rendered)
+        final_graph = final["graph"] or {}
+        render_graph = rendered["graph"] or {}
+        if (stamp is None or (self.samples and stamp <= self.samples[-1])
+                or final["physics_step_index"] != rendered["physics_step_index"]
+                or final_graph.get("ports") != render_graph.get("ports")):
+            return "CLOCK_ASSOCIATION_UNVERIFIED", None
+        previous = self.samples[-1] if self.samples else None
+        if any(value != stamp and value != previous for value in stamps):
+            return "CLOCK_ASSOCIATION_UNVERIFIED", None
+        endpoints = (final["dds"] or {}).get("publishers", [])
+        publishers = [p for p in endpoints if p["type"] == CLOCK_TYPE]
+        if stamp not in stamps or len(publishers) != 1 or publishers[0]["compatibility"] != "OK":
+            return "CLOCK_ASSOCIATION_UNVERIFIED", None
+        return "PASS", stamp
 
     def step(self, render):
         self.steps += 1
         before = self.snapshot()
         count = self.callbacks
+        first_stamp = len(self.received)
         stage = "render_step"
         spins = 0
+        queue_settled = True
         self.record("step_started", before=before)
         try:
             rendered = render()
@@ -165,20 +200,40 @@ class ClockProbe:
             stage = "subscriber_wait"
             deadline = self.monotonic() + WAIT_S
             remaining = deadline - self.monotonic()
-            while self.callbacks == count and remaining > 0:
+            expected = bridge_stamp(before, after_step) if self.physics_index is not None else None
+
+            def awaiting():
+                if self.physics_index is None:
+                    return self.callbacks == count
+                if self.invalid:
+                    return False
+                if expected is None:
+                    return self.callbacks == count
+                return expected not in self.received[first_stamp:]
+
+            while awaiting() and remaining > 0:
                 self.spin(min(.02, remaining))
                 spins += 1
                 remaining = deadline - self.monotonic()
-            if self.callbacks > count:
+            if self.callbacks > count and self.physics_index is None:
                 self.spin(0.0)
                 spins += 1
+            elif self.callbacks > count:
+                queue_settled = False
+                while self.monotonic() < deadline and not self.invalid:
+                    prior_poll = self.callbacks
+                    self.spin(0.0)
+                    spins += 1
+                    if self.callbacks == prior_poll:
+                        queue_settled = True
+                        break
         except BaseException:
             self.record("step_interrupted", phase=stage, spin_calls=spins, traceback=traceback.format_exc())
             raise
 
         final = self.snapshot()
-        status = "PASS"
-        if self.invalid or self.callbacks > count + 1:
+        status, accepted = "PASS", None
+        if self.invalid or (self.physics_index is None and self.callbacks > count + 1):
             status = "INVALID_CLOCK_DATA"
         elif self.callbacks == count:
             status = (classify(before["graph"], final["graph"], final["dds"], spins)
@@ -186,26 +241,61 @@ class ClockProbe:
             if status == "NO_PUBLISHER_DISCOVERY" and any(
                     sample["dds"] and sample["dds"]["publishers"] for sample in (before, after_step)):
                 status = "CLOCK_PATH_UNVERIFIED"
-        self.record("step_outcome", status=status, phase=stage, spin_calls=spins, deadline_s=WAIT_S,
-                    received_callbacks=self.callbacks - count, before=before, final=final)
+        elif not queue_settled:
+            status = "CLOCK_ASSOCIATION_UNVERIFIED"
+        elif self.physics_index is not None:
+            status, accepted = self.epoch_status(before, after_step, final, self.received[first_stamp:])
+            if accepted is not None:
+                self.samples.append(accepted)
+        outcome = {"status": status, "phase": stage, "spin_calls": spins, "deadline_s": WAIT_S,
+                   "received_callbacks": self.callbacks - count, "before": before, "final": final}
+        if self.physics_index is not None:
+            outcome.update(accepted_epoch_ns=accepted, received_stamps_ns=self.received[first_stamp:],
+                           queue_settled=queue_settled)
+        self.record("step_outcome", **outcome)
         if status != "PASS":
             raise RuntimeError(f"{status} in {stage} on step {self.steps}")
         return rendered
 
 
-def subscribe(output, og, timeline, rclpy, node, clock_type):
+def bridge_stamp(before, after):
+    """Map an observed step to the pinned C++ Clock encoding, with no tolerance."""
+    old_step, new_step = before["physics_step_index"], after["physics_step_index"]
+    if type(old_step) is not int or type(new_step) is not int or not 0 <= old_step < new_step:
+        return None
+    old, new = before["graph"] or {}, after["graph"] or {}
+    if new.get("enabled") is not True:
+        return None
+    old_count = old.get("counts", {}).get("Publish")
+    new_count = new.get("counts", {}).get("Publish")
+    if type(old_count) is not int or type(new_count) is not int or new_count <= old_count:
+        return None
+    ports = new.get("ports", {})
+    time_s = ports.get("Time.outputs:simulationTime")
+    earlier = old.get("ports", {}).get("Time.outputs:simulationTime")
+    if (type(time_s) not in (float, int) or type(earlier) not in (float, int)
+            or not (math.isfinite(earlier) and 0 <= earlier < time_s < 2**31)
+            or time_s != ports.get("Publish.inputs:timeStamp")):
+        return None
+    # Ros2ClockMessageImpl::writeData uses static_cast<int64_t>(seconds * 1e9).
+    return int(time_s * NS)
+
+
+def subscribe(output, og, timeline, rclpy, node, clock_type, *, physics_index=None):
     from rclpy.qos import QoSProfile, qos_check_compatible
 
     qos = QoSProfile(depth=10)  # Same QoS request as the former integer argument.
     probe = ClockProbe(output, lambda: graph_snapshot(og, timeline),
                        lambda: discovery(node, subscription, qos, qos_check_compatible),
-                       lambda timeout: rclpy.spin_once(node, timeout_sec=timeout))
+                       lambda timeout: rclpy.spin_once(node, timeout_sec=timeout),
+                       physics_index=physics_index)
     subscription = node.create_subscription(clock_type, TOPIC, probe.callback, qos)
     errors = {}
     domain = observed(lambda: node.context.get_domain_id(), errors, "rclpy_domain")
     write_json(output / "clock-configuration.json",
                {"graph": GRAPH, "namespace": node.get_namespace(), "subscription_topic": subscription.topic_name,
                 "node": node.get_name(), "rclpy_domain": domain, "executor": "rclpy.spin_once",
+                "clock_policy": "diagnostic_epochs" if physics_index is not None else "geometry_single_callback",
                 "ros_environment": {key: os.environ.get(key) for key in
                                     ("ROS_DOMAIN_ID", "ROS_DISTRO", "RMW_IMPLEMENTATION",
                                      "ROS_AUTOMATIC_DISCOVERY_RANGE", "ROS_LOCALHOST_ONLY", "ROS_NAMESPACE")},
@@ -245,7 +335,8 @@ def clock_only(output, stage_file):
         try:
             with phase(output, "clock_transport"):
                 create_graph(og)
-                probe = subscribe(output, og, omni.timeline.get_timeline_interface(), rclpy, node, Clock)
+                probe = subscribe(output, og, omni.timeline.get_timeline_interface(), rclpy, node, Clock,
+                                  physics_index=lambda: world.current_time_step_index)
                 native_times = []
                 with phase(output, "clock_steps"):
                     for _ in range(2):
