@@ -1,0 +1,428 @@
+{
+  "status": "NO_PHYSICS_ADVANCEMENT",
+  "starting_commit": "aeb0ef8dc74f250424d36dedaa33f91f9c7e47ae",
+  "branch": "ore-ms-orb-development",
+  "isolated_attempts": 1,
+  "controls": {
+    "A": {
+      "status": "PASS",
+      "boundaries": {
+        "native_count": [
+          3,
+          3,
+          3
+        ],
+        "invalid_count": [
+          0,
+          0,
+          0
+        ],
+        "world_count": [
+          3,
+          3,
+          3
+        ],
+        "manager_count": [
+          3,
+          3,
+          3
+        ],
+        "native_time_s": [
+          0.30000000447034836,
+          0.30000000447034836,
+          0.30000000447034836
+        ],
+        "native_monotonic_s": [
+          0.30000000447034836,
+          0.30000000447034836,
+          0.30000000447034836
+        ],
+        "playing": [
+          true,
+          true,
+          true
+        ],
+        "auto_update": [
+          true,
+          true,
+          true
+        ],
+        "timeline_s": [
+          -0.09999999701976778,
+          -0.09999999701976778,
+          -0.09999999701976778
+        ],
+        "graph_simulation_time_s": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "graph_compute_counts": [
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          }
+        ],
+        "wire_callback_count": [
+          0,
+          0,
+          0
+        ]
+      },
+      "physics_events": [],
+      "later_polling_events": [],
+      "clock_outcome": null,
+      "accepted_epoch_ns": null
+    },
+    "B": {
+      "status": "PASS",
+      "boundaries": {
+        "native_count": [
+          3,
+          4,
+          4
+        ],
+        "invalid_count": [
+          0,
+          0,
+          0
+        ],
+        "world_count": [
+          3,
+          4,
+          4
+        ],
+        "manager_count": [
+          3,
+          4,
+          4
+        ],
+        "native_time_s": [
+          0.30000000447034836,
+          0.4000000059604645,
+          0.4000000059604645
+        ],
+        "native_monotonic_s": [
+          0.30000000447034836,
+          0.4000000059604645,
+          0.4000000059604645
+        ],
+        "playing": [
+          true,
+          true,
+          true
+        ],
+        "auto_update": [
+          true,
+          true,
+          true
+        ],
+        "timeline_s": [
+          -0.09999999701976778,
+          -0.09999999701976778,
+          -0.09999999701976778
+        ],
+        "graph_simulation_time_s": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "graph_compute_counts": [
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          }
+        ],
+        "wire_callback_count": [
+          0,
+          0,
+          0
+        ]
+      },
+      "physics_events": [
+        {
+          "sequence": 4,
+          "dt_s": 0.10000000149011612,
+          "valid": true,
+          "monotonic_ns": 1370939970123638
+        }
+      ],
+      "later_polling_events": [],
+      "clock_outcome": null,
+      "accepted_epoch_ns": null
+    },
+    "C": {
+      "status": "NO_PHYSICS_ADVANCEMENT",
+      "boundaries": {
+        "native_count": [
+          4,
+          4,
+          4
+        ],
+        "invalid_count": [
+          0,
+          0,
+          0
+        ],
+        "world_count": [
+          4,
+          4,
+          4
+        ],
+        "manager_count": [
+          4,
+          4,
+          4
+        ],
+        "native_time_s": [
+          0.4000000059604645,
+          0.4000000059604645,
+          0.4000000059604645
+        ],
+        "native_monotonic_s": [
+          0.4000000059604645,
+          0.4000000059604645,
+          0.4000000059604645
+        ],
+        "playing": [
+          true,
+          false,
+          false
+        ],
+        "auto_update": [
+          true,
+          true,
+          true
+        ],
+        "timeline_s": [
+          -0.09999999701976778,
+          -0.09999999701976778,
+          -0.09999999701976778
+        ],
+        "graph_simulation_time_s": [
+          0.0,
+          0.4000000059604645,
+          0.4000000059604645
+        ],
+        "graph_compute_counts": [
+          {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          {
+            "Tick": 3579,
+            "Time": 3579,
+            "Publish": 3579
+          },
+          {
+            "Tick": 3579,
+            "Time": 3579,
+            "Publish": 3579
+          }
+        ],
+        "wire_callback_count": [
+          0,
+          0,
+          2
+        ]
+      },
+      "physics_events": [],
+      "later_polling_events": [],
+      "clock_outcome": "CLOCK_ASSOCIATION_UNVERIFIED",
+      "accepted_epoch_ns": null
+    }
+  },
+  "witness_qualified_by_controls": true,
+  "accepted_epoch_count": 0,
+  "clock_acceptance_changed": false,
+  "clock_results": {
+    "native_time_progressed": false,
+    "published_value_matches_native_pre_step": true,
+    "wire_stamps_ns": [
+      400000005,
+      400000005
+    ],
+    "encoded_post_render_graph_ns": 400000005,
+    "clock_publishers": [
+      {
+        "name": "_World_ReceiptClock_Publish",
+        "namespace": "/",
+        "type": "rosgraph_msgs/msg/Clock",
+        "gid": [
+          1,
+          15,
+          127,
+          1,
+          49,
+          0,
+          189,
+          157,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          3
+        ],
+        "qos": {
+          "history": "UNKNOWN",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE",
+          "liveliness": "AUTOMATIC",
+          "depth": 0,
+          "deadline_ns": 9223372036854775807,
+          "lifespan_ns": 9223372036854775807,
+          "liveliness_lease_ns": 9223372036854775807
+        },
+        "compatibility": "OK",
+        "reason": ""
+      }
+    ]
+  },
+  "raw_clock_messages": [
+    {
+      "sec": 0,
+      "nanosec": 400000005
+    },
+    {
+      "sec": 0,
+      "nanosec": 400000005
+    }
+  ],
+  "native_event_count": 4,
+  "startup_physics_events": [
+    {
+      "sequence": 1,
+      "dt_s": 0.10000000149011612,
+      "valid": true,
+      "monotonic_ns": 1370937379682643
+    },
+    {
+      "sequence": 2,
+      "dt_s": 0.10000000149011612,
+      "valid": true,
+      "monotonic_ns": 1370937392596474
+    },
+    {
+      "sequence": 3,
+      "dt_s": 0.10000000149011612,
+      "valid": true,
+      "monotonic_ns": 1370938805985027
+    }
+  ],
+  "geometry_executed": false,
+  "frozen_geometry_interval_ns": 2000000000,
+  "preflight": {
+    "status": "PASS",
+    "image": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+    "image_config_id": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+    "fixture_sha256": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+    "probe_sha256": "701e075b1933d773c7493d979da11eca74de27d601729989d4601ce6e43629d8",
+    "worker_sha256": "4c1bf2a8e4acf1f550f3ae561371afb0befb1a372ca3f77ae812a5cf68d30bee",
+    "native_subscription": {
+      "pre_step": false,
+      "order": 0
+    },
+    "mount_gate": "PASS",
+    "allowlisted_mount_count": 2,
+    "network": "none",
+    "ipc": "private",
+    "gpu_index": 0,
+    "host_timeout_s": 150,
+    "kill_grace_s": 15,
+    "ros_domain_id": 91
+  },
+  "cpu_tests": {
+    "status": "PASS",
+    "existing": 84,
+    "new": 4,
+    "total": 88,
+    "r2": 10,
+    "r3": 36,
+    "r4": 35,
+    "frozen_receipt": 7
+  },
+  "host_exit": {
+    "id": "3f499442dca2be67a9575158550bbbed5ee49374b68c3d3be8b0014f1147f36b",
+    "restart_count": 0,
+    "state": {
+      "Dead": false,
+      "Error": "",
+      "ExitCode": 0,
+      "FinishedAt": "2026-11-27T16:32:58.322816597Z",
+      "OOMKilled": false,
+      "Paused": false,
+      "Pid": 0,
+      "Restarting": false,
+      "Running": false,
+      "StartedAt": "2026-11-27T16:30:42.330960066Z",
+      "Status": "exited"
+    }
+  },
+  "attach_exit": 0,
+  "shutdown": {
+    "host_verified_shutdown": true,
+    "native_shutdown_request": true,
+    "native_shutdown_return": false,
+    "kit_shutdown_log": [
+      "[132.456s] Simulation App Shutting Down"
+    ]
+  },
+  "operational_isolation": {
+    "status": "PASS",
+    "matched_count": 3,
+    "matched": [
+      "id",
+      "image_id",
+      "start_time",
+      "restart_count",
+      "status"
+    ]
+  },
+  "historical_and_frozen_hashes": "PASS",
+  "evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-physics-live-r4.yvYhONYk",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "3041d53d3c9f652171793c26a2c398f58be31f5e36318d0833e762d3816373de",
+    "manifest_entries": 44,
+    "native_callbacks": "run/capture/physics-post-steps.jsonl",
+    "brackets": "run/capture/physics-controls.jsonl",
+    "worker_gates": "run/capture/physics-gates.jsonl",
+    "raw_ros": "run/capture/clock-raw.jsonl",
+    "clock_probe": "run/capture/clock-diagnostic.jsonl",
+    "ros_configuration": "run/capture/clock-configuration.json",
+    "lifecycle": "run/capture/phases.jsonl",
+    "child_log": "run/child.log",
+    "docker_exit": "run/container-exit.json",
+    "independent_review": "independent-review.json",
+    "operational_snapshots": [
+      "operational-before.txt",
+      "operational-after.txt"
+    ]
+  }
+}
