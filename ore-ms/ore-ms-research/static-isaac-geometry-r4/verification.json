@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "FAIL",
+  "branch": "ore-ms-orb-development",
+  "starting_commit": "0225c0dcc72f63e8897b43d37c1d7468333807d2",
+  "pegasus_commit": "8c7a664095396bc9c4f4609531445d4cf6390fe4",
+  "runtime": {
+    "simulator_starts": 1,
+    "timeout_s": 360,
+    "elapsed_s": 30.54102,
+    "geometry_observations_acquired": 0,
+    "container_id": "d5babb97d418765fc4a14a0edd8fca08f615d854dd365d57703e7c9e79b02c89",
+    "container_exit": 0,
+    "supervisor_exit": 1,
+    "completion_marker_present": false,
+    "image_pins": [
+      "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+      "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd"
+    ]
+  },
+  "first_failed_gate": {
+    "journal": "run/capture/phases.jsonl",
+    "line": 4,
+    "phase": "stage_camera_writers",
+    "status": "failed",
+    "wall_time_ns": 1795757926725690543,
+    "traceback": "Traceback (most recent call last):\n  File \"/capture-input/recorder.py\", line 64, in phase\n    yield\n  File \"/capture-input/capture_r4.py\", line 44, in capture\n    op.Set(value)\n    ^^^^^^\nRuntimeError: Accessed schema on invalid prim\n"
+  },
+  "observations": {
+    "control-5": {
+      "status": "NOT_REACHED"
+    },
+    "control-15": {
+      "status": "NOT_REACHED"
+    },
+    "issue": {
+      "status": "NOT_REACHED"
+    },
+    "target": {
+      "status": "NOT_REACHED"
+    }
+  },
+  "receipt": null,
+  "gates": {
+    "offline_tests": {
+      "status": "PASS",
+      "evidence": "36 R3, 10 R2, and seven frozen receipt tests passed.",
+      "paths": [
+        "r3-offline-tests.log",
+        "r2-offline-tests.log",
+        "receipt-tests.log"
+      ]
+    },
+    "source_asset_image_pins": {
+      "status": "PASS",
+      "evidence": "The staged R4 exporter and assets were hashed before start and rechecked after.",
+      "paths": [
+        "input.sha256",
+        "source-commit.txt",
+        "pegasus-commit.txt",
+        "image.txt"
+      ]
+    },
+    "isolated_start": {
+      "status": "PASS",
+      "evidence": "One stopped container passed the R3 structured mount check before start.",
+      "paths": [
+        "container-created.txt",
+        "container-mounts.json",
+        "start-requested.txt"
+      ]
+    },
+    "isaac_startup": {
+      "status": "PASS",
+      "evidence": "Isaac startup completed.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log"
+      ]
+    },
+    "stage_camera_setup": {
+      "status": "FAIL",
+      "evidence": "Reapplying the saved camera transform operation raised before writer attachment.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "input/capture_r4.py"
+      ]
+    },
+    "controls_5_and_15_m": {
+      "status": "NOT_REACHED",
+      "evidence": "No native control frames or surveys were written.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "issue_target_depth_timing_and_tf": {
+      "status": "NOT_REACHED",
+      "evidence": "The geometry and clock acquisition phases did not execute.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "receipt_and_m08_binding": {
+      "status": "NOT_REACHED",
+      "evidence": "No receipt was generated or submitted to the frozen verifier.",
+      "paths": [
+        "independent-review.json"
+      ]
+    },
+    "clean_container_exit": {
+      "status": "PASS",
+      "evidence": "Kit logged shutdown and host Docker recorded exit 0. Acquisition had failed.",
+      "paths": [
+        "run/container-exit.json",
+        "run/child.log"
+      ]
+    },
+    "completion": {
+      "status": "FAIL",
+      "evidence": "The supervisor rejected the incomplete acquisition and withheld the completion marker.",
+      "paths": [
+        "run/FAILED.json"
+      ]
+    },
+    "operational_isolation": {
+      "status": "PASS",
+      "evidence": "Operational IDs, image pins, start times and restart counts match.",
+      "paths": [
+        "operational-before.txt",
+        "operational-after.txt"
+      ]
+    },
+    "prior_evidence_and_frozen_research": {
+      "status": "PASS",
+      "evidence": "Prior manifests and M05\u2013M08 package and plan hashes matched.",
+      "paths": [
+        "pre-existing-before.txt",
+        "pre-existing-after.txt"
+      ]
+    },
+    "manifest": {
+      "status": "PASS",
+      "evidence": "All 41 evidence files verified by SHA-256.",
+      "paths": [
+        "SHA256SUMS.txt"
+      ]
+    }
+  },
+  "evidence": {
+    "local_directory": "/root/ore-ms-artifacts/static-isaac-geometry-r4.8fSXMhEw",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "b8d4e764bbef631b4cf0b5011aa1fb8d5d39eea7477ac205e3c7cbaf1f4a6216",
+    "artifact_hashes": {
+      "check-existing-evidence.sh": "6409130ad39d85be01762a4032afa5581ca711f887538f86ee01b868ae87ee63",
+      "cleanup.txt": "db43badc17324f8700f068bc5bc30cedb5c6d7204a1e3bf11185cae4580044ef",
+      "container-after.txt": "0f7164650ba7627609f495d07decabf9d7040458361648416cc989c0c8bcb17f",
+      "container-created.txt": "d78237c9db0a611329937fcd31677f800f7a116a3d84b8e0456b5bd9cfced758",
+      "container-mounts.json": "c832981b6342c279ca33e2602265e219463bd987111814efd0e0c0b12277abbe",
+      "container.cid": "db43badc17324f8700f068bc5bc30cedb5c6d7204a1e3bf11185cae4580044ef",
+      "execute-once.sh": "18de7956894017a91808b71a3b23ef2b9010a1defaae2feb8fabca84d1f3f1a3",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "a5befef7f71a74e9ab1102bf9798fedaee6f52003909a72c6a14eb9fcac0ad78",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "independent-review.json": "1d5f5999748c1ce884f9967f91ccc965a90cdae2d5847a9036e2b7fadbc62c38",
+      "independent-review.py": "e17c476aaba3f769fc1acda3a2b07ddb41a123830a408340ea1a8b5584f49734",
+      "input-after.txt": "a4e19e3668192aa5e280e933b512305af035d5c82652cd60a79cb6cd17cc7dd9",
+      "input.sha256": "78f3cedf8b0b42bcebf7c77b92e59f853ecd93d5e9efec00e71ef3197dc9b8c7",
+      "input/capture_one_r3.py": "4696a4101a9762f0dbb42ca316cde9ba6b9d72dc8c1940e29b37269c566969a4",
+      "input/capture_r4.py": "4a87a27e62b52074e77668910e0a1616be5493cfd34f1854000b9834bfa04b3a",
+      "input/fixture.json": "156257ded54d3cef83626eb3178ec9fb032843ffc0cb24f4a708e95a5e16506e",
+      "input/readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+      "input/recorder.py": "f20dd82fe4ce12cf1dbe3805ddfde504c47a28cbb2908b45ea6882022a57bd43",
+      "input/review_r4.py": "d6d46f280ab2629cc7b83f1e39e23214be74582a5007b50afba2ee2be79a613b",
+      "input/run-r4.sh": "96798b014762d6b18828845de6309620c6b76fa695bc5c9aabee22aa6bf10a17",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/supervise_r3.py": "2079557a6ca33652391864c2ddd47cba238b64835e9dd8fab8cac9974316c81f",
+      "input/supervise_r4.py": "d74c27e9535dd7f08c9038601ac39f54852dc79ed3b2fe814b1fcbebcedad9bc",
+      "input/validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+      "launch-once.sh": "0897dd5c26e8b61632846ce19b1678f81e33594131bae486d61225c0824106ad",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pegasus-commit.txt": "43bd150da9ebe05e714431e52a4680dcb3f953a240f57e30e71e9654b3603cfd",
+      "pre-existing-after.txt": "7aed16cc726c4bd383fb3c9cd5dac810103a81f346900edba1cb979066c1a922",
+      "pre-existing-before.txt": "7aed16cc726c4bd383fb3c9cd5dac810103a81f346900edba1cb979066c1a922",
+      "r2-offline-tests.log": "53a707dab75914d00a8f5c3849ca6ad78b989c1cb91eb5f363d0074509a9be36",
+      "r3-offline-tests.log": "3ab1ca856fc92d3491493fbfa7824ddd8c2e921c7674f01d8301b98cfeac0f5d",
+      "receipt-tests.log": "754396fea63a5a78f6fd1dc9d08039a8fd050469b308bc5f04283bc05c925203",
+      "run/FAILED.json": "42e053d15bae744a7d5f4b7aec39ecb34969fa7c36947b6e1f748b456a763f1d",
+      "run/capture/phases.jsonl": "af7121f8e90d8fbef5b3e9013aed4876ed2cf3b2c26a7ca2769e8c2eec0649e0",
+      "run/child.log": "477ffe6f25611f3bafe37abd482dbe1540e785d430644080d9fc84abe380f735",
+      "run/container-exit.json": "9f49376addb44c6c164bc41631c440844e8f7e2297e5e73147cb9d2b8b3e073f",
+      "source-commit.txt": "5d4fa30a4ca72c189cf8c0e090ff0dd34030ebf90503748bff008f048c8d79f6",
+      "start-requested.txt": "b0acf84c6492bb1bfaf074168c0534fe6ff6c7610b694874806280c6a582ea68",
+      "supervisor-exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  }
+}
