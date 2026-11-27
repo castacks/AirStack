@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "PASS",
+  "scope": "offline_cpu_only",
+  "starting_commit": "4d386b41c204cc669edd67b58c36e3815e838066",
+  "isaac_started": false,
+  "historical_failure": {
+    "status": "FAIL",
+    "phase": "stage_camera_writers",
+    "error": "RuntimeError: Accessed schema on invalid prim",
+    "archived_exporter_sha256": "4a87a27e62b52074e77668910e0a1616be5493cfd34f1854000b9834bfa04b3a",
+    "manifest_sha256": "b8d4e764bbef631b4cf0b5011aa1fb8d5d39eea7477ac205e3c7cbaf1f4a6216"
+  },
+  "tagged_nvidia_source": {
+    "version": "v5.1.0",
+    "sha256": {
+      "camera.py": "f5392a11c22e460e979c19a2ddcef505ba88a9908fd3a9a09069bb833f8438ce",
+      "base_sensor.py": "58074852f19154b4fb623f7e6eee09d6c2100984ad411e221b8bd59217d18185",
+      "single_xform_prim.py": "f1427ccc652ad584464ff2e50465db4e3a570c32a862d93dfa1891af0e4d730f",
+      "xform_prim.py": "df60f2fa629a5876dca529b46609f56c743612ea6f018fd2c4c2cafdbd5f8fd2",
+      "render_product.py": "5b0295df9aff696ff5b60d881af750d0c4fd8e6a9104c515bab2cbf79e27c7ab"
+    }
+  },
+  "corrected_exporter_sha256": "04ab393950e9ff7753ec2491c59b94c29d17583add5a7307e6cd85ba22f9fbb2",
+  "tests": {
+    "r4_camera": {
+      "status": "PASS",
+      "passed": 10,
+      "cases": [
+        "test_camera_setup_exception_is_persisted_at_both_levels",
+        "test_invalid_or_inconsistent_intrinsics_are_rejected",
+        "test_missing_authored_camera_does_not_initialize",
+        "test_missing_or_invalid_effective_camera_is_rejected",
+        "test_pose_change_is_rejected_without_reapplying_it",
+        "test_replaced_prim_with_same_pose_is_reacquired",
+        "test_stage_with_different_root_is_rejected",
+        "test_stale_transform_op_is_never_read_or_written",
+        "test_success_persists_authored_pose_and_intrinsics",
+        "test_valid_prim_is_read_again_after_initialization"
+      ]
+    },
+    "r3_recorder_and_mounts": {
+      "status": "PASS",
+      "passed": 36,
+      "cases": [
+        "test_association_and_finite_target_depth_both_required",
+        "test_delayed_depth",
+        "test_delayed_instances",
+        "test_different_frames_never_combined",
+        "test_empty_and_malformed_payloads",
+        "test_exhaustion_after_exact_bound",
+        "test_immediate_native_writer_pair",
+        "test_mismatched_dimensions",
+        "test_missing_stamp_rejects_nonempty_buffers",
+        "test_permanently_missing_annotator",
+        "test_readout_exception_persists",
+        "test_unmapped_native_time_rejected",
+        "test_container_exit_requires_host_receipt_and_clean_state",
+        "test_fast_shutdown_can_complete_with_verified_exit_record",
+        "test_incomplete_journal_rejected",
+        "test_metadata_mismatch_rejected_after_clean_shutdown",
+        "test_metadata_must_match_attempt_journal",
+        "test_missing_durable_shutdown_request_rejected",
+        "test_missing_or_corrupt_artifacts_rejected",
+        "test_nonzero_exit_rejected_even_with_native_shutdown_evidence",
+        "test_ready_pair_and_verified_shutdown_can_complete",
+        "test_shutdown_exception_persists_traceback",
+        "test_shutdown_timeout_rejected",
+        "test_successful_acquisition_followed_by_incomplete_shutdown",
+        "test_supervisor_interrupt_rejected",
+        "test_unverified_acquisition_with_clean_exit_cannot_complete",
+        "test_launcher_blocks_mock_start_on_mount_failure",
+        "test_launcher_reaches_mock_start_only_after_valid_mounts",
+        "test_cli_accepts_whitespace_and_blank_lines",
+        "test_correct_mounts_in_either_order",
+        "test_duplicate_and_conflicting_mounts",
+        "test_incorrect_source_destination_or_type",
+        "test_malformed_or_incomplete_data",
+        "test_missing_required_mount",
+        "test_unrelated_mounts_are_accepted_by_checker",
+        "test_wrong_rw_mode"
+      ]
+    },
+    "r2_supervisor": {
+      "status": "PASS",
+      "passed": 10,
+      "cases": [
+        "test_clean_early_exit",
+        "test_exception_survives_clean_native_exit",
+        "test_exceptions_persist_in_worker_journal",
+        "test_exit_with_all_frames_before_shutdown_returns",
+        "test_invalid_artifacts",
+        "test_missing_artifacts",
+        "test_mock_cannot_complete_in_isaac_mode",
+        "test_signal",
+        "test_timeout",
+        "test_valid_mock_and_hashes"
+      ]
+    },
+    "frozen_receipt": {
+      "status": "PASS",
+      "passed": 7,
+      "cases": [
+        "test_bad_clock_pose_intrinsics_and_tf",
+        "test_duplicate_key_and_file_escape_rejected",
+        "test_reference_range_guards",
+        "test_synthetic_pass_and_exact_adapter_binding",
+        "test_target_only_change_does_not_change_issue_binding",
+        "test_unsupported_depth_and_bad_calibration",
+        "test_wrong_pin_and_changed_stage_bytes"
+      ]
+    }
+  },
+  "unchanged": {
+    "post_camera_setup_capture_and_shutdown_code": true,
+    "r3_and_r2_recorder_sources": true,
+    "frozen_receipt_verifier_and_fixture": true,
+    "frozen_m05_m08_and_prior_run_hashes": true
+  },
+  "native_validation": "NOT_RUN"
+}

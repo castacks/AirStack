@@ -17,41 +17,133 @@ SPEC = json.loads((INPUT / "fixture.json").read_text()) if INPUT.exists() else N
 NS = 1_000_000_000
 
 
+# Same binary64 roundoff allowance as the frozen receipt verifier.
+POSE_ROUNDOFF = 64 * math.ulp(10.0)
+
+
+def read_camera_matrix(camera):
+    matrix = [list(row) for row in camera.ComputeLocalToWorldTransform(0)]
+    if (len(matrix) != 4 or any(len(row) != 4 for row in matrix)
+            or any(not math.isfinite(value) for row in matrix for value in row)):
+        raise ValueError("camera world transform is invalid")
+    return matrix
+
+
+def compare_pose(actual, expected, context):
+    if any(abs(a - b) > POSE_ROUNDOFF
+           for row_a, row_b in zip(actual, expected, strict=True)
+           for a, b in zip(row_a, row_b, strict=True)):
+        raise ValueError(f"{context} camera pose differs from the frozen fixture or authored pose")
+
+
+def get_stage_camera(get_stage, camera_at, root_path, camera_path):
+    stage = get_stage()
+    if stage is None or stage.GetRootLayer().realPath != str(root_path):
+        raise RuntimeError("active USD stage does not use the pinned root layer")
+    camera = camera_at(stage, camera_path)
+    if not camera or not camera.GetPrim().IsValid() or not camera.GetPrim().IsActive():
+        raise RuntimeError(f"missing or invalid active USD camera {camera_path}")
+    if camera.TransformMightBeTimeVarying():
+        raise ValueError("camera pose is time-varying")
+    return stage, camera
+
+
+def initialize_camera(output, fixture, root_path, get_stage, camera_at, create_product,
+                      product_camera, product_resolution):
+    """Bind the existing authored camera and verify the effective configuration."""
+    diagnostics = output / "camera-setup"
+    diagnostics.mkdir()
+    path = fixture["camera_prim"]
+    k = fixture["intrinsics"]
+    expected = (k["width"], k["height"])
+    with phase(diagnostics, "authored_camera"):
+        _, authored = get_stage_camera(get_stage, camera_at, root_path, path)
+        authored_matrix = read_camera_matrix(authored)
+        # USD world matrices store basis vectors in rows. The optical frame
+        # reverses USD camera Y and Z, and the receipt stores axes by columns.
+        axes = fixture["optical_to_stage"]
+        expected_matrix = [[sign * row[i] for row in axes] + [0]
+                           for i, sign in enumerate((1, -1, -1))]
+        expected_matrix.append(fixture["origin_m"] + [1])
+        write_json(diagnostics / "authored.json", {"root": str(root_path), "camera": path,
+                   "usd_local_to_world": authored_matrix, "expected_usd_local_to_world": expected_matrix})
+        compare_pose(authored_matrix, expected_matrix, "authored")
+        del authored
+
+    with phase(diagnostics, "initialize_render_product"):
+        product = create_product(path, expected)
+        product_path = str(product.path)
+        if not product_path.startswith("/"):
+            raise RuntimeError("camera render product has no valid USD path")
+
+    with phase(diagnostics, "effective_camera_pose"):
+        stage, effective = get_stage_camera(get_stage, camera_at, root_path, path)
+        effective_matrix = read_camera_matrix(effective)
+        write_json(diagnostics / "effective-pose.json", {"root": str(root_path), "camera": path,
+                   "product": product_path, "usd_local_to_world": effective_matrix})
+        compare_pose(effective_matrix, authored_matrix, "effective")
+        compare_pose(effective_matrix, expected_matrix, "effective")
+
+    with phase(diagnostics, "effective_camera_intrinsics"):
+        attached = str(product_camera(product_path))
+        resolution = tuple(product_resolution(product_path))
+        projection = str(effective.GetProjectionAttr().Get())
+        focal = effective.GetFocalLengthAttr().Get()
+        apertures = [effective.GetHorizontalApertureAttr().Get(),
+                     effective.GetVerticalApertureAttr().Get()]
+        offsets = [effective.GetHorizontalApertureOffsetAttr().Get(),
+                   effective.GetVerticalApertureOffsetAttr().Get()]
+        has_lens_distortion = any("LensDistortion" in schema for schema in effective.GetPrim().GetAppliedSchemas())
+        write_json(diagnostics / "effective-camera.json", {"camera": attached, "resolution": resolution,
+                   "projection": projection, "focal_length": repr(focal),
+                   "apertures": [repr(value) for value in apertures],
+                   "aperture_offsets": [repr(value) for value in offsets],
+                   "lens_distortion_schema": has_lens_distortion})
+        if attached != path or resolution != expected:
+            raise ValueError("render product camera or resolution differs from the fixture")
+        if (projection != "perspective" or offsets != [0, 0] or has_lens_distortion
+                or any(value is None or not math.isfinite(value) or value <= 0
+                       for value in (focal, *apertures))):
+            raise ValueError("invalid stationary pinhole camera parameters")
+        width, height = resolution
+        intrinsics = [[width * focal / apertures[0], 0, width / 2],
+                      [0, height * focal / apertures[1], height / 2], [0, 0, 1]]
+        expected_k = [[k["fx"], 0, k["cx"] + .5], [0, k["fy"], k["cy"] + .5], [0, 0, 1]]
+        if intrinsics != expected_k:
+            raise ValueError("effective camera intrinsics differ from the frozen fixture")
+        checkpoint(diagnostics, "effective_camera_intrinsics", "verified", intrinsics_native=intrinsics)
+    return stage, effective, product, intrinsics
+
+
 def capture(app):
     with phase(OUTPUT, "stage_camera_writers"):
         import omni.usd
         import omni.replicator.core as rep
         from isaacsim.core.api import World
         from isaacsim.core.nodes.bindings import _isaacsim_core_nodes
-        from isaacsim.sensors.camera import Camera
+        from isaacsim.core.utils.render_product import get_camera_prim_path, get_resolution
         from pxr import Gf, UsdGeom
         context = omni.usd.get_context()
         if not context.open_stage(str(INPUT / "stage.usda")):
             raise RuntimeError("cannot open isolated stage")
         app.update()
-        stage = context.get_stage()
-        camera_prim = UsdGeom.Camera.Get(stage, CAMERA)
-        camera_xform = UsdGeom.Xformable(camera_prim)
-        authored_ops = camera_xform.GetOrderedXformOps()
-        authored_values = [op.Get() for op in authored_ops]
         world = World(physics_dt=.1, rendering_dt=.1, stage_units_in_meters=1.0)
-        camera = Camera(CAMERA, resolution=(WIDTH, HEIGHT), frequency=10)
-        world.reset()
-        camera.initialize(attach_rgb_annotator=False)
-        # Camera preparation may canonicalize xform ops. Restore the stage's
-        # authored stationary pose before the first acquisition.
-        for op, value in zip(authored_ops, authored_values, strict=True):
-            op.Set(value)
-        camera_xform.SetXformOpOrder(authored_ops)
-        product = camera.get_render_product_path()
+
+        def create_product(path, resolution):
+            world.reset()
+            return rep.create.render_product(path, resolution=resolution)
+
+        stage, camera_prim, render_product, camera_native = initialize_camera(
+            OUTPUT, SPEC, INPUT / "stage.usda", context.get_stage, UsdGeom.Camera.Get,
+            create_product, get_camera_prim_path, get_resolution,
+        )
+        product = str(render_product.path)
         rep.orchestrator.set_capture_on_play(False)
         depth_writer, id_writer = attach_writers(rep, product)
         timestamp = _isaacsim_core_nodes.acquire_interface().get_sim_time_at_time
         mesh = UsdGeom.Mesh.Get(stage, TARGET)
         translation = mesh.GetPrim().GetAttribute("xformOp:translate")
-        camera_native = camera.get_intrinsics_matrix().tolist()
-        if (camera_xform.TransformMightBeTimeVarying() or mesh.TransformMightBeTimeVarying()
-                or mesh.GetPointsAttr().ValueMightBeTimeVarying()):
+        if mesh.TransformMightBeTimeVarying() or mesh.GetPointsAttr().ValueMightBeTimeVarying():
             raise RuntimeError("nonstationary fixture transform")
 
     def step():

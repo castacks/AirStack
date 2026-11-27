@@ -10,7 +10,7 @@ The stopped diagnostic container passed structured mount inspection. It had exac
 
 ## First failure and independent evidence review
 
-The new exporter retained handles to the authored USD camera transform operations before calling Isaac's camera initialization. It attempted to reapply the authored pose to preserve the frozen verifier's precise optical-frame convention. At `capture_r4.py:44`, the call to `op.Set(value)` raised `RuntimeError: Accessed schema on invalid prim`. The operation handle was invalid at that call. The evidence does not identify which setup operation invalidated it. The traceback is on line 4 of the lifecycle journal. [Exact executed exporter](static-isaac-geometry-r4/capture_r4.py)
+The new exporter retained handles to the authored USD camera transform operations before calling Isaac's camera initialization. It attempted to reapply the authored pose to preserve the frozen verifier's precise optical-frame convention. At `capture_r4.py:44`, the call to `op.Set(value)` raised `RuntimeError: Accessed schema on invalid prim`. The operation handle was invalid at that call. The evidence does not identify which setup operation invalidated it. The traceback is on line 4 of the lifecycle journal. The exact executed exporter is retained at `4d386b41c:ore-ms/ore-ms-research/static-isaac-geometry-r4/capture_r4.py` and in the raw bundle.
 
 | Gate | Observed result |
 | --- | --- |
