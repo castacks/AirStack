@@ -1,0 +1,10 @@
+{
+  "startup_episode_count": 1,
+  "new_startup_trials": 0,
+  "measured_characterization_intervals": 12,
+  "missing_measurements": 7,
+  "independent_deadline_interval_s": "19.276162179",
+  "startup_variability": "NOT_ESTIMABLE_N1; no standard deviation, p95 or confidence interval reported",
+  "tier_executed": "A_OFFLINE_AND_READ_ONLY_METADATA_ONLY",
+  "acceptance_thresholds_created": false
+}

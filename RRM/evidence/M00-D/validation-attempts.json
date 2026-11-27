@@ -1,0 +1,18 @@
+{
+  "attempts": [
+    {
+      "attempt": "PRECOMMIT-01",
+      "all_passed": false,
+      "checks_passed": 24,
+      "checks_failed": 1,
+      "failure": {
+        "check": "protocol_authorization_and_design_controls",
+        "passed": false,
+        "detail": "Exact candidate/unknown prerequisites, three tiers, repeat design, clocks, instrumentation, abort/retention and PD authority explicit"
+      },
+      "diagnosis": "Case-sensitive validator searched for Clock, while protocol heading uses clocks. Protocol already contained clock handling; no requirement or protocol change needed.",
+      "corrective_change": "Use case-insensitive token presence for the protocol structural check; rerun all milestone checks.",
+      "runtime_effect": "NONE; offline validation only"
+    }
+  ]
+}

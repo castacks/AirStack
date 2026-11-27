@@ -1,0 +1,331 @@
+{
+  "algorithm": "SHA-256",
+  "sources": [
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    },
+    {
+      "path": "RRM/ROADMAP_MANDATE.md",
+      "bytes": 12640,
+      "sha256": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_ACCESS_AND_SECURITY.md",
+      "bytes": 7284,
+      "sha256": "4ce8b9b1b1f34e74f8a8a61cc8d904a434b46a09779aa777fcefabdcd1539e6a"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_DATA_LAYOUT.md",
+      "bytes": 2263,
+      "sha256": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md",
+      "bytes": 4821,
+      "sha256": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_COST_AND_SCHEDULE_ESTIMATE.md",
+      "bytes": 4598,
+      "sha256": "684f301ae16897ff6a675838f1d239be697e46c04439094e99baa3818b4b5cc7"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_DELIVERY_SPECIFICATION.md",
+      "bytes": 5283,
+      "sha256": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_REUSE_MATRIX.md",
+      "bytes": 3969,
+      "sha256": "d2ac919d7839f845792928c86a0ff6c938aa9e39b8829022ddafec90db521610"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md",
+      "bytes": 2240,
+      "sha256": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_EXECUTIVE_DECISION_BRIEF.md",
+      "bytes": 6056,
+      "sha256": "faafd09008085fb4d23d6734d7f9c758c5e403c68e84915ae8b646a2702cabd7"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3633,
+      "sha256": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_OPEN_DECISIONS.md",
+      "bytes": 5688,
+      "sha256": "1763f214075d2ce3885ccbb125d95b1399ca94c99018e6e1987ac123e9e9f205"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONFIGURATION_FORM.md",
+      "bytes": 2444,
+      "sha256": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONTACT_LOG.md",
+      "bytes": 2791,
+      "sha256": "955f101b5fb6af7d2e10881dde456bfe03ef05536d135e54bf8a38e32b474aca"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_EVALUATION_MATRIX.md",
+      "bytes": 2918,
+      "sha256": "109534232a6bf9f65919467c2b35a9c720decd3b15f226ae54b1e66667a2e7eb"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_HANDOFF_README.md",
+      "bytes": 3268,
+      "sha256": "f244a59322970350ae3d58ec5c1f7c980bced9b7402ea5a57c288ebefb5dcd22"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_QUICKSTART.md",
+      "bytes": 3791,
+      "sha256": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_REQUIREMENTS.md",
+      "bytes": 5198,
+      "sha256": "b6b1e8868ca3cefdcef849b5a8132f6e1a2b03b6efffbc97e7309300d8017cf3"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_SHORTLIST.md",
+      "bytes": 8937,
+      "sha256": "3f34378945201e185e7b52231ce395df1f8c61dfb5041dd76d95c3b4a4fce0ea"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 3651,
+      "sha256": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REQUEST_FOR_INFORMATION.md",
+      "bytes": 5230,
+      "sha256": "88d74af9a97cbcd54c66d23e143e8483f4c62854a1881076bab4024df8a6c494"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_REQUIREMENTS_TEST_MATRIX.md",
+      "bytes": 9391,
+      "sha256": "2042b3930ab1a03fb7893f97172f7c554ca5ede746ad03e6a04285e025f6f619"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md",
+      "bytes": 8316,
+      "sha256": "6f0a45d13c28d82bddf590b8d7fd9f5d06635fc92d05f0c01c48cfbe36220f44"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_SOURCES.md",
+      "bytes": 5074,
+      "sha256": "18e125634e8a7c8d0cb4dee666d88e987eee9df4acafcdd19484327cab263062"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/F00_EXT_VERIFICATION_PLAN.md",
+      "bytes": 11344,
+      "sha256": "38881621745eb53932da9a39c40f1b2bd18cb295cb55f71ac48e054e657a93b0"
+    },
+    {
+      "path": "RRM/RRM-C001-F00-EXT/README.md",
+      "bytes": 1143,
+      "sha256": "ae48fd6d0ecee15a42ab0c05bafe0445f16a7d850f42dc572187a170ca8d01e6"
+    },
+    {
+      "path": "RRM/evidence/M00-B/isaac-detail.json",
+      "bytes": 2751,
+      "sha256": "78d9e189b65ff964f6c6972fb1e645414115d2379864e292768d4e3276312571"
+    },
+    {
+      "path": "RRM/evidence/M00-B/isaac-identity.json",
+      "bytes": 4564,
+      "sha256": "8f62695ee9b2a9106c79ef1e4a862a0ddf6d11e4969914fae2b6d4bea6134499"
+    },
+    {
+      "path": "RRM/evidence/M00-B/robot-identity.json",
+      "bytes": 4915,
+      "sha256": "779adb0862ed2b35e3af4ec5ddbce2fc2c45b20a8cfb0cc65eb2c8126c21a017"
+    },
+    {
+      "path": "RRM/evidence/M00-C/EXECUTION_DIRECTIVE.md",
+      "bytes": 8484,
+      "sha256": "20291555a0e40b8cea59d0ffbf020de83eed89981d7ca2476ff20f7892992739"
+    },
+    {
+      "path": "RRM/evidence/M00-C/GOVERNANCE_MANDATE.md",
+      "bytes": 5444,
+      "sha256": "f0b1029f19ae44ffbb575b4966501e28c073f7215341c87a51f9d85910fc45a0"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_BLOCKER_DISPOSITION.csv",
+      "bytes": 7748,
+      "sha256": "3f12c884490dda138a8a1b8fc51f6e6255695fefa9adef12815d772c9385aac8"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_CORRECTIVE_ACTIONS.csv",
+      "bytes": 5922,
+      "sha256": "52a4680119635eca9867af1418e62bb01c2f0b7cd09c7ab4134aa659cdada30d"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_EVIDENCE_MANIFEST.json",
+      "bytes": 6093,
+      "sha256": "9285027f58b536089246d8226f66453e3cb34f0adb1415dc52ab63a8c11f008d"
+    },
+    {
+      "path": "RRM/evidence/M00-C/M00C_REQUIREMENTS_IMPACT.csv",
+      "bytes": 24510,
+      "sha256": "58af9a21a35f217a7518aae67071af837c8c1c08aea91166c45cc973e242f946"
+    },
+    {
+      "path": "RRM/evidence/M00-C/diagnostic-scope-audit.json",
+      "bytes": 1271,
+      "sha256": "169d6a148b8e437c530b83cdf4b0c36e3932c68c5ced3191c1f51cad336294fe"
+    },
+    {
+      "path": "RRM/evidence/M00-C/history-and-availability.json",
+      "bytes": 1631,
+      "sha256": "91c29fb41a11dc654890cd6689a55b1e31ec7ba28c548a126fb81b58d9bd6019"
+    },
+    {
+      "path": "RRM/evidence/M00-C/passive-readiness.json",
+      "bytes": 56006,
+      "sha256": "d1284a02ce727a3d4ebf9018f09bac22e9d85e9f3ec9db0903c9deae381ddf51"
+    },
+    {
+      "path": "RRM/evidence/M00-C/reference-catalog.csv",
+      "bytes": 2195,
+      "sha256": "2db5960fd17e6f298ea87af760ccd00c2bffd3f218720ea26350ca56fa7d540f"
+    },
+    {
+      "path": "RRM/evidence/M00-C/repository-before.json",
+      "bytes": 393629,
+      "sha256": "cf375aa8a2813217ae146828924bc551db5659827ff725960344f8980aee2d3a"
+    },
+    {
+      "path": "RRM/evidence/M00-C/runtime-after.json",
+      "bytes": 1450,
+      "sha256": "c77d065d7255cab01029bc90b63fa499e59dc547f6593bfdf312429ddf1e4490"
+    },
+    {
+      "path": "RRM/evidence/M00-C/source-locations.json",
+      "bytes": 4113,
+      "sha256": "923da65deb30bfad46e0104a9ddda96ce12824f21b33c94a3f0f84c09509433a"
+    },
+    {
+      "path": "RRM/evidence/M00-C/source-manifest.json",
+      "bytes": 12993,
+      "sha256": "5bdc547020b9a31fe2b96101fc7ffc9900339eb67c196e4c2f744c036b98a5fb"
+    },
+    {
+      "path": "RRM/evidence/M00-C/startup-source-records.json",
+      "bytes": 131648,
+      "sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+    },
+    {
+      "path": "RRM/evidence/M00-C/timing-analysis.json",
+      "bytes": 880,
+      "sha256": "0ad10b8da0ea2ecfee2a1e4722d60e82c0325967f4e9454f2671acc7fe1ceabe"
+    },
+    {
+      "path": "RRM/evidence/M00-C/verification-results.json",
+      "bytes": 4491,
+      "sha256": "981bfd45adc42a4aad779e0d861e09d7a9c5fb63b2116ae40e753c9baa48405b"
+    },
+    {
+      "path": "RRM/handoffs/M00C_HANDOFF.md",
+      "bytes": 4183,
+      "sha256": "eebe9a22f609a5755d1f89fee9ba5df74f9292689aae73d0a729d8561c35ca34"
+    },
+    {
+      "path": "RRM/scripts/m00c_analyze_startup.py",
+      "bytes": 11587,
+      "sha256": "1afab9772152c7530ceed1bf039a7bdc6f3faf4b8e815b0ecf989090decd359c"
+    },
+    {
+      "path": "RRM/tests/test_m00c_timing.py",
+      "bytes": 3395,
+      "sha256": "c31cf1f2e724e63cd9ef1f035b9daede912bec3c2a80d5b686c5d94e8ef04998"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_BLOCKER_REGISTER.csv",
+      "bytes": 7410,
+      "sha256": "8fa1ba3852c4f00f4042624a0e55f2167d356dae2df90306a434be363ed307af"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv",
+      "bytes": 10812,
+      "sha256": "5f010a082b39bcc84dd5045557cb9e69ae4ee71334ec6df24e77c067d72f092e"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_FROZEN_RECORDS.csv",
+      "bytes": 9942,
+      "sha256": "6dc0be6cbdc19de9eb4a75a6a798782b97742bcb1088e9d528cebfc78ae6bfc2"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_REQUIREMENTS_IMPACT.csv",
+      "bytes": 16815,
+      "sha256": "e3bcb788a364c9bfa18a033f28b30b6b7936e1d2707b9a9b6a09bf93bc9bb68a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-B/M00B_ACTUATION_READINESS.md",
+      "bytes": 5229,
+      "sha256": "4b518bfecab2940acac84f194a37f986c39bf1d3ef2a89ce5a17a1e7ac7da845"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_CORRECTIVE_ACTION_PLAN.md",
+      "bytes": 5005,
+      "sha256": "931b6b763392f0649246a6c5eab0cbc52c39cb1c5510f8644cc0276e2f03a442"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_G0_REASSESSMENT.md",
+      "bytes": 4780,
+      "sha256": "ec6a5250a37db3796a902479d6118d84203eed27bff663ca8fd88e7767bf5e4d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_HYPOTHESIS_MATRIX.csv",
+      "bytes": 8654,
+      "sha256": "4f0e506f09be664253240ce7ca6c11a2e11bfc78dc861eecf8ee3b3e6a841c5b"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_ROOT_CAUSE_ANALYSIS.md",
+      "bytes": 8167,
+      "sha256": "6e05283805d39d286f12ebea78550ae463630cea837e8e28173a6dcadfc45d59"
+    },
+    {
+      "path": "RRM/verification/reports/M00-C/M00C_STARTUP_TIMELINE.csv",
+      "bytes": 8015,
+      "sha256": "35678f0f7cc9d80aa3f91f12ed6742862e84cced2e1155ab419e70b5e4558dde"
+    },
+    {
+      "path": "RRM/verification/reports/M00_G0_READINESS.md",
+      "bytes": 1897,
+      "sha256": "04a4b8e2f2ff40f1ac7fb9985366473e0627a46365c82bb21d69df01c5f113e2"
+    },
+    {
+      "path": "osmo/workspace/entrypoint.sh",
+      "bytes": 15544,
+      "sha256": "d5898b779ffd16ab713bf8a3ab5fd46cd72ced66befd19558112497fe8a771ce"
+    },
+    {
+      "path": "robot/docker/docker-compose.yaml",
+      "bytes": 14012,
+      "sha256": "f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0"
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/README.md",
+      "bytes": 5434,
+      "sha256": "ea829a6ed7c839f409620f2f0b9a4d052b5295e1a0dc5d6f56fc7a0a43e4dce0"
+    },
+    {
+      "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "bytes": 9493,
+      "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+    },
+    {
+      "path": "simulation/isaac-sim/launch_scripts/pegasus_app.py",
+      "bytes": 33358,
+      "sha256": "49a1fec5008c2082086604307c38aa55943573f7b63c001c122cd6679afd8d35"
+    }
+  ],
+  "mutable_status_starting_identity": "RRM/evidence/M00-D/repository-before.json stores PROJECT_STATUS before authorized update; prior M00-C hashes resolved by Git blob."
+}

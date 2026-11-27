@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "sha256sum",
+        "-c",
+        "RRM/evidence/M00-C/SHA256SUMS"
+      ],
+      "exit_code": 0,
+      "stdout": "RRM/PROJECT_STATUS.md: OK\nRRM/ROADMAP_MANDATE.md: OK\nRRM/evidence/M00-C/.gitignore: OK\nRRM/evidence/M00-C/EXECUTION_DIRECTIVE.md: OK\nRRM/evidence/M00-C/GOVERNANCE_MANDATE.md: OK\nRRM/evidence/M00-C/M00C_BLOCKER_DISPOSITION.csv: OK\nRRM/evidence/M00-C/M00C_CHANGED_FILES.txt: OK\nRRM/evidence/M00-C/M00C_CORRECTIVE_ACTIONS.csv: OK\nRRM/evidence/M00-C/M00C_REQUIREMENTS_IMPACT.csv: OK\nRRM/evidence/M00-C/diagnostic-scope-audit.json: OK\nRRM/evidence/M00-C/history-and-availability.json: OK\nRRM/evidence/M00-C/passive-readiness.json: OK\nRRM/evidence/M00-C/reference-catalog.csv: OK\nRRM/evidence/M00-C/repository-before.json: OK\nRRM/evidence/M00-C/runtime-after.json: OK\nRRM/evidence/M00-C/source-locations.json: OK\nRRM/evidence/M00-C/source-manifest.json: OK\nRRM/evidence/M00-C/startup-source-records.json: OK\nRRM/evidence/M00-C/timing-analysis.json: OK\nRRM/evidence/M00-C/timing-regression-tests.txt: OK\nRRM/handoffs/M00C_HANDOFF.md: OK\nRRM/scripts/m00c_analyze_startup.py: OK\nRRM/scripts/m00c_collect_startup.py: OK\nRRM/scripts/validate_m00c.py: OK\nRRM/tests/test_m00c_timing.py: OK\nRRM/verification/reports/M00-C/M00C_CORRECTIVE_ACTION_PLAN.md: OK\nRRM/verification/reports/M00-C/M00C_G0_REASSESSMENT.md: OK\nRRM/verification/reports/M00-C/M00C_HYPOTHESIS_MATRIX.csv: OK\nRRM/verification/reports/M00-C/M00C_ROOT_CAUSE_ANALYSIS.md: OK\nRRM/verification/reports/M00-C/M00C_STARTUP_TIMELINE.csv: OK\nRRM/evidence/M00-C/M00C_EVIDENCE_MANIFEST.json: OK\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "RRM/scripts/m00c_analyze_startup.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"heartbeat_after_deadline_s_exact_decimal\": \"19.276162179\",\n  \"deadline_log_epoch_s\": \"1795805000.934741647\",\n  \"heartbeat_log_epoch_s\": \"1795805020.210903826\",\n  \"px4_process_after_interface_s\": \"21.62\",\n  \"prior_excerpt_lines_verified_in_original_logs\": true,\n  \"deadline_semantic_origin\": \"Px4ActuationGuard::started_ steady-clock non-static member initialization\",\n  \"deadline_origin_numeric_observed\": false,\n  \"timeout_s_observed_in_M00B_GetParameters\": \"10.0\",\n  \"limitation\": \"Producer log deltas assume no realtime discontinuity between events; no calibrated uncertainty/clock-step trace. Docker receipts and kernel ticks are not mixed; no inferred exact guard initialization UTC.\",\n  \"current_readiness_samples\": 61,\n  \"current_false_count\": 61,\n  \"current_status_values\": [\n    \"STARTUP_DEADLINE\"\n  ],\n  \"current_observed_utc\": \"2026-11-27T21:30:59.879056+00:00\"\n}\n",
+      "stderr": ""
+    }
+  ],
+  "preexisting_discrepancies": [],
+  "evidence_reuse_note": "M00-C hashes include mutable PROJECT_STATUS. Starting checks pass; after the authorized status update, historical hashes must be verified against M00-C Git blobs rather than current status bytes. Do not edit sealed prior manifests."
+}

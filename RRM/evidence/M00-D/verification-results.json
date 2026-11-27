@@ -1,0 +1,174 @@
+{
+  "all_passed": true,
+  "scope": "M00-D offline evidence/plan/project-control integrity; not Tier B execution or F00 qualification",
+  "checks": [
+    {
+      "check": "repository_branch_start",
+      "passed": true,
+      "detail": "Required clean M00-C start; existing branch retained"
+    },
+    {
+      "check": "history_not_rewritten",
+      "passed": true,
+      "detail": "At parent or one direct M00-D successor"
+    },
+    {
+      "check": "all_protected_tracked_files_preserved",
+      "passed": true,
+      "detail": {
+        "initial_entries": 1968,
+        "authorized_exception": [
+          "RRM/PROJECT_STATUS.md"
+        ],
+        "changed_protected": []
+      }
+    },
+    {
+      "check": "complete_reference_tree_preserved",
+      "passed": true,
+      "detail": {
+        "entries": 648,
+        "limit": "Does not attest ignored runtime trees or submodule internal worktrees"
+      }
+    },
+    {
+      "check": "outside_workspace_unchanged",
+      "passed": true,
+      "detail": {
+        "outside_status": []
+      }
+    },
+    {
+      "check": "controlled_package_unchanged",
+      "passed": true,
+      "detail": {
+        "files": 48
+      }
+    },
+    {
+      "check": "source_evidence_hashes",
+      "passed": true,
+      "detail": {
+        "sources": 65,
+        "bad": []
+      }
+    },
+    {
+      "check": "sealed_m00c_manifest_against_pinned_git_blobs",
+      "passed": true,
+      "detail": {
+        "entries": 31,
+        "bad": [],
+        "status_snapshot_rule": "Historical status hash resolved at M00-C commit; current status intentionally updated"
+      }
+    },
+    {
+      "check": "starting_integrity_no_discrepancy",
+      "passed": true,
+      "detail": "Prior checksum/replay passed before authorized status update"
+    },
+    {
+      "check": "independent_timeline_replay",
+      "passed": true,
+      "detail": {
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "clock_domains_n1_and_no_false_variability",
+      "passed": true,
+      "detail": "12 characterizations/7 missing; producer, sink and kernel clock semantics retained; no distribution from n=1"
+    },
+    {
+      "check": "dependency_graph_consistent",
+      "passed": true,
+      "detail": {
+        "nodes": 17,
+        "edges": 19,
+        "cycle_free": true
+      }
+    },
+    {
+      "check": "hypotheses_traceable_and_discriminating",
+      "passed": true,
+      "detail": "Eight hypotheses trace to original hypotheses, graph nodes, measurements and proposed instrumentation"
+    },
+    {
+      "check": "all_original_blockers_and_closure_fields_preserved",
+      "passed": true,
+      "detail": "Ten original IDs, authorities, scope and closure conditions retained; no unsupported closure"
+    },
+    {
+      "check": "graph_hypothesis_evidence_references_resolve",
+      "passed": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "check": "protocol_authorization_and_design_controls",
+      "passed": true,
+      "detail": "Exact candidate/unknown prerequisites, three tiers, repeat design, clocks, instrumentation, abort/retention and PD authority explicit"
+    },
+    {
+      "check": "roadmap_status_consistency",
+      "passed": true,
+      "detail": "Status current/history/coverage/ten blockers/RA01 and Tier A-only authority agree with roadmap and new directive"
+    },
+    {
+      "check": "offline_regression_test_results",
+      "passed": true,
+      "detail": "17 historical/synthetic offline graph/clock/schema tests; all pass; no functional or qualification claim"
+    },
+    {
+      "check": "offline_tool_safety_and_scope_audit",
+      "passed": true,
+      "detail": {
+        "unsafe_diagnostic_modules": [],
+        "limit": "No runtime APIs in new diagnostic modules; agent action inventory not exhaustive external monitoring"
+      }
+    },
+    {
+      "check": "container_metadata_unchanged",
+      "passed": true,
+      "detail": "Images/container StartedAt/restart counts stable; not a claim about internal process state or new readiness samples"
+    },
+    {
+      "check": "document_links_and_python_syntax",
+      "passed": true,
+      "detail": {
+        "broken": []
+      }
+    },
+    {
+      "check": "evidence_manifest_complete_and_intact",
+      "passed": true,
+      "detail": {
+        "artifacts": 28,
+        "bad": []
+      }
+    },
+    {
+      "check": "detached_sha256_checks",
+      "passed": true,
+      "detail": {
+        "entries_ok": 29,
+        "stderr": ""
+      }
+    },
+    {
+      "check": "staged_scope_explicit",
+      "passed": true,
+      "detail": {
+        "authorized_files": 31,
+        "staged_files": 31
+      }
+    },
+    {
+      "check": "staged_whitespace",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

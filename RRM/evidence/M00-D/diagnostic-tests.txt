@@ -1,0 +1,22 @@
+test_cycle_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_cycle_rejected) ... ok
+test_dependency_graph (test_m00d_diagnostics.HistoricalAnalysis.test_dependency_graph) ... ok
+test_different_boot_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_different_boot_rejected) ... ok
+test_different_episode_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_different_episode_rejected) ... ok
+test_missing_markers_remain_missing (test_m00d_diagnostics.HistoricalAnalysis.test_missing_markers_remain_missing) ... ok
+test_mixed_domains_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_mixed_domains_rejected) ... ok
+test_original_delta_independently_reproduced (test_m00d_diagnostics.HistoricalAnalysis.test_original_delta_independently_reproduced) ... ok
+test_reversed_time_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_reversed_time_rejected) ... ok
+test_unknown_edge_rejected (test_m00d_diagnostics.HistoricalAnalysis.test_unknown_edge_rejected) ... ok
+test_boolean_timestamp_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_boolean_timestamp_rejected) ... ok
+test_duplicate_sequence_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_duplicate_sequence_rejected) ... ok
+test_empty_trace_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_empty_trace_rejected) ... ok
+test_missing_identity_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_missing_identity_rejected) ... ok
+test_missing_tick_rate_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_missing_tick_rate_rejected) ... ok
+test_reset_requires_new_identity (test_m00d_diagnostics.ProposedInstrumentationFormat.test_reset_requires_new_identity) ... ok
+test_valid_format_does_not_qualify_coverage (test_m00d_diagnostics.ProposedInstrumentationFormat.test_valid_format_does_not_qualify_coverage) ... ok
+test_wrong_native_unit_rejected (test_m00d_diagnostics.ProposedInstrumentationFormat.test_wrong_native_unit_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.009s
+
+OK

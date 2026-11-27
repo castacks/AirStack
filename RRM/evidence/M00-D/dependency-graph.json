@@ -1,0 +1,288 @@
+{
+  "semantics": "Directed dependency/propagation graph, not a chronological ordering. Inhibitory edge blocks READY; source prerequisites do not imply captured events occurred. Edges are typed by observation/source confidence.",
+  "nodes": [
+    {
+      "id": "WF",
+      "component": "OSMO lifecycle",
+      "evidence_class": "EXTERNAL_NOT_ATTESTED"
+    },
+    {
+      "id": "CS",
+      "component": "Isaac container",
+      "evidence_class": "OBSERVED_METADATA"
+    },
+    {
+      "id": "CR",
+      "component": "Robot container",
+      "evidence_class": "OBSERVED_METADATA"
+    },
+    {
+      "id": "APP",
+      "component": "Isaac application",
+      "evidence_class": "OBSERVED_LOG_SIGNAL"
+    },
+    {
+      "id": "SCENE",
+      "component": "Scene/vehicle graph",
+      "evidence_class": "OBSERVED_GRAPH_LOG;SCENE_READY_MISSING"
+    },
+    {
+      "id": "PLAY",
+      "component": "First Play/backend evaluation",
+      "evidence_class": "SOURCE_DOCUMENTED;EXACT_EDGE_MISSING"
+    },
+    {
+      "id": "PX4",
+      "component": "PX4 process",
+      "evidence_class": "OBSERVED_PROCESS_AND_LOG"
+    },
+    {
+      "id": "TCP",
+      "component": "Simulator MAVLink TCP",
+      "evidence_class": "OBSERVED_LOG_SIGNAL"
+    },
+    {
+      "id": "UDP",
+      "component": "Companion MAVLink UDP",
+      "evidence_class": "OBSERVED_LOG_SIGNAL"
+    },
+    {
+      "id": "MAVROS",
+      "component": "MAVROS connection",
+      "evidence_class": "OBSERVED_PRODUCER_LOG"
+    },
+    {
+      "id": "DDS",
+      "component": "ROS2/DDS endpoint delivery",
+      "evidence_class": "ROUTER_LOG_ONLY;DISCOVERY_LATENCY_MISSING"
+    },
+    {
+      "id": "GC",
+      "component": "Guard construction",
+      "evidence_class": "SOURCE_DOCUMENTED;EXACT_ORIGIN_MISSING"
+    },
+    {
+      "id": "SAFE",
+      "component": "Fresh connected/disarmed/ON_GROUND callbacks",
+      "evidence_class": "SOURCE_REQUIRED;INITIAL_HISTORY_MISSING"
+    },
+    {
+      "id": "TX",
+      "component": "One initialization transaction",
+      "evidence_class": "SOURCE_REQUIRED;HISTORICAL_TRANSACTION_MISSING"
+    },
+    {
+      "id": "DEADLINE",
+      "component": "Steady timeout evaluation",
+      "evidence_class": "TERMINAL_ERROR_OBSERVED;EXACT_EDGE_MISSING"
+    },
+    {
+      "id": "LATCH",
+      "component": "Terminal failed initializer",
+      "evidence_class": "OBSERVED_STATUS_FALSE;SOURCE_DOCUMENTED"
+    },
+    {
+      "id": "READY",
+      "component": "Verified initializer plus fresh readback",
+      "evidence_class": "SOURCE_PREDICATE;NOT_REACHED_IN_CAPTURE"
+    }
+  ],
+  "edges": [
+    {
+      "id": "D01",
+      "from": "WF",
+      "to": "CS",
+      "relation": "DOCUMENTED_NOT_DEPLOYMENT_ATTESTED",
+      "expected_prerequisite": "Scheduled workflow/image/runtime",
+      "observed_readiness_signal": "Container StartedAt only; workflow ID missing",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "No authenticated workflow timeline; cannot assign queue/pull latency"
+    },
+    {
+      "id": "D02",
+      "from": "WF",
+      "to": "CR",
+      "relation": "DOCUMENTED_NOT_DEPLOYMENT_ATTESTED",
+      "expected_prerequisite": "Scheduled workflow launches robot service",
+      "observed_readiness_signal": "Container StartedAt only",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Concurrent service start can precede PX4 availability"
+    },
+    {
+      "id": "D03",
+      "from": "CS",
+      "to": "APP",
+      "relation": "DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "Python/Kit startup in existing container",
+      "observed_readiness_signal": "Simulation App Starting / app ready / Startup Complete",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Application startup failure prevents later scene/backend phases"
+    },
+    {
+      "id": "D04",
+      "from": "APP",
+      "to": "SCENE",
+      "relation": "DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "App available for scene and vehicle graph creation",
+      "observed_readiness_signal": "Graph-created log; app-ready is not scene-ready",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Long unmeasured subphases can defer actual vehicle/backend creation"
+    },
+    {
+      "id": "D05",
+      "from": "SCENE",
+      "to": "PLAY",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Graph/topology exists, timeline begins computing",
+      "observed_readiness_signal": "No exact first Play receipt retained",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Graph exists without actual backend launch until compute"
+    },
+    {
+      "id": "D06",
+      "from": "PLAY",
+      "to": "PX4",
+      "relation": "SOURCE_DOCUMENTED_AND_OBSERVED_OUTCOME",
+      "expected_prerequisite": "Backend autolaunch creates PX4 child",
+      "observed_readiness_signal": "PX4 process start ticks and px4 starting log",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Absent process means no FCU connection for safe initialization"
+    },
+    {
+      "id": "D07",
+      "from": "PX4",
+      "to": "TCP",
+      "relation": "DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "PX4 simulator interface and listening backend",
+      "observed_readiness_signal": "Simulator connected TCP4561; not companion connection",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Sensor/HIL path initialization may hold boot progression"
+    },
+    {
+      "id": "D08",
+      "from": "PX4",
+      "to": "UDP",
+      "relation": "DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "PX4 reaches MAVLink companion module startup",
+      "observed_readiness_signal": "Onboard UDP14581\u219214541 log",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "No companion heartbeat path until endpoint exists"
+    },
+    {
+      "id": "D09",
+      "from": "UDP",
+      "to": "MAVROS",
+      "relation": "DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "Companion endpoint configured and exchanges data",
+      "observed_readiness_signal": "MAVROS Got HEARTBEAT/connected log",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "No connected state available to guard before transport is established"
+    },
+    {
+      "id": "D10",
+      "from": "CR",
+      "to": "DDS",
+      "relation": "DOCUMENTED_AND_PARTIAL_OBSERVATION",
+      "expected_prerequisite": "ROS launch/middleware/endpoints available",
+      "observed_readiness_signal": "DDS router running log; not per-endpoint discovery completion",
+      "timing_evidence": "RRM/evidence/M00-C/startup-source-records.json",
+      "failure_propagation": "Unknown discovery/delivery delay may prevent fresh callbacks"
+    },
+    {
+      "id": "D11",
+      "from": "CR",
+      "to": "GC",
+      "relation": "DOCUMENTED_AND_OBSERVED_LAUNCH",
+      "expected_prerequisite": "Interface loaded/guard constructed",
+      "observed_readiness_signal": "Interface process launch; exact guard construction tick missing",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Starts independent steady budget before PX4 may exist"
+    },
+    {
+      "id": "D12",
+      "from": "MAVROS",
+      "to": "SAFE",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Actual connected/disarmed state plus ground evidence",
+      "observed_readiness_signal": "Late safe reports recorded; no complete startup history",
+      "timing_evidence": "RRM/evidence/M00-C/passive-readiness.json",
+      "failure_propagation": "Missing or stale state forbids startup SetParameters transaction"
+    },
+    {
+      "id": "D13",
+      "from": "DDS",
+      "to": "SAFE",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Matching endpoint types/QoS and delivered callbacks",
+      "observed_readiness_signal": "M00-B/C corrected names receive current samples",
+      "timing_evidence": "RRM/evidence/M00-C/passive-readiness.json",
+      "failure_propagation": "Publisher existence alone cannot satisfy callback freshness"
+    },
+    {
+      "id": "D14",
+      "from": "GC",
+      "to": "TX",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Valid profile, no failed/unsafe latch, constructor ready",
+      "observed_readiness_signal": "Installed config/readback later valid; transaction not recorded",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Invalid config or terminal latch forbids initialization"
+    },
+    {
+      "id": "D15",
+      "from": "SAFE",
+      "to": "TX",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Fresh connected/disarmed/grounded before/after one bounded Set/Get",
+      "observed_readiness_signal": "No verified startup transaction in captured episode",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Missing/unsafe inputs or failed Set/Get leave initialized=false"
+    },
+    {
+      "id": "D16",
+      "from": "GC",
+      "to": "DEADLINE",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "steady Clock::now()-started_ reaches configured budget at timer evaluation",
+      "observed_readiness_signal": "Deadline logged; exact origin/edge unrecorded",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Expiry before successful initialization sets attempted=true"
+    },
+    {
+      "id": "D17",
+      "from": "DEADLINE",
+      "to": "LATCH",
+      "relation": "SOURCE_DOCUMENTED_AND_OBSERVED",
+      "expected_prerequisite": "Deadline without initialized startup",
+      "observed_readiness_signal": "STARTUP_DEADLINE then false readiness later",
+      "timing_evidence": "RRM/evidence/M00-C/passive-readiness.json",
+      "failure_propagation": "Late telemetry or correct parameter alone cannot retry/clear latch"
+    },
+    {
+      "id": "D18",
+      "from": "TX",
+      "to": "READY",
+      "relation": "SOURCE_DOCUMENTED",
+      "expected_prerequisite": "Successful initialization plus last good readback within freshness bound",
+      "observed_readiness_signal": "READY not seen in retained late sample",
+      "timing_evidence": "RRM/evidence/M00-C/source-locations.json",
+      "failure_propagation": "Any unverified/readback failure withholds positive Boolean"
+    },
+    {
+      "id": "D19",
+      "from": "LATCH",
+      "to": "READY",
+      "relation": "INHIBITORY_SOURCE_RULE",
+      "expected_prerequisite": "Terminal failed latch must not self-clear",
+      "observed_readiness_signal": "False readiness despite later correct child/readiness prerequisites",
+      "timing_evidence": "RRM/evidence/M00-C/passive-readiness.json",
+      "failure_propagation": "Inhibits readiness/admission; not a positive enabling dependency"
+    }
+  ],
+  "external_dependencies": [
+    {
+      "id": "WF",
+      "missing": "Actual workflow/outer-entrypoint identity, scheduling/pull/init timestamps and authorization records"
+    }
+  ]
+}
