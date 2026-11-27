@@ -1,0 +1,13 @@
+# Focused escalation action sheet
+
+**EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**
+
+New project governance progress: D1 conditionally selects C for offline design, D3 adopts diagnostic/qualification claim limits as policy, D5 permits passive/offline activities. D2 remains DEFERRED and D4 PENDING VERIFICATION. No organizational owner is appointed; no technical prerequisite is closed. GOV-001A is the current disposition record; do not generate competing GOV-001 forms or rewrite sealed E1E evidence.
+
+1. **First external action — organizational ownership confirmation.** Project sponsor/PD obtains an authorized organizational representative who can confirm the OSMO/security/hardware/safety and configuration contacts and their exact delegation. Required return is R1: accountable names/team, issuer authority, subsystem/host/platform scope and existing execution-model policy. This action is a request for external input, not an email sent by Codex and not an assumed appointment by the project PD.
+2. **Feasibility packet.** Confirmed representative supplies existing R2 GPU-only/nonprivileged/device policy and R3 network/MAVLink/DDS/API confinement capability records. Explicitly state unsupported or absent capabilities. Capability evidence can guide offline design but cannot prove an effective undeployed target safe. No new test is requested by this sheet.
+3. **D2 readiness evidence.** Configuration/instrumentation owners supply R4 exact delta/provenance, compatibility, isolation verification plan, measurement/overhead context and rollback/recovery. Keep deferred D2 until these are reviewable; no construction/deployment authorization is inferred from later D2 review.
+4. **Delivery gate.** Separate explicit delivery authority must identify recipients/channel/scope before Codex sends anything. Current R1–R4 state is PREPARED; no SENT/RESPONSE/VERIFIED/ACCEPTED evidence exists. No deadline, budget or contact address invented.
+5. **Engineering stop.** D5 permits further passive/offline work, but this bounded search found no independent owner/platform records. Another trade-study or blank-manifest rewrite adds no decision value. Stop after GOV-001A; when new records arrive, authenticate and reconcile them offline under the permitted scope, without constructing/testing a rig or modifying protected files.
+
+Closure to seek first: an authenticated scoped organizational delegation plus existing approved execution model. It can resolve ownership questions if adequate; it does not automatically close CHK02/CHK06/CHK07/CHK15 or any technical readiness requirement. D2/D4 are not ready to be represented as resolved today. G0 remains blocked, RA01 pending, WP01 and Tier B/C unauthorized; target undesignated.

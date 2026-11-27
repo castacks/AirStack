@@ -1,0 +1,11 @@
+# G0 and prerequisite continuity
+
+**EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**
+
+GOV-001A provides genuine project design/evidence-policy/offline-scope dispositions, recorded with the received directive as provenance. It does not provide technical closure or organizational safety delegation. D1 CONDITIONALLY APPROVED FOR FURTHER OFFLINE DESIGN; D2 DEFERRED; D3 APPROVED AS PROJECT EVIDENCE POLICY; D4 PENDING VERIFICATION; D5 APPROVED — PASSIVE AND OFFLINE WORK ONLY. No separate signature/external approval/authorization identifier invented.
+
+All20 original M00-E1A IDs/requirements and E1E dispositions remain traceable and unchanged:3 SATISFIED,8 UNSATISFIED,9 UNVERIFIED;17 unresolved, zero technical prerequisite closures. CHK01 remains UNSATISFIED because it concerns exact operational candidate/environment/schedule/expiry authority; limited project offline approval does not meet that criterion. CHK02/CHK06/CHK07/CHK15 still require organizational target/hardware/network/stop evidence. Signed organizational statements alone cannot replace technical verification where needed.
+
+All original M00-B01–B10 remain open; G0 BLOCKED BY EXTERNAL INPUT with engineering blockers. RA01 PENDING PD REVIEW; detailed roadmap unchanged. WP01 NOT AUTHORIZED. Tier B target undesignated/UNVERIFIED and Tier B/C execution NOT AUTHORIZED. Original F00 CLOSED/FROZEN/QUALIFICATION BLOCKED;29 D2 rows/28 in-scope NOT_TESTED/1 OUT_OF_SCOPE, zero verified/failed/qualified. Controlled criteria, original24-start proposal, clock/state rules and historical19.276162179s/74.228771713s n=1 observations unchanged; no statistical/root-cause/equivalence/qualification claim from governance progress.
+
+Approved D3 project claim limits are now binding at project level; E1E Class1/2/3 distinction remains a useful inherited interpretation aid subject to exact approved directive limits. D5 allows useful passive/offline response analysis, not deployment/startup/active tests. With owner evidence absent, recommend stop rather than duplicate prior assessments. R1 organizational delegation and supported execution-model records are the smallest external step. External communication itself is not authorized. No competing governance baseline or retrospective old-form edits.

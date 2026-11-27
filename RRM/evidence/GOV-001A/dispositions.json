@@ -1,0 +1,53 @@
+{
+  "directive_identifier": "RRM-C001-F00-GOV-001A",
+  "program_director_as_directed": "ChatGPT \u2014 RRM engineering-program decision authority",
+  "receipt_date": "2026-11-27",
+  "decisions": [
+    {
+      "decision_id": "D1",
+      "subject": "Architecture selection",
+      "disposition": "CONDITIONALLY APPROVED FOR FURTHER OFFLINE DESIGN.",
+      "provenance": "RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md#section-3"
+    },
+    {
+      "decision_id": "D2",
+      "subject": "Material configuration change",
+      "disposition": "DEFERRED.",
+      "provenance": "RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md#section-3"
+    },
+    {
+      "decision_id": "D3",
+      "subject": "Qualification and diagnostic claim limits",
+      "disposition": "APPROVED AS PROJECT EVIDENCE POLICY.",
+      "provenance": "RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md#section-3"
+    },
+    {
+      "decision_id": "D4",
+      "subject": "Ownership",
+      "disposition": "PENDING VERIFICATION.",
+      "provenance": "RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md#section-3"
+    },
+    {
+      "decision_id": "D5",
+      "subject": "Future engineering scope",
+      "disposition": "APPROVED \u2014 PASSIVE AND OFFLINE WORK ONLY.",
+      "provenance": "RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md#section-3"
+    }
+  ],
+  "signature": null,
+  "external_authorization_identifier": null,
+  "architecture_c_offline_design_conditionally_approved": true,
+  "project_evidence_policy_approved": true,
+  "passive_offline_work_authorized": true,
+  "material_configuration_change_approved": false,
+  "infrastructure_safety_owner_appointed": false,
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "activation_authorized": false,
+  "active_verification_authorized": false,
+  "tier_b_authorized": false,
+  "tier_c_authorized": false,
+  "wp01_authorized": false,
+  "external_communication_authorized": false,
+  "target_designation": "UNVERIFIED"
+}

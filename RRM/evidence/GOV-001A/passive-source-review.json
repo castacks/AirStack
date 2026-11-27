@@ -1,0 +1,493 @@
+{
+  "records": [
+    {
+      "path": "osmo/README.md",
+      "bytes": 14558,
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5",
+      "matches": [
+        {
+          "line": 12,
+          "text": "\u251c\u2500\u2500 README.md                     # This file (admin / operator reference)"
+        },
+        {
+          "line": 24,
+          "text": "README is the **lab admin / operator** reference: pool requirements,"
+        },
+        {
+          "line": 61,
+          "text": "| No NetworkPolicy blocking pod-namespace ports `47995\u201348012/tcp+udp`, `49099/udp`, `49100/tcp`, `8766/tcp`, `22/tcp` | These are the ports `osmo workflow port-forward` reaches inside the pod NS for Isaac Sim WebRTC, GCS Foxglove websocket, and sshd. |"
+        },
+        {
+          "line": 64,
+          "text": "`hostNetwork: true` is **not** required. `osmo workflow port-forward` reaches"
+        },
+        {
+          "line": 65,
+          "text": "the pod's network namespace, which is where the inner `dockerd` publishes"
+        },
+        {
+          "line": 66,
+          "text": "ports via standard NAT (or `network_mode: host` on individual inner"
+        },
+        {
+          "line": 112,
+          "text": "> registry. Linux/amd64 admins can use plain `docker build && docker push`."
+        },
+        {
+          "line": 147,
+          "text": "Then update the `image:` field in"
+        },
+        {
+          "line": 299,
+          "text": "  Compose, DDS networking, and `tests/conftest.py`. The `osmo/workflows/`"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": "docs/tutorials/airstack_on_osmo.md",
+      "bytes": 26434,
+      "sha256": "10ec37234b3bd5139858697f5edbd4e90ff289ba9540e7d93472e6b8587499be",
+      "matches": [
+        {
+          "line": 89,
+          "text": "> **Lab admin prerequisites (someone else's job, once).** A lab admin"
+        },
+        {
+          "line": 257,
+          "text": "  submit time; the lab admin doesn't manage a global `authorized_keys`"
+        },
+        {
+          "line": 556,
+          "text": "| `Remote-SSH: Connection refused` after a working session | Port-forward died (laptop slept, network blip) | Re-run `./airstack.sh osmo ide` |"
+        },
+        {
+          "line": 562,
+          "text": "| Isaac Sim container restarts repeatedly | GPU not visible to the inner Docker daemon (toolkit not configured on the node) | Lab admin task. From inside the pod: `docker info \\| grep -i runtime` should list `nvidia`. |"
+        },
+        {
+          "line": 585,
+          "text": "  \u2014 lab-admin reference (pool prerequisites, OSMO credential registration,"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": ".github/orchestrator/README.md",
+      "bytes": 19399,
+      "sha256": "c19d558a7e380419d9518c2613eb94c3ce08bc5925fb457effbb4f1d2c04b3f0",
+      "matches": [
+        {
+          "line": 3,
+          "text": "This describes how a small always-on orchestrator service runs GitHub Actions jobs on truly ephemeral GPU workers scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/). The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, submits a fresh **OSMO workflow** for each one (a single-use JIT runner in a privileged, GPU-enabled container), and reaps it when the job completes. Each CI job runs on a clean pod with no state shared between runs and no long-lived credentials on the worker."
+        },
+        {
+          "line": 36,
+          "text": "\u2502  OSMO CI GPU pool (privileged)   \u2502  \u2502  GitHub Actions      \u2502"
+        },
+        {
+          "line": 38,
+          "text": "\u2502    Image: airstack-ci-runner     \u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"
+        },
+        {
+          "line": 55,
+          "text": "- **An OSMO service account + dedicated CI pool.** Ask your OSMO admin to:"
+        },
+        {
+          "line": 58,
+          "text": "  3. **Enable \"Privileged Mode Allowed\"** on that pool's platform. The AirStack tests run `airstack up` (docker compose) inside the worker, which requires an inner Docker daemon \u2192 a privileged container. Without this, submissions are rejected."
+        },
+        {
+          "line": 85,
+          "text": "Set `runner_image: airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0` in `config.yaml` (step 4). Keep `RUNNER_VERSION` in sync with an [actions/runner release](https://github.com/actions/runner/releases)."
+        },
+        {
+          "line": 87,
+          "text": "**Pool note (AirLab):** use the Keycloak-autosynced `airstack` pool (`privileged_allowed: true`). A hand-created `airstack-ci` pool is wiped by `synchronize_osmo_team_pools.py`. Ephemerality is per-job OSMO workflows, not a separate pool."
+        },
+        {
+          "line": 92,
+          "text": "# GitHub PAT: needs `Actions: read/write` and `Administration: read/write`"
+        },
+        {
+          "line": 96,
+          "text": "# OSMO service-account token (from `osmo token set`, provided by your admin)."
+        },
+        {
+          "line": 115,
+          "text": "| `osmo_url` | Your OSMO web service URL | from your OSMO admin |"
+        },
+        {
+          "line": 120,
+          "text": "| `privileged` | Must be `true` (docker compose inside the pod) | \u2014 |"
+        },
+        {
+          "line": 122,
+          "text": "| `repos` | list of `owner/name` repos to poll (legacy `repo:` accepted) | from GitHub URLs |"
+        },
+        {
+          "line": 173,
+          "text": "   repo with `Actions: read/write` + `Administration: read/write` (JIT runner"
+        },
+        {
+          "line": 193,
+          "text": "  # (admin) osmo token set svc-airstack-ci-token-2 --user svc-airstack-ci \\"
+        },
+        {
+          "line": 242,
+          "text": "| `osmo workflow submit failed ... privileged` | Pool platform doesn't allow privileged | Ask admin to enable \"Privileged Mode Allowed\" on the CI pool |"
+        },
+        {
+          "line": 287,
+          "text": "| `dockerd did not become ready` | Pod not privileged / DinD blocked | Enable privileged on the pool platform |"
+        },
+        {
+          "line": 288,
+          "text": "| `nvidia-smi unavailable` / no GPU | GPU not requested/passed, or toolkit missing | Check `gpu:` request, platform GPUs, privileged |"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": "docs/development/intermediate/contributing.md",
+      "bytes": 5193,
+      "sha256": "caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670",
+      "matches": [
+        {
+          "line": 81,
+          "text": "To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main`. The workflow bypasses `develop`'s ruleset using a `SYNC_PAT` secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases."
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": ".github/orchestrator/config.example.yaml",
+      "bytes": 4322,
+      "sha256": "4cc9c18106e556d5aae1a6f4eb10f934c02dd5d36bfa6f5e9eef36000619a62e",
+      "matches": [
+        {
+          "line": 17,
+          "text": "# with it. Created by an OSMO admin via `osmo user create` + `osmo token set`"
+        },
+        {
+          "line": 22,
+          "text": "# use the stable `airstack` pool (privileged_allowed=true). A hand-made"
+        },
+        {
+          "line": 37,
+          "text": "# Prebaked image: Docker CE + compose + nvidia-container-toolkit + GH Actions"
+        },
+        {
+          "line": 39,
+          "text": "runner_image: \"airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.336.0\""
+        },
+        {
+          "line": 49,
+          "text": "# inside the pod, which needs an inner Docker daemon -> a privileged container."
+        },
+        {
+          "line": 50,
+          "text": "# The pool's platform must have \"Privileged Mode Allowed\" enabled by your OSMO"
+        },
+        {
+          "line": 51,
+          "text": "# admin, otherwise submission/scheduling will be rejected."
+        },
+        {
+          "line": 52,
+          "text": "privileged: true"
+        },
+        {
+          "line": 54,
+          "text": "# Use the node's host network for the runner container. Usually not needed"
+        },
+        {
+          "line": 56,
+          "text": "# tests need host networking."
+        },
+        {
+          "line": 57,
+          "text": "host_network: false"
+        },
+        {
+          "line": 69,
+          "text": "# admin (self-hosted runner) rights on each. The legacy singular `repo:` key"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-ore-proj.yaml",
+      "bytes": 3425,
+      "sha256": "7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1",
+      "matches": [
+        {
+          "line": 32,
+          "text": "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:ore-proj-epoch-numpy126-1"
+        },
+        {
+          "line": 33,
+          "text": "      privileged: true"
+        },
+        {
+          "line": 37,
+          "text": "        AUTOLAUNCH: \"true\""
+        },
+        {
+          "line": 54,
+          "text": "      image: airlab-docker.andrew.cmu.edu/airstack/airstack-rrm-cosmos-worker@sha256:8ffbf30a140d3565d8c95510aeb0f9762fe6566cfcae39cc1b3f0b9e146cbe52"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": "robot/docker/docker-compose.yaml",
+      "bytes": 14012,
+      "sha256": "f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0",
+      "matches": [
+        {
+          "line": 12,
+          "text": "    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}"
+        },
+        {
+          "line": 16,
+          "text": "        BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04"
+        },
+        {
+          "line": 30,
+          "text": "      - AUTOLAUNCH=${AUTOLAUNCH:-true}"
+        },
+        {
+          "line": 34,
+          "text": "      # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py"
+        },
+        {
+          "line": 51,
+          "text": "      if [ $$AUTOLAUNCH == 'true' ]; then"
+        },
+        {
+          "line": 52,
+          "text": "        tmux send-keys -t bringup:0.0 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml' ENTER;"
+        },
+        {
+          "line": 55,
+          "text": "    # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet"
+        },
+        {
+          "line": 56,
+          "text": "    networks:"
+        },
+        {
+          "line": 57,
+          "text": "      - airstack_network"
+        },
+        {
+          "line": 67,
+          "text": "          devices:"
+        },
+        {
+          "line": 112,
+          "text": "      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; the split stack's DDS router connects to per-robot onboard domains"
+        },
+        {
+          "line": 123,
+          "text": "    # inherit bridge network from robot-desktop"
+        },
+        {
+          "line": 133,
+          "text": "    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}"
+        },
+        {
+          "line": 137,
+          "text": "        BASE_IMAGE: ubuntu:24.04"
+        },
+        {
+          "line": 149,
+          "text": "      - AUTOLAUNCH=${AUTOLAUNCH:-true}"
+        },
+        {
+          "line": 157,
+          "text": "      if [ $$AUTOLAUNCH == 'true' ]; then"
+        },
+        {
+          "line": 158,
+          "text": "        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;"
+        },
+        {
+          "line": 161,
+          "text": "    network_mode: host"
+        },
+        {
+          "line": 170,
+          "text": "    image: &l4t_stack_base_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}"
+        },
+        {
+          "line": 173,
+          "text": "      network: host"
+        },
+        {
+          "line": 175,
+          "text": "        DUSTYNV_IMAGE: dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04"
+        },
+        {
+          "line": 193,
+          "text": "    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}"
+        },
+        {
+          "line": 196,
+          "text": "      network: host"
+        },
+        {
+          "line": 198,
+          "text": "        BASE_IMAGE: *l4t_stack_base_image"
+        },
+        {
+          "line": 216,
+          "text": "      if [ $$AUTOLAUNCH == 'true' ]; then"
+        },
+        {
+          "line": 217,
+          "text": "        tmux send-keys -t bringup 'autolaunch $$LAUNCH_PACKAGE robot.launch.xml sim:=false' ENTER;"
+        },
+        {
+          "line": 223,
+          "text": "          devices:"
+        },
+        {
+          "line": 230,
+          "text": "      - AUTOLAUNCH=${AUTOLAUNCH:-true}"
+        },
+        {
+          "line": 235,
+          "text": "      # mavros mavlink settings"
+        },
+        {
+          "line": 236,
+          "text": "      - FCU_URL=${FCU_URL:-/dev/ttyTHS4:115200}"
+        },
+        {
+          "line": 238,
+          "text": "    # assumes network isolation via a physical router, so uses network_mode=host"
+        },
+        {
+          "line": 239,
+          "text": "    network_mode: host"
+        },
+        {
+          "line": 240,
+          "text": "    volumes:"
+        },
+        {
+          "line": 262,
+          "text": "    image: &zed_l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}"
+        },
+        {
+          "line": 266,
+          "text": "      network: host"
+        },
+        {
+          "line": 287,
+          "text": "          devices:"
+        },
+        {
+          "line": 291,
+          "text": "    network_mode: host"
+        },
+        {
+          "line": 292,
+          "text": "    privileged: true"
+        },
+        {
+          "line": 300,
+          "text": "      - ROS_DOMAIN_ID=1"
+        },
+        {
+          "line": 303,
+          "text": "    volumes:"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    },
+    {
+      "path": "simulation/isaac-sim/docker/docker-compose.yaml",
+      "bytes": 11360,
+      "sha256": "67f46254fa10c4567a8532eb895f2ec7bedcd460957d416bb8398abddbf3b88e",
+      "matches": [
+        {
+          "line": 6,
+          "text": "    image: &image_tag ${ISAAC_SIM_IMAGE:-${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim}"
+        },
+        {
+          "line": 24,
+          "text": "      if [ $$AUTOLAUNCH = 'true' ]; then"
+        },
+        {
+          "line": 36,
+          "text": "    privileged: true"
+        },
+        {
+          "line": 37,
+          "text": "    networks:"
+        },
+        {
+          "line": 38,
+          "text": "      airstack_network:"
+        },
+        {
+          "line": 48,
+          "text": "      - AUTOLAUNCH=${AUTOLAUNCH:-'false'}"
+        },
+        {
+          "line": 74,
+          "text": "      # Viewport follow-camera (pegasus_app.py): domain id of the drone to"
+        },
+        {
+          "line": 97,
+          "text": "          devices:"
+        },
+        {
+          "line": 101,
+          "text": "    volumes:"
+        },
+        {
+          "line": 129,
+          "text": "  # no Pegasus/ROS launch script). Deliberately NOT on airstack_network \u2014 no"
+        },
+        {
+          "line": 144,
+          "text": "    networks: !reset null"
+        },
+        {
+          "line": 155,
+          "text": "  # network namespace) so `osmo workflow port-forward` can reach them. Kit"
+        },
+        {
+          "line": 183,
+          "text": "    # airstack_network for DDS multicast."
+        },
+        {
+          "line": 189,
+          "text": "    volumes: !override"
+        }
+      ],
+      "kind": "NEW_REVIEW_OF_PREEXISTING_SOURCE_NOT_PLATFORM_ATTESTATION"
+    }
+  ],
+  "standard_codeowners_presence": {
+    "CODEOWNERS": false,
+    ".github/CODEOWNERS": false,
+    "docs/CODEOWNERS": false
+  },
+  "ownership_filename_candidates": [
+    "RRM-transfer/rrm-9d26a58/tests/test_approval_admission.py",
+    "RRM/evidence/M00-C/GOVERNANCE_MANDATE.md",
+    "RRM/verification/reports/M00-E1E/M00E1E_OWNER_AUTHORITY_MATRIX.csv",
+    "robot/ros_ws/src/local/planners/takeoff_landing_planner/include/takeoff_landing_planner/authority_check.hpp",
+    "robot/ros_ws/src/local/planners/takeoff_landing_planner/test/authority_check.cpp"
+  ],
+  "local_documentation_scope": "Checked root/Downloads documentation filenames; no supplied standalone owner records found. No credential or private account files opened.",
+  "authoritative_infrastructure_owners_identified": 0,
+  "new_platform_attestations": 0,
+  "external_requests_sent": 0,
+  "new_evidence_limit": "New project dispositions supplied by user; local technical source bytes preexist baseline. No current runtime or independent target evidence."
+}

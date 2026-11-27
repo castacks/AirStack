@@ -1,0 +1,15 @@
+evidence_id,path,evidence_kind,bytes,sha256,claim_limit
+PD01,RRM/evidence/GOV-001A/EXECUTION_DIRECTIVE.md,NEW_USER_DIRECTED_PROJECT_AUTHORITY,11962,7e6dc18593fc856d1dd0d06ee5d545ff9d5dee59530a5cb3114d547a9cc16a22,Project D1/D3/D5 dispositions only; D2/D4 unresolved; no operational safety certification
+PD02,RRM/evidence/GOV-001A/DIRECTIVE_CONTINUATION.md,NEW_USER_DIRECTIVE_CONTINUATION,1214,3c6fad745d900280bb0c090e5b03b02efc7462d987212e4005f6f4b51fda8289,Same authority; confirms stop/review/no push
+PD03,RRM/evidence/GOV-001A/directive-receipt.json,NEW_RECEIPT_RECORD,547,afae650e62f0e31b9108c40c2f6e173f825d063806463ecd884245420ab8f763,Actual date; recording time not exact delivery; no signature invented
+SRC00,RRM/evidence/GOV-001A/passive-source-review.json,NEW_PASSIVE_SOURCE_REVIEW,17986,52eea174fb6ee6b53a32217446e78d2304e3bf9905f196595a1ca9e0b359f630,"Existing source bytes, not current runtime or delegated authority"
+SRC01,osmo/README.md,NEW_REVIEW_OF_EXISTING_SOURCE,14558,5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5,Source intent/role association only; no deployment/owner proof
+SRC02,docs/tutorials/airstack_on_osmo.md,NEW_REVIEW_OF_EXISTING_SOURCE,26434,10ec37234b3bd5139858697f5edbd4e90ff289ba9540e7d93472e6b8587499be,Source intent/role association only; no deployment/owner proof
+SRC03,.github/orchestrator/README.md,NEW_REVIEW_OF_EXISTING_SOURCE,19399,c19d558a7e380419d9518c2613eb94c3ce08bc5925fb457effbb4f1d2c04b3f0,Source intent/role association only; no deployment/owner proof
+SRC04,docs/development/intermediate/contributing.md,NEW_REVIEW_OF_EXISTING_SOURCE,5193,caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670,Source intent/role association only; no deployment/owner proof
+SRC05,.github/orchestrator/config.example.yaml,NEW_REVIEW_OF_EXISTING_SOURCE,4322,4cc9c18106e556d5aae1a6f4eb10f934c02dd5d36bfa6f5e9eef36000619a62e,Source intent/role association only; no deployment/owner proof
+SRC06,osmo/workflows/airstack-live-replan-ore-proj.yaml,NEW_REVIEW_OF_EXISTING_SOURCE,3425,7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1,Source intent/role association only; no deployment/owner proof
+SRC07,robot/docker/docker-compose.yaml,NEW_REVIEW_OF_EXISTING_SOURCE,14012,f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0,Source intent/role association only; no deployment/owner proof
+SRC08,simulation/isaac-sim/docker/docker-compose.yaml,NEW_REVIEW_OF_EXISTING_SOURCE,11360,67f46254fa10c4567a8532eb895f2ec7bedcd460957d416bb8398abddbf3b88e,Source intent/role association only; no deployment/owner proof
+HIST01,RRM/evidence/M00-E1E/M00E1E_PREREQUISITE_DELTA.csv,INHERITED_PREREQUISITES,11435,1a01dac95513646a2b2a3bb96068a7854030420c21cc4ed9552446b927d03902,20 baseline technical dispositions retained
+HIST02,RRM/verification/reports/M00-E1B/M00E1B_ENVIRONMENT_INVENTORY.md,INHERITED_HISTORICAL_ENVIRONMENT,5584,380214d3cec9dddac6ab0652db69f9efbdbc8d357f013a8112f0350b3fdb1113,Not reobserved; no current safety claim

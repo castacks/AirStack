@@ -1,0 +1,11 @@
+{
+  "directive_identifier": "RRM-C001-F00-GOV-001A",
+  "received_date": "2026-11-27",
+  "recorded_utc": "2026-11-27T23:31:19.194367+00:00",
+  "recorded_local": "2026-11-27T18:31:19.194367-05:00",
+  "timestamp_limit": "Recording time, not a reconstructed exact message delivery timestamp",
+  "source": "User-supplied attachment; project-level dispositions explicitly directed therein",
+  "program_director_as_directed": "ChatGPT \u2014 RRM engineering-program decision authority",
+  "signature": null,
+  "external_authorization_identifier": null
+}

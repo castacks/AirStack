@@ -1,0 +1,5 @@
+request_id,e1e_request_ids,owner_candidate_ids,state,authorized_for_delivery,sent,response_received,verified,accepted,delivery_reference,response_reference,acceptance_reference
+R1,Q1,OW01;OW05;OW06;OW07;OW08,PREPARED,NO,NO,NO,NO,NO,,,
+R2,Q2,OW02;OW05;OW06,PREPARED,NO,NO,NO,NO,NO,,,
+R3,Q3,OW03;OW04;OW05,PREPARED,NO,NO,NO,NO,NO,,,
+R4,Q4;Q5;Q6,OW02;OW03;OW07;OW08;OW09,PREPARED,NO,NO,NO,NO,NO,,,

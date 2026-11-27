@@ -1,0 +1,72 @@
+{
+  "milestone": "GOV-001A",
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned E1E start; 2192 protected entries, 282 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "directed_dispositions_and_limits",
+      "status": "PASS",
+      "detail": "Exact directed D1\u2013D5 text/conditions retained; D1 conditional offline/D3 evidence policy/D5 passive-offline approved; D2 deferred/D4 pending; receipt provenance explicit, no signature/external approval/operational authority invented"
+    },
+    {
+      "check": "ownership_platform_and_new_evidence",
+      "status": "PASS",
+      "detail": "Nine candidate roles remain OWNER UNVERIFIED; eight exact source reads/14 indexed records separate new project authority, source intent and historical runtime; zero organizational appointment/platform attestation"
+    },
+    {
+      "check": "prepared_external_escalation",
+      "status": "PASS",
+      "detail": "R1\u2013R4 exact-record request retains Q1\u2013Q6; provenance/confidentiality/unavailable consequences and first organizational action explicit; no delivery authorization, message, response or acceptance claimed"
+    },
+    {
+      "check": "technical_prerequisite_and_gate_continuity",
+      "status": "PASS",
+      "detail": "20 original technical prerequisites unchanged 3/8/9; operational CHK01 not closed by limited project authority; G0 blocked/RA01 pending/ WP01 and Tier B/C unauthorized, target undesignated; D2/D4 unresolved"
+    },
+    {
+      "check": "package_scope_and_no_active_operations",
+      "status": "PASS",
+      "detail": "27 exact RRM-only paths; PROJECT_STATUS sole old-file mutation; no competing governance task or old-form rewrite; checksums complete excluding recursive sums/result, both bound by Git; no prohibited actions recorded"
+    }
+  ],
+  "failures": [],
+  "checksum_verification": "PASS",
+  "repository_scope_verification": "PASS",
+  "project_dispositions": {
+    "D1": "CONDITIONALLY APPROVED FOR FURTHER OFFLINE DESIGN.",
+    "D2": "DEFERRED.",
+    "D3": "APPROVED AS PROJECT EVIDENCE POLICY.",
+    "D4": "PENDING VERIFICATION.",
+    "D5": "APPROVED \u2014 PASSIVE AND OFFLINE WORK ONLY."
+  },
+  "infrastructure_safety_owners_verified": 0,
+  "new_platform_attestations": 0,
+  "technical_prerequisite_changes": 0,
+  "technical_prerequisite_closures": 0,
+  "external_requests_state": "PREPARED",
+  "external_requests_sent": 0,
+  "implementation_authorized": false,
+  "target_designation": "UNVERIFIED",
+  "hold": "EXTERNAL-INPUT HOLD \u2014 ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED",
+  "warnings": [
+    "Original directive ended mid final question; user supplied Section12 continuation; no authority inferred from missing text",
+    "No authoritative organizational owner or new platform attestation found; source observations are not effective isolation",
+    "Candidate GCS router path was absent and skipped; prior E1B router evidence retained as historical"
+  ],
+  "skipped_checks": [
+    "Live runtime/control-plane/device/network inspection: no designated C target; bounded local source task sufficient",
+    "External owner contact/delivery: explicitly unauthorized",
+    "Actual platform compatibility/enforcement/clock/overhead/recorder/recovery: no implementation or active authority",
+    "F00 equivalence/qualification: missing authenticated originals/approved equivalence and admissible campaign evidence",
+    "Original M00 SHA256SUMS absent by original inventory convention; prior files protected by snapshot/inherited validator"
+  ],
+  "limitations": [
+    "PASS means offline directive/provenance/consistency/integrity verification. It does not certify platform feasibility, isolation, measurement integrity or qualification.",
+    "New project design/policy/offline authority is real, but organizational ownership, exact D2 change and operational authority remain absent. No technical closure inferred.",
+    "No runtime/active tests performed; no behavioral unit tests needed for governance records. Stop GOV-001A for Program Director technical review; no push."
+  ]
+}
