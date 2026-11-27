@@ -14,7 +14,9 @@ container and the two talk through one run directory under the shared ``/bags`` 
 
 Ticks are grouped into segments: runs of consecutive policy ticks with no gap. A
 segment ends when the policy is stopped or a tick is skipped for stale inputs, because
-the learner matches each tick with the ball ``t_g / policy_dt`` ticks later.
+the learner compares each tick's ball plan with the real ball over the following ticks.
+Each row also names the learner iterate that flew it: a learner batch holds only ticks
+of the iterate it updates.
 
 Both sides import this module, so it uses only the standard library and NumPy.
 """
@@ -30,7 +32,8 @@ from typing import Any
 
 import numpy as np
 
-FORMAT_VERSION = 1
+# 2: session.json names the policy frame (`policy_frame`).
+FORMAT_VERSION = 2
 SESSION_FILE = 'session.json'
 TICKS_FILE = 'ticks.jsonl'
 MANIFEST_FILE = 'manifest.json'
@@ -63,11 +66,11 @@ def write_json_atomic(path: Path, payload: dict) -> None:
     """Write JSON so a concurrent reader sees the old file or the new one, never a mix."""
     path = Path(path)
     temporary = path.with_name(f'.{path.name}.tmp')
-    temporary.write_text(json.dumps(payload, indent=2, default=_json_default) + '\n')
+    temporary.write_text(json.dumps(payload, indent=2, default=json_default) + '\n')
     os.replace(temporary, path)
 
 
-def _json_default(value: Any) -> Any:
+def json_default(value: Any) -> Any:
     """Serialise NumPy scalars and arrays."""
     if isinstance(value, np.ndarray):
         return value.tolist()
@@ -251,17 +254,18 @@ class DetailLog:
 def format_update_summary(update: dict) -> str:
     """One line of the learner diagnostics that tell whether an update was healthy."""
     parts = []
+    if 'rows_fit' in update and 'samples' in update:
+        parts.append(f"fit {update['rows_fit']} of {update['samples']} accepted ticks")
     if 'loss_before' in update and 'loss_after' in update:
         parts.append(f"loss {update['loss_before']:.4f} -> {update['loss_after']:.4f}")
     if 'rms_action_change_m' in update:
         parts.append(f"batch action change {update['rms_action_change_m']:.3f} m RMS")
-    if 'rms_label_shift_m' in update:
-        parts.append(f"label shift {update['rms_label_shift_m']:.3f} m RMS")
-    if 'median_miss_m' in update:
-        parts.append(f"median miss {update['median_miss_m']:.2f} m")
-    if 'target_refreshed' in update:
-        parts.append(f"pi_T refreshed {bool(update['target_refreshed'])}"
-                     f" ({update.get('target_refreshes', '?')} total)")
+    # Medians of the goal step this batch (dg_curr), the shift pi_F already applied
+    # (dg_cum) and the shift its labels use (dg).
+    if 'median_current_offset_m' in update:
+        parts.append(f"goal shift: step {update['median_current_offset_m']:.2f} m, "
+                     f"before {update['median_accumulated_offset_m']:.2f} m, "
+                     f"labels {update['median_applied_offset_m']:.2f} m (medians)")
     if 'flight_time_s' in update:
         parts.append(f"at {update['flight_time_s']:.0f} s of flight")
     return ' | '.join(parts)

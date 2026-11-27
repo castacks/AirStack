@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from drone_soccer.deploy.observation import (
+    GOAL_ALIGNED_OBS_DIM,
     OBS_DIM,
     arrays_to_observation,
     cap_observation_goal,
@@ -13,10 +14,13 @@ from drone_soccer.deploy.observation import (
 )
 from svg_ground_control.policy_commander import (
     RandomGoalSpawner,
+    build_policy_observation,
     compute_bounded_waypoint,
     compute_goal_reference,
     enu_waypoint_to_ned,
     load_policy_checkpoint,
+    policy_action_to_world,
+    policy_frame_of,
 )
 
 
@@ -268,23 +272,23 @@ _ACTION_LOW = np.array([-3.0, -3.0, 0.5], dtype=np.float32)
 _ACTION_HIGH = np.array([3.0, 3.0, 1.5], dtype=np.float32)
 
 
-def _save_ppo(tmp_path, policy_class, name: str) -> tuple[str, object]:
-    """Save an untrained PPO with ``policy_class`` and return (path, model)."""
+def _save_ppo(tmp_path, policy_class, name: str, obs_dim: int = OBS_DIM) -> tuple[str, object]:
+    """Save an untrained PPO with ``policy_class`` reading ``obs_dim`` values; return (path, model)."""
     gymnasium = pytest.importorskip('gymnasium')
     stable_baselines3 = pytest.importorskip('stable_baselines3')
     import torch
 
     class _Env(gymnasium.Env):
         observation_space = gymnasium.spaces.Box(
-            -np.inf, np.inf, shape=(OBS_DIM,), dtype=np.float32)
+            -np.inf, np.inf, shape=(obs_dim,), dtype=np.float32)
         action_space = gymnasium.spaces.Box(
             _ACTION_LOW, _ACTION_HIGH, dtype=np.float32)
 
         def reset(self, *, seed=None, options=None):
-            return np.zeros(OBS_DIM, dtype=np.float32), {}
+            return np.zeros(obs_dim, dtype=np.float32), {}
 
         def step(self, action):
-            return np.zeros(OBS_DIM, dtype=np.float32), 0.0, True, False, {}
+            return np.zeros(obs_dim, dtype=np.float32), 0.0, True, False, {}
 
     model = stable_baselines3.PPO(
         policy_class, _Env(), n_steps=8, batch_size=8, device='cpu', seed=0)
@@ -306,8 +310,8 @@ def _residual_class():
     return ResidualActorCriticPolicy
 
 
-def _observations() -> np.ndarray:
-    return np.random.default_rng(0).normal(size=(5, OBS_DIM)).astype(np.float32)
+def _observations(obs_dim: int = OBS_DIM) -> np.ndarray:
+    return np.random.default_rng(0).normal(size=(5, obs_dim)).astype(np.float32)
 
 
 def _force_numpy2_compat_path(monkeypatch) -> None:
@@ -375,3 +379,99 @@ def test_unknown_policy_type_is_rejected(tmp_path) -> None:
     with pytest.raises(ValueError, match='policy_type must be one of'):
         load_policy_checkpoint(
             str(tmp_path / 'unused.zip'), _ACTION_LOW, _ACTION_HIGH, 'bogus')
+
+
+@pytest.mark.parametrize('compat', [False, True])
+@pytest.mark.parametrize(
+    ('obs_dim', 'frame'), [(OBS_DIM, 'world'), (GOAL_ALIGNED_OBS_DIM, 'goal_aligned')])
+def test_checkpoint_frame_is_read_from_its_observation_size(
+    tmp_path, monkeypatch, compat: bool, obs_dim: int, frame: str,
+) -> None:
+    """Both loaders must rebuild a goal-aligned (15-value) policy and report its frame."""
+    path, model = _save_ppo(tmp_path, 'MlpPolicy', f'{frame}.zip', obs_dim)
+    observations = _observations(obs_dim)
+    expected, _ = model.predict(observations, deterministic=True)
+    if compat:
+        _force_numpy2_compat_path(monkeypatch)
+
+    policy, used_compat = load_policy_checkpoint(path, _ACTION_LOW, _ACTION_HIGH)
+
+    assert used_compat is compat
+    assert policy_frame_of(policy) == frame
+    actions, _ = policy.predict(observations, deterministic=True)
+    np.testing.assert_allclose(actions, expected, rtol=1e-6, atol=1e-6)
+
+
+def _scene_state(yaw_rad: float) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """A drone, ball and goal (6 m from the ball, beyond the 4 m cap), rotated by ``yaw_rad`` about z."""
+    rotation = np.array([
+        [np.cos(yaw_rad), -np.sin(yaw_rad), 0.0],
+        [np.sin(yaw_rad), np.cos(yaw_rad), 0.0],
+        [0.0, 0.0, 1.0],
+    ])
+    # Drone attitude: a fixed tilt, then the scene's yaw (Hamilton product q_yaw * q_tilt).
+    tilt_w, tilt_x, tilt_y, tilt_z = np.array([0.98, 0.1, -0.15, 0.05]) / np.linalg.norm([0.98, 0.1, -0.15, 0.05])
+    yaw_w, yaw_z = np.cos(yaw_rad / 2.0), np.sin(yaw_rad / 2.0)
+    quat = np.array([
+        yaw_w * tilt_w - yaw_z * tilt_z,
+        yaw_w * tilt_x - yaw_z * tilt_y,
+        yaw_w * tilt_y + yaw_z * tilt_x,
+        yaw_w * tilt_z + yaw_z * tilt_w,
+    ])
+    state = {
+        'drone_position': rotation @ [0.4, -0.8, 1.0],
+        'drone_quat_wxyz': quat,
+        'drone_velocity': rotation @ [0.3, 0.6, -0.1],
+        'drone_angular_velocity_body': np.array([0.2, -0.1, 0.4]),
+        'ball_position': rotation @ [1.0, 0.5, 0.2],
+        'ball_velocity': rotation @ [-0.4, 0.2, 0.0],
+    }
+    target_xy = (rotation @ [-5.0, 0.5, 0.0])[:2]
+    return state, target_xy
+
+
+def test_goal_aligned_policy_ignores_the_scene_heading() -> None:
+    """Rotating the scene about z must not change the goal-aligned observation, and
+    the world action must turn with the scene."""
+    state, target_xy = _scene_state(0.0)
+    rotated_state, rotated_target_xy = _scene_state(1.1)
+
+    observation = build_policy_observation('goal_aligned', state, target_xy, 4.0)
+    rotated = build_policy_observation('goal_aligned', rotated_state, rotated_target_xy, 4.0)
+    assert observation.shape == (GOAL_ALIGNED_OBS_DIM,)
+    np.testing.assert_allclose(rotated, observation, atol=1e-5)
+    # The last value is the goal-to-ball distance after the 4 m cap.
+    assert observation[-1] == pytest.approx(4.0)
+
+    frame_action = np.array([0.5, -0.2, 1.1], dtype=np.float32)
+    world = policy_action_to_world('goal_aligned', frame_action, state['ball_position'][:2], target_xy)
+    rotated_world = policy_action_to_world(
+        'goal_aligned', frame_action, rotated_state['ball_position'][:2], rotated_target_xy)
+    yaw = 1.1
+    expected_xy = [np.cos(yaw) * world[0] - np.sin(yaw) * world[1],
+                   np.sin(yaw) * world[0] + np.cos(yaw) * world[1]]
+    np.testing.assert_allclose(rotated_world[:2], expected_xy, atol=1e-5)
+    assert rotated_world[2] == pytest.approx(1.1)
+
+
+def test_goal_aligned_action_x_points_from_goal_to_ball() -> None:
+    state, target_xy = _scene_state(0.7)
+    world = policy_action_to_world(
+        'goal_aligned', np.array([1.0, 0.0, 0.8]), state['ball_position'][:2], target_xy)
+    goal_to_ball = state['ball_position'][:2] - target_xy
+    np.testing.assert_allclose(world[:2], goal_to_ball / np.linalg.norm(goal_to_ball), atol=1e-6)
+
+
+def test_world_frame_observation_and_action_are_unchanged() -> None:
+    """The world frame keeps the capped 18-value observation and its action as is."""
+    state, target_xy = _scene_state(0.3)
+    expected = cap_observation_goal(arrays_to_observation(
+        state['drone_position'], state['drone_velocity'],
+        quaternion_to_rotation_matrix(*state['drone_quat_wxyz']),
+        state['drone_angular_velocity_body'], state['ball_position'], state['ball_velocity'],
+        target_xy,
+    ), 4.0)
+    np.testing.assert_array_equal(build_policy_observation('world', state, target_xy, 4.0), expected)
+    action = np.array([0.5, -0.2, 1.1], dtype=np.float32)
+    np.testing.assert_array_equal(
+        policy_action_to_world('world', action, state['ball_position'][:2], target_xy), action)

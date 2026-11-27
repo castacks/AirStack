@@ -30,12 +30,17 @@ from std_srvs.srv import Trigger
 from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint
 
 from drone_soccer.deploy.observation import (
+    GOAL_ALIGNED_OBS_DIM,
     OBS_DIM,
     arrays_to_observation,
+    batched_arrays_to_goal_aligned_observation,
     cap_observation_goal,
     quaternion_to_rotation_matrix,
 )
-from drone_soccer.deploy.waypoint import compute_abs_waypoint
+from drone_soccer.deploy.waypoint import (
+    compute_abs_waypoint,
+    goal_aligned_actions_to_world,
+)
 
 from svg_ground_control.ball_state import BallStateTracker
 from svg_ground_control.goal_retarget_bridge import (
@@ -265,6 +270,103 @@ def compute_bounded_waypoint(
 
 POLICY_TYPES = ('standard', 'residual')
 
+# drone_soccer's policy frames (``TrainConfig.policy_frame``), by the size of the
+# observation the policy reads: "world" (18 values, actions in world axes) or
+# "goal_aligned" (15 values, origin at the goal and x-axis toward the ball; actions
+# along those axes). A checkpoint's frame is read from its observation size.
+POLICY_FRAMES_BY_OBS_SIZE = {OBS_DIM: 'world', GOAL_ALIGNED_OBS_DIM: 'goal_aligned'}
+# Key of the first actor layer in an SB3 ActorCriticPolicy state dict; its weight is
+# (hidden, observation size).
+_FIRST_ACTOR_LAYER_WEIGHT = 'mlp_extractor.policy_net.0.weight'
+
+
+def policy_frame_of(policy: Any) -> str:
+    """The drone_soccer policy frame a loaded policy acts in.
+
+    Args:
+        policy: an SB3 PPO model or ActorCriticPolicy (`load_policy_checkpoint`).
+
+    Returns:
+        ``world`` or ``goal_aligned``.
+    """
+    observation_size = int(policy.observation_space.shape[0])
+    if observation_size not in POLICY_FRAMES_BY_OBS_SIZE:
+        raise ValueError(
+            f'policy reads {observation_size} observation values; expected one of '
+            f'{sorted(POLICY_FRAMES_BY_OBS_SIZE)} ({POLICY_FRAMES_BY_OBS_SIZE})')
+    return POLICY_FRAMES_BY_OBS_SIZE[observation_size]
+
+
+def build_policy_observation(
+    policy_frame: str,
+    state: dict[str, np.ndarray],
+    target_xy: np.ndarray,
+    max_goal_distance_m: float,
+) -> np.ndarray:
+    """The observation a policy of ``policy_frame`` reads, as drone_soccer builds it.
+
+    Both frames see the goal capped to ``max_goal_distance_m`` from the ball along its
+    true direction; in the goal-aligned frame the capped goal is the frame's origin.
+
+    Args:
+        policy_frame: ``world`` or ``goal_aligned``.
+        state: the tick's drone and ball state (`PolicyCommander._read_state`).
+        target_xy: ``(2,)`` true ENU goal (m).
+        max_goal_distance_m: largest ball-to-goal distance shown to the policy (m).
+
+    Returns:
+        ``(18,)`` or ``(15,)`` float32 observation.
+    """
+    rotation = quaternion_to_rotation_matrix(*state['drone_quat_wxyz'])
+    if policy_frame == 'world':
+        return cap_observation_goal(arrays_to_observation(
+            state['drone_position'],
+            state['drone_velocity'],
+            rotation,
+            state['drone_angular_velocity_body'],
+            state['ball_position'],
+            state['ball_velocity'],
+            target_xy,
+        ), max_goal_distance_m)
+    if policy_frame != 'goal_aligned':
+        raise ValueError(f'unknown policy frame {policy_frame!r}')
+    return batched_arrays_to_goal_aligned_observation(
+        np.reshape(state['drone_position'], (1, 3)),
+        np.reshape(state['drone_velocity'], (1, 3)),
+        np.reshape(rotation, (1, 3, 3)),
+        np.reshape(state['drone_angular_velocity_body'], (1, 3)),
+        np.reshape(state['ball_position'], (1, 3)),
+        np.reshape(state['ball_velocity'], (1, 3)),
+        np.reshape(target_xy, (1, 2)),
+        max_goal_distance_m,
+    )[0]
+
+
+def policy_action_to_world(
+    policy_frame: str,
+    frame_action: np.ndarray,
+    ball_xy: np.ndarray,
+    target_xy: np.ndarray,
+) -> np.ndarray:
+    """A policy's (already clipped) action as the world ``(dx, dy, z_world)`` the waypoint takes.
+
+    Args:
+        policy_frame: ``world`` or ``goal_aligned``.
+        frame_action: ``(3,)`` action in the policy's frame (m).
+        ball_xy: ``(2,)`` ball ENU xy the observation was built from (m).
+        target_xy: ``(2,)`` true ENU goal (m); the capped goal has the same direction.
+
+    Returns:
+        ``(3,)`` float32 world mixed-frame action.
+    """
+    if policy_frame == 'world':
+        return np.asarray(frame_action, dtype=np.float32)
+    return goal_aligned_actions_to_world(
+        np.reshape(frame_action, (1, 3)),
+        np.reshape(ball_xy, (1, 2)),
+        np.reshape(target_xy, (1, 2)),
+    )[0].astype(np.float32)
+
 
 def _policy_class_for_type(policy_type: str) -> type:
     """Return the SB3 policy class a ``policy_type`` parameter names.
@@ -333,14 +435,25 @@ def load_policy_checkpoint(
     # Archives saved under NumPy 2 pickle module names that AirStack's
     # NumPy 1.x cannot resolve. Rebuild the configured policy class and load
     # its state dict without unpickling SB3 metadata. This assumes SB3's
-    # default MLP (net_arch [64, 64], Tanh), which drone_soccer trains with.
+    # default MLP (net_arch [64, 64], Tanh), which drone_soccer trains with;
+    # the observation size (policy frame) is read from the first actor layer.
     import torch
     from gymnasium.spaces import Box
 
+    with ZipFile(model_path) as archive:
+        policy_bytes = archive.read('policy.pth')
+    state_dict = torch.load(
+        BytesIO(policy_bytes),
+        map_location='cpu',
+        weights_only=True,
+    )
+    if _FIRST_ACTOR_LAYER_WEIGHT not in state_dict:
+        raise ValueError(
+            f'{model_path} has no {_FIRST_ACTOR_LAYER_WEIGHT}; not an SB3 MLP policy')
     observation_space = Box(
         low=-np.inf,
         high=np.inf,
-        shape=(OBS_DIM,),
+        shape=(int(state_dict[_FIRST_ACTOR_LAYER_WEIGHT].shape[1]),),
         dtype=np.float32,
     )
     action_space = Box(
@@ -352,14 +465,6 @@ def load_policy_checkpoint(
         observation_space,
         action_space,
         lr_schedule=lambda _: 0.0,
-    )
-
-    with ZipFile(model_path) as archive:
-        policy_bytes = archive.read('policy.pth')
-    state_dict = torch.load(
-        BytesIO(policy_bytes),
-        map_location='cpu',
-        weights_only=True,
     )
     try:
         policy.load_state_dict(state_dict)
@@ -536,6 +641,8 @@ class PolicyCommander(Node):
             self.get_logger().warn(
                 'Loaded policy weights with NumPy 2 checkpoint compatibility '
                 'mode; SB3 metadata was not deserialized')
+        # Every policy swapped in later must act in this frame too.
+        self.policy_frame = policy_frame_of(self.policy)
 
         odom_topic = str(self.get_parameter('odom_topic_template').value).format(
             name=self.drone)
@@ -607,7 +714,8 @@ class PolicyCommander(Node):
             f'PolicyCommander ready | drone={self.drone} ball={ball_name} '
             f'odom={odom_topic} ball_odom={ball_odom_topic} '
             f'trajectory_out={trajectory_topic} '
-            f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM} '
+            f'offboard_out={offboard_mode_topic} '
+            f'policy_frame={self.policy_frame} '
             f'policy_type={self.policy_type} '
             f'goal={self.goal_trajectory} goal_topic={self.goal_topic} '
             f'center={self.goal_center_xy.tolist()} '
@@ -740,19 +848,10 @@ class PolicyCommander(Node):
         }
 
     def _observation_from_state(self, state: dict[str, np.ndarray]) -> np.ndarray:
-        rot = quaternion_to_rotation_matrix(
-            *state['drone_quat_wxyz']).astype(np.float32)
         # The published goal stays the true goal; only the policy's view of
-        # the goal-minus-ball offset is capped, matching drone_soccer.
-        return cap_observation_goal(arrays_to_observation(
-            state['drone_position'],
-            state['drone_velocity'],
-            rot,
-            state['drone_angular_velocity_body'],
-            state['ball_position'],
-            state['ball_velocity'],
-            self.target_xy,
-        ), self.max_goal_distance_m)
+        # it is capped, matching drone_soccer.
+        return build_policy_observation(
+            self.policy_frame, state, self.target_xy, self.max_goal_distance_m)
 
     def _publish_goal(self) -> None:
         goal_msg = Float32MultiArray()
@@ -821,11 +920,21 @@ class PolicyCommander(Node):
         """Create the background loader and the latched <prefix>/active_policy path topic once."""
         if self._hot_swap is not None:
             return
-        self._hot_swap = PolicyHotSwap(lambda path: load_policy_checkpoint(
-            path, self.action_low, self.action_high, self.policy_type)[0])
+        self._hot_swap = PolicyHotSwap(self._load_swappable_policy)
         self.active_policy_pub = self.create_publisher(
             String, f'{prefix}/active_policy', _latched_qos())
         self._publish_active_policy_path()
+
+    def _load_swappable_policy(self, path: str) -> Any:
+        """Load a checkpoint to swap in; refuse one that acts in another policy frame."""
+        policy = load_policy_checkpoint(
+            path, self.action_low, self.action_high, self.policy_type)[0]
+        frame = policy_frame_of(policy)
+        if frame != self.policy_frame:
+            raise ValueError(
+                f'checkpoint acts in the {frame} policy frame; the flying policy '
+                f'acts in the {self.policy_frame} frame')
+        return policy
 
     def _publish_active_policy_path(self) -> None:
         if self.active_policy_pub is None:
@@ -848,18 +957,26 @@ class PolicyCommander(Node):
         self.get_logger().info(f'Loading requested policy {msg.data}')
         self._hot_swap.request(msg.data)
 
-    def _policy_action(self, policy: Any, obs: np.ndarray) -> np.ndarray:
+    def _policy_action(self, policy: Any, obs: np.ndarray,
+                       state: dict[str, np.ndarray]) -> np.ndarray:
+        """The world ``(dx, dy, z_world)`` action of ``policy`` on this tick.
+
+        The action is clipped to the action box in the policy's own frame, then
+        expressed in world axes, as drone_soccer flies it.
+        """
         action, _ = policy.predict(obs, deterministic=self.deterministic)
-        return np.clip(
+        frame_action = np.clip(
             np.asarray(action, dtype=np.float32),
             self.action_low,
             self.action_high,
         )
+        return policy_action_to_world(
+            self.policy_frame, frame_action, state['ball_position'][:2], self.target_xy)
 
     def _policy_tick(self) -> None:
         self._poll_learner_updates()
         if not self.running:
-            self._adopt_loaded_policy(None)
+            self._adopt_loaded_policy(None, None)
             self._publish_goal()
             if self._last_waypoint is not None:
                 self._publish_fmu_setpoint(self._last_waypoint)
@@ -867,7 +984,7 @@ class PolicyCommander(Node):
 
         if not self._inputs_fresh():
             self._end_recorded_segment('stale drone odom or ball state')
-            self._adopt_loaded_policy(None)
+            self._adopt_loaded_policy(None, None)
             self._publish_goal()
             self.get_logger().warn(
                 'Waiting for fresh drone odom and ball state',
@@ -883,10 +1000,10 @@ class PolicyCommander(Node):
         obs = self._observation_from_state(state)
         # Swap between computing the observation and acting on it, so the
         # log can compare both policies' actions on this exact state.
-        self._adopt_loaded_policy(obs)
+        self._adopt_loaded_policy(obs, state)
 
         drone_pos_pre = state['drone_position']
-        action = self._policy_action(self.policy, obs)
+        action = self._policy_action(self.policy, obs, state)
         waypoint = compute_bounded_waypoint(
             drone_pos_pre,
             action,
@@ -909,31 +1026,33 @@ class PolicyCommander(Node):
         if not bool(self.get_parameter('goal_retarget_enabled').value):
             return
 
-        # Imported here so plain inference does not depend on it.
-        from drone_soccer.goal_retarget_config import GOAL_RETARGET
+        # Imported here so plain inference does not depend on it. The learner
+        # (drone_soccer.goal_retarget.plan_learner) reads these settings.
+        from drone_soccer.goal_retarget_config import PLAN_UPDATE
+        learner_config = PLAN_UPDATE.forward
 
         if self.policy_type != 'standard':
             raise ValueError(
                 'goal_retarget_enabled needs policy_type standard (the learner '
                 f'adapts a plain PPO actor), got {self.policy_type!r}')
-        if abs(self.policy_dt - GOAL_RETARGET.policy_dt) > 1e-9:
+        if abs(self.policy_dt - learner_config.policy_dt) > 1e-9:
             raise ValueError(
-                f'goal_retarget_enabled needs policy_dt {GOAL_RETARGET.policy_dt}'
+                f'goal_retarget_enabled needs policy_dt {learner_config.policy_dt}'
                 f' (one learner frame per tick), got {self.policy_dt}')
         if not self.deterministic:
             raise ValueError('goal_retarget_enabled needs deterministic: true')
-        if abs(self.max_goal_distance_m - GOAL_RETARGET.max_goal_distance_m) > 1e-9:
+        if abs(self.max_goal_distance_m - learner_config.max_goal_distance_m) > 1e-9:
             raise ValueError(
                 'goal_retarget_enabled needs max_goal_distance_m '
-                f'{GOAL_RETARGET.max_goal_distance_m}, got '
+                f'{learner_config.max_goal_distance_m}, got '
                 f'{self.max_goal_distance_m}')
         if self._random_goal_spawner is not None and (
                 self.goal_arrival_reference != 'ball'
                 or abs(self._random_goal_spawner.arrival_radius_m
-                       - GOAL_RETARGET.reach_radius_m) > 1e-9):
+                       - learner_config.reach_radius_m) > 1e-9):
             self.get_logger().warn(
                 'Goal-retarget learning was tested with goals that switch when '
-                f'the ball is within {GOAL_RETARGET.reach_radius_m} m; this run '
+                f'the ball is within {learner_config.reach_radius_m} m; this run '
                 f'switches on the {self.goal_arrival_reference} within '
                 f'{self._random_goal_spawner.arrival_radius_m} m')
 
@@ -945,6 +1064,7 @@ class PolicyCommander(Node):
             'model_path': model_path,
             'model_sha256': model_sha256,
             'policy_type': self.policy_type,
+            'policy_frame': self.policy_frame,
             'policy_dt': self.policy_dt,
             'max_goal_distance_m': self.max_goal_distance_m,
             'action_low': self.action_low.tolist(),
@@ -1032,8 +1152,13 @@ class PolicyCommander(Node):
         self._detail(f'learner published iterate {iterate}; loading {path}')
         self._hot_swap.request(path)
 
-    def _adopt_loaded_policy(self, obs: np.ndarray | None) -> None:
-        """Swap in a policy loaded since the last tick and log the change."""
+    def _adopt_loaded_policy(self, obs: np.ndarray | None,
+                             state: dict[str, np.ndarray] | None) -> None:
+        """Swap in a policy loaded since the last tick and log the change.
+
+        ``obs`` and the ``state`` it was built from are this tick's, or None
+        while the policy is paused or its inputs are stale.
+        """
         if self._hot_swap is None:
             return
         for error in self._hot_swap.take_errors():
@@ -1057,8 +1182,8 @@ class PolicyCommander(Node):
         old_policy = self.policy
         stats = self._iterate_stats
         if obs is not None:
-            old_action = self._policy_action(old_policy, obs)
-            new_action = self._policy_action(loaded.policy, obs)
+            old_action = self._policy_action(old_policy, obs, state)
+            new_action = self._policy_action(loaded.policy, obs, state)
         self.policy = loaded.policy
         self.policy_iterate = new_iterate
         self.policy_path = loaded.path

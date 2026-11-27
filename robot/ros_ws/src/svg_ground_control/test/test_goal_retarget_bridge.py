@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from svg_ground_control.goal_retarget_bridge import (
+    FORMAT_VERSION,
     MANIFEST_FILE,
     DetailLog,
     SESSION_FILE,
@@ -32,7 +33,7 @@ def test_run_directory_is_shared_and_has_session(tmp_path) -> None:
     recorder = TickRecorder(tmp_path / 'root', 'run', {'policy_dt': 0.1})
     assert stat.S_IMODE(os.stat(recorder.run_dir).st_mode) == 0o777
     session = json.loads((recorder.run_dir / SESSION_FILE).read_text())
-    assert session['policy_dt'] == 0.1 and session['format_version'] == 1
+    assert session['policy_dt'] == 0.1 and session['format_version'] == FORMAT_VERSION
     with pytest.raises(FileExistsError):
         TickRecorder(tmp_path / 'root', 'run', {})
 
@@ -108,13 +109,15 @@ def test_unparsable_manifest_is_retried(tmp_path) -> None:
 
 def test_update_summary_names_the_health_signals() -> None:
     summary = format_update_summary({
-        'loss_before': 0.5, 'loss_after': 0.25, 'rms_action_change_m': 0.31,
-        'rms_label_shift_m': 0.6, 'median_miss_m': 0.62, 'target_refreshed': True,
-        'target_refreshes': 2, 'flight_time_s': 123.4,
+        'samples': 180, 'rows_fit': 172, 'loss_before': 0.5, 'loss_after': 0.25,
+        'rms_action_change_m': 0.31, 'median_current_offset_m': 0.12,
+        'median_accumulated_offset_m': 0.05, 'median_applied_offset_m': 0.16,
+        'flight_time_s': 123.4,
     })
+    assert 'fit 172 of 180 accepted ticks' in summary
     assert 'loss 0.5000 -> 0.2500' in summary
     assert 'batch action change 0.310 m RMS' in summary
-    assert 'pi_T refreshed True (2 total)' in summary
+    assert 'goal shift: step 0.12 m, before 0.05 m, labels 0.16 m (medians)' in summary
     assert format_update_summary({}) == ''
 
 

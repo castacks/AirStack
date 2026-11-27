@@ -1,4 +1,5 @@
-# Drone-soccer PPO on Starling hardware with ONLINE goal-retargeting updates.
+# Drone-soccer PPO on Starling hardware with ONLINE goal-retargeting updates
+# (drone_soccer's goal-conditioned policy update, pseudocode revision 7).
 #
 # Same as policy_commander_drone3.yaml, plus:
 #   - every flown tick is recorded under goal_retarget_root for the host learner
@@ -6,9 +7,12 @@
 #     hot-swapped in between ticks and logged as "POLICY UPDATE";
 #   - random goals switch only when the BALL reaches them (no time limit; the
 #     drone keeps trying for a goal until the ball gets there).
-# model_path is where pi_F starts. The learner keeps pi_E = pi_T =
-# saved_policies/motor_dynamics_full.zip and resumes pi_F from model_path when
-# it is a later iterate (it checks the file's hash against this commander's).
+# The policy acts in drone_soccer's goal-aligned frame (origin at the goal,
+# x-axis toward the ball; 15-value observation), read from the checkpoint.
+# model_path is where pi_F starts. The learner keeps pi_E =
+# saved_policies/goal_aligned.zip and resumes pi_F from model_path when it is a
+# later iterate of the same frame (it checks the file's hash against this
+# commander's).
 #
 # Prerequisites: as for policy_commander_drone3.yaml.
 #
@@ -22,10 +26,11 @@
   ros__parameters:
     drone: "drone_3"
     ball_name: "VolleyBall"
-    # Last iterate (update 14) of the 2026-11-19 goal-retargeting run; see
-    # saved_tuned_policies/goal_retarget_20261119/PROVENANCE.md. To start over
-    # from the expert: /root/drone_soccer/drone_soccer/saved_policies/motor_dynamics_full.zip
-    model_path: "/root/drone_soccer/drone_soccer/saved_tuned_policies/goal_retarget_20261119/policy_014.zip"
+    # The goal-aligned expert (pi_E). To resume, point this at an earlier run's
+    # last iterate (robot/bags/goal_retarget/<run>/policies/policy_<n>.zip, as
+    # /bags/...). The 2026-11-19 iterates (saved_tuned_policies/goal_retarget_20261119)
+    # are world-frame policies and cannot be resumed against this expert.
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/goal_aligned.zip"
     # "standard" PPO checkpoint, or "residual" for a drone_soccer
     # ResidualActorCriticPolicy checkpoint (see policy_commander_drone3_residual.yaml).
     policy_type: "standard"
