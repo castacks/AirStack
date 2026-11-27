@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "PASS",
+  "branch": "ore-ms-orb-development",
+  "starting_commit": "399fa221861e8fed9d6699c74022c6f698e1cca4",
+  "runtime": {
+    "simulator_starts": 1,
+    "render_attempts": 2,
+    "render_attempt_bound": 8,
+    "timeout_s": 150,
+    "native_shutdown_return": "NOT_OBSERVED",
+    "supervisor_exit": 0
+  },
+  "gates": {
+    "source_and_offline_tests": {
+      "status": "PASS",
+      "observed": {
+        "commit": "399fa221861e8fed9d6699c74022c6f698e1cca4",
+        "inputs_sha256": {
+          "capture_one_r3.py": "4696a4101a9762f0dbb42ca316cde9ba6b9d72dc8c1940e29b37269c566969a4",
+          "readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+          "supervise_r3.py": "2079557a6ca33652391864c2ddd47cba238b64835e9dd8fab8cac9974316c81f",
+          "validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+          "recorder.py": "f20dd82fe4ce12cf1dbe3805ddfde504c47a28cbb2908b45ea6882022a57bd43",
+          "stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7"
+        },
+        "cpu_tests_passed": 46
+      },
+      "evidence_paths": [
+        "source-commit.txt",
+        "input.sha256",
+        "r3-offline-tests.log",
+        "r2-offline-tests.log"
+      ]
+    },
+    "isolation_and_frozen_checks": {
+      "status": "PASS",
+      "observed": {
+        "image_reference": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+        "image_config": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Source": "/root/ore-ms-artifacts/static-isaac-shutdown-live-r3.I0Y8EvuU/input",
+            "Destination": "/capture-input",
+            "Mode": "",
+            "RW": false,
+            "Propagation": "rprivate"
+          },
+          {
+            "Type": "bind",
+            "Source": "/root/ore-ms-artifacts/static-isaac-shutdown-live-r3.I0Y8EvuU/run/capture",
+            "Destination": "/capture-output",
+            "Mode": "",
+            "RW": true,
+            "Propagation": "rprivate"
+          }
+        ],
+        "operational_unchanged": true
+      },
+      "evidence_paths": [
+        "container-created.txt",
+        "container-mounts.json",
+        "operational-before.txt",
+        "operational-after.txt",
+        "pre-existing-before.txt",
+        "pre-existing-after.txt"
+      ]
+    },
+    "native_acquisition": {
+      "status": "PASS",
+      "observed": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "status": "STARTED"
+          },
+          {
+            "attempt": 1,
+            "status": "PAYLOAD_NOT_READY",
+            "depth": {
+              "reference": null,
+              "shape": null,
+              "dtype": null,
+              "status": "missing"
+            },
+            "instances": {
+              "reference": null,
+              "shape": null,
+              "dtype": null,
+              "status": "missing"
+            }
+          },
+          {
+            "attempt": 2,
+            "status": "STARTED"
+          },
+          {
+            "attempt": 2,
+            "status": "READY",
+            "depth": {
+              "reference": [
+                6993,
+                30
+              ],
+              "shape": [
+                25,
+                33
+              ],
+              "dtype": "float32",
+              "status": "valid"
+            },
+            "instances": {
+              "reference": [
+                6993,
+                30
+              ],
+              "shape": [
+                25,
+                33
+              ],
+              "dtype": "uint32",
+              "status": "valid"
+            },
+            "association": {
+              "source": "replicator_writer_reference_time",
+              "depth_reference": [
+                6993,
+                30
+              ],
+              "instance_reference": [
+                6993,
+                30
+              ],
+              "rendering_time_s": 0.30000000447034836,
+              "attempt": 2
+            }
+          }
+        ],
+        "ready_attempt": 2,
+        "reference_time": [
+          6993,
+          30
+        ],
+        "simulation_time_s": 0.30000000447034836,
+        "dimensions": [
+          33,
+          25
+        ],
+        "bytes_per_array": 3300,
+        "finite_positive_target_pixels": 64,
+        "instance_id_counts": {
+          "0": 761,
+          "1": 64
+        }
+      },
+      "evidence_paths": [
+        "run/capture/readiness.jsonl",
+        "run/capture/frame.json",
+        "run/capture/depth.f32le",
+        "run/capture/instances.u32le"
+      ]
+    },
+    "lifecycle": {
+      "status": "PASS",
+      "observed": {
+        "acquisition_checkpoint_line": 15,
+        "shutdown_request_line": 16,
+        "acquisition_checkpoint_ns": 1795755929345255169,
+        "shutdown_request_ns": 1795755929349932076,
+        "native_shutdown_return": "NOT_OBSERVED",
+        "kit_shutdown_log": "[98.806s] Simulation App Shutting Down",
+        "pre_close_hashes": {
+          "depth.f32le": "47c44d97ae8d5ed16b7d82f1c10d62e3d829820b7f5f5b94f24e1417a1f66c01",
+          "instances.u32le": "225d5abeadda43409961299fc4766f04912b274ec6f4d0549ea64613bd6566dd",
+          "frame.json": "8674a92e4dbbb87d084b2770d211010f84a1442e2a6d58756f4c142e01e04ac0",
+          "readiness.jsonl": "f9717d715ef67e8fa01d99bd39d4cf583597d55d4b18ee511c7f2fa9a50f7b60"
+        }
+      },
+      "evidence_paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log"
+      ]
+    },
+    "host_exit": {
+      "status": "PASS",
+      "observed": {
+        "id": "a3d332fc5166555ae59e97f61d7f8ed4e6e65d45492eaa0156674ed2135857bb",
+        "exit_record": {
+          "Dead": false,
+          "Error": "",
+          "ExitCode": 0,
+          "FinishedAt": "2026-11-27T05:05:33.239906133Z",
+          "OOMKilled": false,
+          "Paused": false,
+          "Pid": 0,
+          "Restarting": false,
+          "Running": false,
+          "StartedAt": "2026-11-27T05:03:50.908657261Z",
+          "Status": "exited"
+        },
+        "elapsed_s": 102.331249,
+        "acquisition_file_timestamps_in_run": true,
+        "receipt_sha256": "e02ef0d27009a8675ed2b225cbcbfd84b5740faba02bfb4f641b2920d96b8cb1"
+      },
+      "evidence_paths": [
+        "start-requested.txt",
+        "container.cid",
+        "run/container-exit.json",
+        "container-after.txt",
+        "cleanup.txt"
+      ]
+    },
+    "completion": {
+      "status": "PASS",
+      "observed": {
+        "mode": "isaac",
+        "command": [
+          "bash",
+          "/root/ore-ms-artifacts/static-isaac-shutdown-live-r3.I0Y8EvuU/launch-once.sh"
+        ],
+        "returncode": 0,
+        "verification": {
+          "states": [
+            "ACQUISITION_COMPLETE",
+            "SHUTDOWN_REQUESTED",
+            "PROCESS_TERMINATED",
+            "EVIDENCE_VERIFIED"
+          ],
+          "native_shutdown_return": "NOT_OBSERVED",
+          "shutdown_evidence": "kit_fast_shutdown_log",
+          "process": {
+            "id": "a3d332fc5166555ae59e97f61d7f8ed4e6e65d45492eaa0156674ed2135857bb",
+            "path": "container-exit.json",
+            "sha256": "e02ef0d27009a8675ed2b225cbcbfd84b5740faba02bfb4f641b2920d96b8cb1",
+            "started_at": "2026-11-27T05:03:50.908657261Z",
+            "finished_at": "2026-11-27T05:05:33.239906133Z"
+          }
+        },
+        "sha256": {
+          "child.log": "8eb74ac114fd1d7db79ccc4523749049dd39c6ee64a8d5643a62081cac892624",
+          "capture/depth.f32le": "47c44d97ae8d5ed16b7d82f1c10d62e3d829820b7f5f5b94f24e1417a1f66c01",
+          "capture/instances.u32le": "225d5abeadda43409961299fc4766f04912b274ec6f4d0549ea64613bd6566dd",
+          "capture/frame.json": "8674a92e4dbbb87d084b2770d211010f84a1442e2a6d58756f4c142e01e04ac0",
+          "capture/phases.jsonl": "7187858763491fdeb4956e1f3dbb3826e3a7b50ed50ea11aa0109602eec7c913",
+          "capture/readiness.jsonl": "f9717d715ef67e8fa01d99bd39d4cf583597d55d4b18ee511c7f2fa9a50f7b60"
+        }
+      },
+      "evidence_paths": [
+        "run/COMPLETED.json",
+        "supervisor-exit.txt",
+        "independent-review.py",
+        "independent-artifact-review.json"
+      ]
+    },
+    "sha256_manifest": {
+      "status": "PASS",
+      "files_verified": 39,
+      "evidence_paths": [
+        "SHA256SUMS.txt"
+      ]
+    }
+  },
+  "evidence": {
+    "local_directory": "/root/ore-ms-artifacts/static-isaac-shutdown-live-r3.I0Y8EvuU",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "e093f2c73754e6f78b0529558c3039e85f8af377640280e4be5009344c7fdf0f",
+    "artifact_hashes": {
+      "bounds.txt": "bc2ce0e4492cf497ae4de4728baf73b5308f395898ee1905ee25743d91725b0c",
+      "check-existing-evidence.sh": "a829b18f4bf089d545aaa9cec28e3729a6c4430ee9f5a3be2d6320737038c39b",
+      "cleanup.txt": "558c9dada56e28e353315744a32e2c6ecd5fc7c68a3404572a767f31d87acaaf",
+      "container-after.txt": "80561cbf524af1d88e9743b2d8a33fda12f9fac4d40ed83f11cf955bfd861441",
+      "container-created.txt": "49a56ed8079c2db748bbe7956a10d9d53ca6797a240aa7ae186cb325c26db186",
+      "container-mounts.json": "ccf6add989c8575a0e143666cc4eda62aee5a8e3e12d8df510773f31968aba7e",
+      "container.cid": "558c9dada56e28e353315744a32e2c6ecd5fc7c68a3404572a767f31d87acaaf",
+      "execute-once.sh": "89f95748ef3aaf24600194bd5d235f9c80d073bc4ddc1f2358067f1d6c456e7a",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "9836550c89501beb3ac4f7995fdc18297a542bfa273f0280bf68c2011015cfbe",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "independent-artifact-review.json": "5c382d5df07dc0b951b491232da90b63325d44f5eda3648b8bfef99d2fe8ffb5",
+      "independent-review.py": "bcc0598660f66c411e42fc64ae793e0cb58f2d03cb3a97f9771030a035c39f54",
+      "input-after.txt": "e3590b761f1c0a1fb07b0366b13b345b0196176ec3432c28fda0f4f2c74bd5ce",
+      "input.sha256": "0199cee64e208a6f87b94f69f4ee3bc24880496bddfe967a8d11cf730b42d3e3",
+      "input/capture_one_r3.py": "4696a4101a9762f0dbb42ca316cde9ba6b9d72dc8c1940e29b37269c566969a4",
+      "input/readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+      "input/recorder.py": "f20dd82fe4ce12cf1dbe3805ddfde504c47a28cbb2908b45ea6882022a57bd43",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/supervise_r3.py": "2079557a6ca33652391864c2ddd47cba238b64835e9dd8fab8cac9974316c81f",
+      "input/validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+      "launch-once.sh": "4ec7da4935df6dd353fd0648bfbab6891f455af1eff868d719c7a0c29b42f739",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pre-existing-after.txt": "3219ed264c0d36057357288439afa2ba99ec3ef15c90820bc88290d00ed50540",
+      "pre-existing-before.txt": "3219ed264c0d36057357288439afa2ba99ec3ef15c90820bc88290d00ed50540",
+      "r2-offline-tests.log": "c2900ecadc511f9485230db5606e618d3829804e346a777fe76df95a8b2c311e",
+      "r3-offline-tests.log": "efca749411d90d5bfa2bbb439fb8cbddcf65d21064f963d57d9b0140c7348301",
+      "run/COMPLETED.json": "be8afc3a70639790e4a4147038f8310abcef0251ca437779ffa65e9b6cf0e5a8",
+      "run/capture/depth.f32le": "47c44d97ae8d5ed16b7d82f1c10d62e3d829820b7f5f5b94f24e1417a1f66c01",
+      "run/capture/frame.json": "8674a92e4dbbb87d084b2770d211010f84a1442e2a6d58756f4c142e01e04ac0",
+      "run/capture/instances.u32le": "225d5abeadda43409961299fc4766f04912b274ec6f4d0549ea64613bd6566dd",
+      "run/capture/phases.jsonl": "7187858763491fdeb4956e1f3dbb3826e3a7b50ed50ea11aa0109602eec7c913",
+      "run/capture/readiness.jsonl": "f9717d715ef67e8fa01d99bd39d4cf583597d55d4b18ee511c7f2fa9a50f7b60",
+      "run/child.log": "8eb74ac114fd1d7db79ccc4523749049dd39c6ee64a8d5643a62081cac892624",
+      "run/container-exit.json": "e02ef0d27009a8675ed2b225cbcbfd84b5740faba02bfb4f641b2920d96b8cb1",
+      "source-commit.txt": "643ca3108b401cfbeef2e5899aee809e449fa2f4bab36a9ff09f467bff67cb29",
+      "start-requested.txt": "32d8064cf06cc4ec593583d7a3b973b3fc7cf6cef790b8accbefeaa2d88392e3",
+      "supervisor-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  }
+}
