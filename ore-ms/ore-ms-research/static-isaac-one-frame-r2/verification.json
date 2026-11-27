@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "status": "FAIL",
+  "source": {
+    "branch": "ore-ms-orb-development",
+    "recorder_commit": "9ced696873b06b67acf28ef2124f0d5e022085ed"
+  },
+  "runtime": {
+    "attempts": 1,
+    "timeout_s": 150,
+    "container_id": "f54c5522a58c6c9fe7837842c17f10343797580690957636caf56fb6ca9e3887",
+    "started_utc": "2026-11-27T03:23:11.514551126Z",
+    "finished_utc": "2026-11-27T03:23:45.416893915Z",
+    "image_reference": "airlab-docker.andrew.cmu.edu/airstack/airstack@sha256:ba2402ec4f389fad6552d79e87871131c587d090963d1d894539016904f3e697",
+    "image_config": "sha256:b45a696338c10c984487b9b91a215b20c579afabc1f00a216dc43dacfb76bacd",
+    "child_exit": 0,
+    "container_exit": 0,
+    "supervisor_exit": 1
+  },
+  "first_observable_failure": {
+    "phase": "frame_readout",
+    "journal_line": 16,
+    "journal": "run/capture/phases.jsonl",
+    "traceback": "Traceback (most recent call last):\n  File \"/capture-input/recorder.py\", line 61, in phase\n    yield\n  File \"/capture-input/capture_one.py\", line 52, in capture\n    ids = np.asarray(instance[\"data\"])\n                     ~~~~~~~~^^^^^^^^\nTypeError: 'NoneType' object is not subscriptable\n"
+  },
+  "raw_observations": {
+    "configured_width": 33,
+    "configured_height": 25,
+    "depth_frame": null,
+    "instance_id_frame": null,
+    "frame_metadata": null
+  },
+  "evidence": {
+    "local_directory": "/root/ore-ms-artifacts/static-isaac-one-frame-r2.WzWvL9Pg",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "9224f5259b98c05d1fb8542cd45cda6be5d2e098a2684a7bb14ed48bbe501b48",
+    "artifact_hashes": {
+      "check-isolation.py": "69038208a4f5fcae486b6c9ff918e9d77d023df1e1f6f099c190023ba08527a5",
+      "cleanup.txt": "fadd897fee6deb3e84b677be390896a0d045cc8bbc4d30f826bba97d18adc528",
+      "container-after.json": "f10e8ffbafb3e8fbb48d28f2d42d345849d7b22edc0604d33c5239992d926df1",
+      "container-created.json": "68c10f7035726e1dc3fb3c6fcfaade70b30a56328676490a47da668122fd9fc0",
+      "container.cid": "fadd897fee6deb3e84b677be390896a0d045cc8bbc4d30f826bba97d18adc528",
+      "execute-once.sh": "b2ba9aeefa28de9b17281b2ff1d766ed62ec6677d5ebafbce25dd513ab0ed92a",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "input-after.txt": "ebf7fac8e27e44c7b303a4c14b3fcfd04c6ce9f00ffbb3bc38477cef4c719e9a",
+      "input.sha256": "67753d31b6b9e14481668f1196ea685b3d8e77da62085727384a4b51b3fa25e6",
+      "input/capture_one.py": "ffcc1ecd59e7c84a55d6be8cc37c4b2b3e4928b9736fe0a9d1adfd27c16aa51a",
+      "input/recorder.py": "76333a9e708029f698aab5e6312e0ece9821e2cd01ec1ec55fd18f649b48e86f",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "inspect-container.sh": "43e6a5778750c9827d5c0fc4dd53d78ef116005984053b52b55bc32d638f6d2f",
+      "isolation-after.txt": "f51dd91420b1469cf2c971614845bb70cfaf33bec00b9c7eeb60d579dbf6b622",
+      "launch-once.sh": "04b5132d5cf4a3294bd58ff3e47b65d0959427ed6cb6ffb521026c282f943b2e",
+      "offline-tests.log": "9385a76e45cfc10e4ac179c9722db5bc471178fd9f615967731c3ce3cb37d1cd",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "preserved-evidence-check.txt": "6d0182e905d0c177766dddb6d63d1675c51aababb4017028975526d9c4bbede9",
+      "run/FAILED.json": "eca90bc2f7a91e66aa820fe68f8c3ac2324866955bb22d09ebed302b5f82027a",
+      "run/capture/phases.jsonl": "9baaf56e2e8d5afd14289f764d5158654bd38e956f33b3a71827e2de99b7d72a",
+      "run/child.log": "db1cfa77e59662fbe9629f378521843f2246b1cdf0fb6c8a5bfe6cedde951104",
+      "snapshot-operational.sh": "f2aacf88f50c51ffcc986de73be15bddae7650684f722bde8aa090eac521ebf1",
+      "source-branch.txt": "8b73489dc80b9106ce498e66b2ca4519cd05497a415231d4ce4cbd8f5c03198a",
+      "source-commit.txt": "15f54b13390d21cc2cce6963d7092c928868a1be600c470f8fccb5ee1bc477c4",
+      "start-requested.txt": "df2e0c17d17d51881ba7d1e2883ba2f3a5d198532f07dee1f39444ac81529fb2",
+      "supervisor-exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  },
+  "gates": {
+    "recorder_offline_preflight": {
+      "status": "PASS",
+      "evidence": "All ten qualified CPU tests passed.",
+      "paths": [
+        "offline-tests.log"
+      ]
+    },
+    "input_and_image_provenance": {
+      "status": "PASS",
+      "evidence": "Pinned stage and worker matched before and after. Created and exited container matched the image pins.",
+      "paths": [
+        "input.sha256",
+        "input-after.txt",
+        "container-created.json",
+        "container-after.json"
+      ]
+    },
+    "isolated_invocation": {
+      "status": "PASS",
+      "evidence": "Exactly one start of a fresh container, with network none, private IPC and only the two scratch mounts.",
+      "paths": [
+        "launch-once.sh",
+        "start-requested.txt",
+        "container-created.json",
+        "container-after.json"
+      ]
+    },
+    "camera_setup": {
+      "status": "PASS",
+      "evidence": "Camera initialization and annotator attachment calls returned.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "render_step_calls": {
+      "status": "PASS",
+      "evidence": "All three render-step calls returned. Callback delivery was unverified.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "same_frame_readout": {
+      "status": "FAIL",
+      "evidence": "The instance-ID entry in the cloned camera frame was None; indexing the data field raised TypeError.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "depth_and_instance_artifacts": {
+      "status": "FAIL",
+      "evidence": "Neither native array was serialized.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/FAILED.json"
+      ]
+    },
+    "dimensions_and_acquisition_metadata": {
+      "status": "INCONCLUSIVE",
+      "evidence": "Configured dimensions are 33 by 25. Actual dimensions and native timestamp were not validated.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "worker_completion": {
+      "status": "FAIL",
+      "evidence": "The child exited 0 after a recorded readout exception.",
+      "paths": [
+        "run/FAILED.json",
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "durable_shutdown": {
+      "status": "FAIL",
+      "evidence": "Shutdown started, with no completed event.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log"
+      ]
+    },
+    "completion_marker": {
+      "status": "FAIL",
+      "evidence": "The required marker was absent. The supervisor correctly failed closed.",
+      "paths": [
+        "run/FAILED.json"
+      ]
+    },
+    "retained_artifact_integrity": {
+      "status": "PASS",
+      "evidence": "All 28 retained file hashes independently rechecked.",
+      "paths": [
+        "SHA256SUMS.txt"
+      ]
+    },
+    "operational_isolation": {
+      "status": "PASS",
+      "evidence": "Three operational containers matched on ID, image, start time, restart count and status before and after.",
+      "paths": [
+        "operational-before.txt",
+        "operational-after.txt"
+      ]
+    },
+    "preserved_research_evidence": {
+      "status": "PASS",
+      "evidence": "R1 raw evidence and frozen M05\u2013M08 manifests rechecked.",
+      "paths": [
+        "preserved-evidence-check.txt"
+      ]
+    }
+  }
+}
