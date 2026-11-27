@@ -116,7 +116,9 @@ if sys.argv[1] == "create":
 elif sys.argv[1] == "inspect":
     template = sys.argv[sys.argv.index("--format") + 1]
     expected_mounts = {json.dumps(records[::-1], indent=2)!r}
-    if template == "{{{{json .Mounts}}}}":
+    if '"restart_count"' in template:
+        print('{{"id":"fixture-container","restart_count":0,"state":{{"Status":"exited"}}}}')
+    elif template == "{{{{json .Mounts}}}}":
         print("\\n" + expected_mounts + "\\n")
     elif template.endswith("{{{{json .Mounts}}}}"):
         print({header!r} + " " + expected_mounts)
@@ -131,6 +133,10 @@ else:
             env = {**os.environ, "PATH": f"{root}{os.pathsep}{os.environ['PATH']}"}
             result = subprocess.run(["bash", str(launcher)], env=env, capture_output=True, text=True, timeout=5)
             self.assertEqual(json.loads((root / "container-mounts.json").read_text()), records[::-1])
+            exit_receipt = root / "run/container-exit.json"
+            self.assertEqual(exit_receipt.exists(), not writable_input)
+            if not writable_input:
+                self.assertEqual(json.loads(exit_receipt.read_text())["id"], "fixture-container")
             return result
 
     def test_launcher_reaches_mock_start_only_after_valid_mounts(self):

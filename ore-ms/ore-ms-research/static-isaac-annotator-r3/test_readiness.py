@@ -2,18 +2,20 @@
 
 import json
 import os
+import signal
 from pathlib import Path
 import struct
 import subprocess
 import sys
 import tempfile
+import time
 from types import SimpleNamespace as Namespace
 import unittest
 
 from capture_one_r3 import attach_writers
 from readiness import DEPTH, INSTANCE, MAX_ATTEMPTS, UNVERIFIED, acquire, writer_packet
 import recorder
-from supervise_r3 import PHASES
+from supervise_r3 import PHASES, complete_acquisition
 
 
 class Array:
@@ -180,7 +182,7 @@ class AcquisitionTests(unittest.TestCase):
         self.assertIn("mock acquisition error", last["traceback"])
 
 
-def mock_worker(output, fault):
+def mock_worker(output, fault, mode):
     for name in PHASES:
         with recorder.phase(output, name):
             if name == "frame_readiness":
@@ -191,19 +193,62 @@ def mock_worker(output, fault):
                         os._exit(0)
                 frame = acquire(output, packets, lambda _reference: .15)
             if name == "write_artifacts":
-                write_mock_frame(output, frame, fault)
-            if name == "shutdown" and fault == "shutdown-exit":
-                os._exit(0)
+                write_mock_frame(output, frame, "valid", mode)
+    complete_acquisition(output, mode)
+    if fault == "exit-before-shutdown":
+        os._exit(0)
+
+    with recorder.phase(output, "shutdown"):
+        if fault == "missing-artifact":
+            (output / "depth.f32le").unlink()
+        if fault == "corrupt-artifact":
+            (output / "depth.f32le").write_bytes(b"broken")
+        if fault == "changed-but-valid-artifact":
+            buffer = output / "depth.f32le"
+            buffer.write_bytes(struct.pack("<f", 8) * (recorder.HEIGHT * recorder.WIDTH))
+        if fault in ("tampered-reference", "tampered-journal"):
+            write_mock_frame(output, frame, fault, mode)
+        if fault == "shutdown-exit":
+            os._exit(0)
+        if fault == "truncated-journal":
+            with (output / "phases.jsonl").open("ab") as stream:
+                stream.write(b'{"phase":"shutdown"')
+            os._exit(0)
+        if fault in ("fast-shutdown", "nonzero-shutdown"):
+            print("Starting kit --/app/fastShutdown=True", flush=True)
+            print("[1.500s] Simulation App Shutting Down", flush=True)
+            os._exit(0 if fault == "fast-shutdown" else 7)
+        if fault == "shutdown-exception":
+            raise RuntimeError("mock close raised")
+        if fault in ("shutdown-timeout", "supervisor-interrupt"):
+            signal.pause()
 
 
-def write_mock_frame(output, frame, fault):
+def mock_launcher(output, fault, mode):
+    if mode == "isaac":
+        cid = "a" * 64
+        (output.parent.parent / "container.cid").write_text(cid + "\n")
+    status = subprocess.run([sys.executable, __file__, "--mock-worker", str(output), fault, mode],
+                            check=False).returncode
+    if mode == "isaac" and fault != "missing-exit-receipt":
+        state = {"Status": "exited", "Running": False, "Dead": False, "OOMKilled": False,
+                 "Error": "", "ExitCode": status, "StartedAt": "2026-11-27T01:01:00Z",
+                 "FinishedAt": "2026-11-27T01:02:00Z"}
+        if fault == "bad-exit-receipt":
+            state["OOMKilled"] = True
+        recorder.write_json(output.parent / "container-exit.json",
+                            {"id": cid, "restart_count": 0, "state": state})
+    raise SystemExit(status)
+
+
+def write_mock_frame(output, frame, fault, mode):
     association = dict(frame.association)
     if fault == "tampered-reference":
         association["instance_reference"] = [10, 60]
     if fault == "tampered-journal":
         association["attempt"] = 2
     metadata = {
-        "schema": 2, "source": "mock", "width": recorder.WIDTH, "height": recorder.HEIGHT,
+        "schema": 2, "source": mode, "width": recorder.WIDTH, "height": recorder.HEIGHT,
         "rendering_time_s": .15, "frame_association": association, "render_product": "/Render/R3",
         "camera_prim": recorder.CAMERA, "target_prim": recorder.TARGET,
         "stage_meters_per_unit": 1, "stage_up_axis": "Z",
@@ -218,19 +263,24 @@ def write_mock_frame(output, frame, fault):
 
 
 class CompletionTests(unittest.TestCase):
-    def run_supervisor(self, fault):
+    def supervisor_command(self, fault, mode="mock", timeout="15"):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         root = Path(scratch.name) / "run"
         entry = Path(__file__).with_name("supervise_r3.py")
-        command = [sys.executable, str(entry), "--output", str(root), "--timeout", "5",
-                   "--mode", "mock", "--", sys.executable, __file__,
-                   "--mock-worker", str(root / "capture"), fault]
-        result = subprocess.run(command, capture_output=True, timeout=10, check=False)
+        command = [sys.executable, str(entry), "--output", str(root), "--timeout", timeout,
+                   "--mode", mode, "--", sys.executable, __file__,
+                   "--mock-launcher" if mode == "isaac" else "--mock-worker",
+                   str(root / "capture"), fault, mode]
+        return command, root
+
+    def run_supervisor(self, fault, mode="mock", timeout="15"):
+        command, root = self.supervisor_command(fault, mode, timeout)
+        result = subprocess.run(command, capture_output=True, timeout=20, check=False)
         return result, root
 
-    def assert_failed(self, fault, reason):
-        result, root = self.run_supervisor(fault)
+    def assert_failed(self, fault, reason, **options):
+        result, root = self.run_supervisor(fault, **options)
         self.assertEqual(result.returncode, 1, result.stderr.decode())
         self.assertFalse((root / "COMPLETED.json").exists())
         self.assertIn(reason, (root / "FAILED.json").read_text())
@@ -241,9 +291,10 @@ class CompletionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode())
         marker = json.loads((root / "COMPLETED.json").read_text())
         self.assertIn("capture/readiness.jsonl", marker["sha256"])
+        self.assertEqual(marker["verification"]["native_shutdown_return"], "OBSERVED")
 
     def test_successful_acquisition_followed_by_incomplete_shutdown(self):
-        root = self.assert_failed("shutdown-exit", "did not complete every phase through shutdown")
+        root = self.assert_failed("shutdown-exit", "shutdown request lacks native shutdown evidence")
         self.assertTrue((root / "capture/depth.f32le").exists())
         self.assertIn('"status": "READY"', (root / "capture/readiness.jsonl").read_text())
 
@@ -258,8 +309,71 @@ class CompletionTests(unittest.TestCase):
         self.assert_failed("tampered-journal", "incomplete readiness attempts")
 
 
+    def test_fast_shutdown_can_complete_with_verified_exit_record(self):
+        result, root = self.run_supervisor("fast-shutdown", mode="isaac")
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        verification = json.loads((root / "COMPLETED.json").read_text())["verification"]
+        self.assertEqual(verification["native_shutdown_return"], "NOT_OBSERVED")
+        self.assertEqual(verification["shutdown_evidence"], "kit_fast_shutdown_log")
+        self.assertEqual(verification["states"], ["ACQUISITION_COMPLETE", "SHUTDOWN_REQUESTED",
+                                                  "PROCESS_TERMINATED", "EVIDENCE_VERIFIED"])
+        self.assertEqual(verification["process"]["path"], "container-exit.json")
+
+    def test_nonzero_exit_rejected_even_with_native_shutdown_evidence(self):
+        self.assert_failed("nonzero-shutdown", "exited with status 7")
+
+    def test_missing_or_corrupt_artifacts_rejected(self):
+        self.assert_failed("missing-artifact", "depth.f32le")
+        self.assert_failed("corrupt-artifact", "complete frame")
+        self.assert_failed("changed-but-valid-artifact", "changed after the worker checkpoint")
+
+    def test_missing_durable_shutdown_request_rejected(self):
+        self.assert_failed("exit-before-shutdown", "record a shutdown request")
+
+    def test_shutdown_timeout_rejected(self):
+        root = self.assert_failed("shutdown-timeout", "TimeoutExpired", timeout="3")
+        self.assertIn('"phase": "shutdown", "status": "started"',
+                      (root / "capture/phases.jsonl").read_text())
+
+    def test_incomplete_journal_rejected(self):
+        self.assert_failed("truncated-journal", "incomplete lifecycle journal record")
+
+    def test_shutdown_exception_persists_traceback(self):
+        root = self.assert_failed("shutdown-exception", "exited with status 1")
+        journal = (root / "capture/phases.jsonl").read_text()
+        self.assertIn('"status": "failed"', journal)
+        self.assertIn("RuntimeError: mock close raised", journal)
+
+    def test_container_exit_requires_host_receipt_and_clean_state(self):
+        self.assert_failed("missing-exit-receipt", "container-exit.json", mode="isaac")
+        self.assert_failed("bad-exit-receipt", "does not show clean native process termination", mode="isaac")
+
+    def test_supervisor_interrupt_rejected(self):
+        command, root = self.supervisor_command("supervisor-interrupt")
+        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            journal = root / "capture/phases.jsonl"
+            deadline = time.monotonic() + 8
+            while time.monotonic() < deadline:
+                if journal.exists() and '"phase": "shutdown", "status": "started"' in journal.read_text():
+                    break
+                time.sleep(.01)
+            else:
+                self.fail("mock worker did not enter shutdown")
+            process.send_signal(signal.SIGTERM)
+            self.assertEqual(process.wait(timeout=5), 1)
+            self.assertFalse((root / "COMPLETED.json").exists())
+            self.assertIn("supervisor interrupted by SIGTERM", (root / "FAILED.json").read_text())
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--mock-worker"]:
-        mock_worker(Path(sys.argv[2]), sys.argv[3])
+        mock_worker(Path(sys.argv[2]), sys.argv[3], sys.argv[4])
+    elif sys.argv[1:2] == ["--mock-launcher"]:
+        mock_launcher(Path(sys.argv[2]), sys.argv[3], sys.argv[4])
     else:
         unittest.main()

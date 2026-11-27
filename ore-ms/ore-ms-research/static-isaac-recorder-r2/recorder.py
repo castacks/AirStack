@@ -84,7 +84,10 @@ def validate_capture(capture, mode, *, phases=PHASES, schema=1):
     expected = [(name, status) for name in phases for status in ("started", "completed")]
     if [(event["phase"], event["status"]) for event in events] != expected:
         raise ValueError("capture did not complete every phase through shutdown")
+    validate_frame(capture, mode, schema=schema)
 
+
+def validate_frame(capture, mode, *, schema):
     metadata = json.loads((capture / "frame.json").read_text())
     if metadata["schema"] != schema or metadata["source"] != mode:
         raise ValueError("unexpected frame schema or source")
@@ -140,7 +143,9 @@ def supervise(output, timeout, mode, command, *, validator=validate_capture, art
         result["returncode"] = child.returncode
         if child.returncode != 0:
             raise RuntimeError(f"worker command exited with status {child.returncode}")
-        validator(capture, mode)
+        evidence = validator(capture, mode)
+        if evidence is not None:
+            result["verification"] = evidence
         files = [log, *(capture / name for name in artifacts)]
         result["sha256"] = {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
                             for path in files}

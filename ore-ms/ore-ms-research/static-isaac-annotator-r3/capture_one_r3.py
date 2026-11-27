@@ -5,6 +5,7 @@ from pathlib import Path
 
 from readiness import DEPTH, INSTANCE, acquire, writer_packet
 from recorder import CAMERA, HEIGHT, TARGET, WIDTH, phase, write_artifact, write_json
+from supervise_r3 import complete_acquisition
 
 STAGE = Path("/capture-input/stage.usda")
 OUTPUT = Path("/capture-output")
@@ -107,6 +108,7 @@ def capture():
             write_artifact(OUTPUT / "depth.f32le", frame.depth)
             write_artifact(OUTPUT / "instances.u32le", frame.instances)
             write_json(OUTPUT / "frame.json", metadata)
+        complete_acquisition(OUTPUT, "isaac")
     finally:
         with phase(OUTPUT, "shutdown"):
             app.close()
