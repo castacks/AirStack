@@ -1,0 +1,22 @@
+{
+  "package_state": "DESIGN PROPOSAL ONLY \u2014 NO DEPLOYMENT OR TIER B EXECUTION AUTHORIZED",
+  "offered_options": [
+    "APPROVE DESIGN FOR FURTHER ENGINEERING",
+    "RETURN FOR REVISION",
+    "REJECT PROPOSED DESIGN"
+  ],
+  "selected_option": null,
+  "pd_name": null,
+  "pd_signature": null,
+  "decision_date": null,
+  "decision_reference": null,
+  "conditions": null,
+  "scope": null,
+  "target_designation": "UNVERIFIED",
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "activation_authorized": false,
+  "active_verification_authorized": false,
+  "tier_b_authorized": false,
+  "external_owner_requests_sent": 0
+}

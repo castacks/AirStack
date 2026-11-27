@@ -1,0 +1,18 @@
+test_both_policy_projections_acyclic (test_m00e1c_design.DesignTests.test_both_policy_projections_acyclic) ... ok
+test_circular_p1_ready_dependency_rejected (test_m00e1c_design.DesignTests.test_circular_p1_ready_dependency_rejected) ... ok
+test_false_design_authority_rejected (test_m00e1c_design.DesignTests.test_false_design_authority_rejected) ... ok
+test_missing_control_rejected (test_m00e1c_design.DesignTests.test_missing_control_rejected) ... ok
+test_missing_fresh_p1_gate_rejected (test_m00e1c_design.DesignTests.test_missing_fresh_p1_gate_rejected) ... ok
+test_missing_phase_or_transaction_rejected (test_m00e1c_design.DesignTests.test_missing_phase_or_transaction_rejected) ... ok
+test_p0_implicitly_gated_rejected (test_m00e1c_design.DesignTests.test_p0_implicitly_gated_rejected) ... ok
+test_unknown_component_and_duplicate_edge_rejected (test_m00e1c_design.DesignTests.test_unknown_component_and_duplicate_edge_rejected) ... ok
+test_forged_approval_or_delivery_rejected (test_m00e1c_design.ManifestDecisionTests.test_forged_approval_or_delivery_rejected) ... ok
+test_invented_target_value_rejected (test_m00e1c_design.ManifestDecisionTests.test_invented_target_value_rejected) ... ok
+test_null_manifest_never_execution_complete (test_m00e1c_design.ManifestDecisionTests.test_null_manifest_never_execution_complete) ... ok
+test_pending_decision_and_delivery_remain_blank (test_m00e1c_design.ManifestDecisionTests.test_pending_decision_and_delivery_remain_blank) ... ok
+test_reference_fact_cannot_become_target_attestation (test_m00e1c_design.ManifestDecisionTests.test_reference_fact_cannot_become_target_attestation) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.003s
+
+OK

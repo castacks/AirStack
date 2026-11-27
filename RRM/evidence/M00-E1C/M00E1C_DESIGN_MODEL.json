@@ -1,0 +1,389 @@
+{
+  "model_kind": "NON_EXECUTABLE_DESIGN_ONLY",
+  "package_state": "DESIGN PROPOSAL ONLY \u2014 NO DEPLOYMENT OR TIER B EXECUTION AUTHORIZED",
+  "target_designation": "UNVERIFIED",
+  "design_decision": null,
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "active_verification_authorized": false,
+  "tier_b_authorized": false,
+  "components": [
+    {
+      "id": "GATE",
+      "role": "Exact authority/config/owner/safety precheck",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "SUP",
+      "role": "Independent outside-job supervisor",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "REC",
+      "role": "Durable bounded recorder armed",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "ORCH",
+      "role": "Native job orchestration, no DinD",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "SIM",
+      "role": "Isaac process",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "APP",
+      "role": "Application initialized",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "SCENE",
+      "role": "Scene/vehicle graph",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "PLAY",
+      "role": "First Play/backend evaluation",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "PX4",
+      "role": "PX4 SITL child",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "TCP",
+      "role": "Simulator TCP transport",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "UDP",
+      "role": "Companion UDP transport",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "DDS",
+      "role": "Isolated DDS participants",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "MAVROS",
+      "role": "Minimal MAVROS process/plugins",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "HB",
+      "role": "Observed MAVROS connected heartbeat",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "OBS",
+      "role": "Independent dependency observer",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "FRESH",
+      "role": "Fresh real connected/disarmed/on-ground observations",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "PARAM",
+      "role": "Required parameter services available",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0PERMIT",
+      "role": "Concurrent policy construction permit",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P1PERMIT",
+      "role": "Dependency-aware policy construction permit",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "GUARD",
+      "role": "Guard construction; steady origin",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "CALLBACK",
+      "role": "New actual safe-state callbacks to guard",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "TX",
+      "role": "Guard one-attempt safe normalized transaction",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "READBACK",
+      "role": "Correct typed readback and source safety recheck",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "READY",
+      "role": "Initialized and current fresh readback",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "EVAL",
+      "role": "Native steady deadline evaluation",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "LATCH",
+      "role": "Failure latch on expiry/unsafe/error",
+      "implementation_status": "PROPOSED_NOT_IMPLEMENTED"
+    }
+  ],
+  "dependencies": [
+    {
+      "source": "GATE",
+      "target": "SUP",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "SUP",
+      "target": "REC",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "REC",
+      "target": "ORCH",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "ORCH",
+      "target": "SIM",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "SIM",
+      "target": "APP",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "APP",
+      "target": "SCENE",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "SCENE",
+      "target": "PLAY",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "PLAY",
+      "target": "PX4",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "PX4",
+      "target": "TCP",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "PX4",
+      "target": "UDP",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "ORCH",
+      "target": "DDS",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "DDS",
+      "target": "MAVROS",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "MAVROS",
+      "target": "HB",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "UDP",
+      "target": "HB",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "DDS",
+      "target": "OBS",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "OBS",
+      "target": "FRESH",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "HB",
+      "target": "FRESH",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "MAVROS",
+      "target": "PARAM",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "GUARD",
+      "target": "CALLBACK",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "FRESH",
+      "target": "CALLBACK",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "CALLBACK",
+      "target": "TX",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "PARAM",
+      "target": "TX",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "GUARD",
+      "target": "TX",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "TX",
+      "target": "READBACK",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "READBACK",
+      "target": "READY",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "GUARD",
+      "target": "EVAL",
+      "policy": "BOTH",
+      "meaning": "SEMANTIC_PREREQUISITE_OR_OBSERVATION_NOT_EXACT_TIME_ORDER"
+    },
+    {
+      "source": "EVAL",
+      "target": "LATCH",
+      "policy": "BOTH",
+      "meaning": "FAILURE_IF_EXPIRED_OR_UNSAFE_NOT_UNCONDITIONAL_ORDER"
+    },
+    {
+      "source": "ORCH",
+      "target": "P0PERMIT",
+      "policy": "P0",
+      "meaning": "NO_DEPENDENCY_READINESS_GATE"
+    },
+    {
+      "source": "P0PERMIT",
+      "target": "GUARD",
+      "policy": "P0",
+      "meaning": "CONCURRENT_BASELINE"
+    },
+    {
+      "source": "FRESH",
+      "target": "P1PERMIT",
+      "policy": "P1",
+      "meaning": "ACTUAL_FRESH_DEPENDENCY_GATE"
+    },
+    {
+      "source": "PARAM",
+      "target": "P1PERMIT",
+      "policy": "P1",
+      "meaning": "SERVICE_AVAILABILITY_ONLY_NO_REPAIR"
+    },
+    {
+      "source": "P1PERMIT",
+      "target": "GUARD",
+      "policy": "P1",
+      "meaning": "NEW_GUARD_STARTS_ORIGINAL_STEADY_BUDGET"
+    }
+  ],
+  "excluded_components": [
+    "physical flight controller",
+    "actuator/serial/USB/CAN/radio interface",
+    "GCS",
+    "Cosmos worker",
+    "DDS domain/gossip router",
+    "action relay",
+    "mission console/replay",
+    "autonomy controllers/planners/task servers",
+    "full robot_interface command publisher/client host",
+    "privileged Docker-in-Docker/runtime admin socket"
+  ],
+  "controls": [
+    "IC01",
+    "IC02",
+    "IC03",
+    "IC04",
+    "IC05",
+    "IC06",
+    "IC07",
+    "IC08",
+    "IC09",
+    "IC10",
+    "IC11",
+    "IC12"
+  ],
+  "source_hypotheses": [
+    "HD01",
+    "HD02",
+    "HD03",
+    "HD04",
+    "HD05",
+    "HD06",
+    "HD07",
+    "HD08"
+  ],
+  "instrumentation_ids": [
+    "I01",
+    "I02",
+    "I03",
+    "I04",
+    "I05",
+    "I06"
+  ],
+  "decisions_pending": [
+    "PD_ARCHITECTURE_DECISION",
+    "GUARD_HOST_CANDIDATE_DELTA_REVIEW",
+    "TARGET_DESIGNATION",
+    "EXACT_OWNER_CONFIGURATION_AND_SAFETY_EVIDENCE",
+    "SEPARATE_CONSTRUCTION_SCOPE",
+    "SEPARATE_DEPLOYMENT_SCOPE",
+    "SEPARATE_ACTIVE_AND_TIER_B_SCOPE"
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "kind": "NON_EXECUTABLE_MANIFEST_SPEC_PROPOSAL",
+  "package_state": "DESIGN PROPOSAL ONLY \u2014 NO DEPLOYMENT OR TIER B EXECUTION AUTHORIZED",
+  "target_designation": "UNVERIFIED",
+  "design_decision": null,
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "tier_b_authorized": false,
+  "configuration_id": "CFG-CAND04-STARTUP-ONLY-PROPOSED",
+  "candidate_profile": "DIAGNOSTIC_GUARD_HOST_MATERIAL_DELTA_REQUIRES_REVIEW",
+  "known_reference_records": [
+    {
+      "item": "repository_reference",
+      "value": "4326dd079a2d80518983a5b793b9bab7f751a5db",
+      "source": "repository-before.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Pinned local source for design preparation, not installed candidate"
+    },
+    {
+      "item": "simulator_registry_reference",
+      "value": "sha256:3e08f31c208fb5fd4435d782761f105289903d30debc8bdfaca92349ddb4a49d",
+      "source": "RRM/evidence/M00-E1A/passive-before.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Inherited registry association; not new E1C runtime query or target selection"
+    },
+    {
+      "item": "simulator_image_config_reference",
+      "value": "sha256:dfe91c2ed7680c5bfc7ccfc1f4bc424fe96fd65790353cf07595f12baae849cf",
+      "source": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Local config ID is distinct from registry distribution digest"
+    },
+    {
+      "item": "robot_image_config_reference",
+      "value": "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290",
+      "source": "RRM/evidence/M00-E1A/passive-before.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "RepoDigests empty in inherited record; no invented robot distribution digest"
+    },
+    {
+      "item": "isaac_version_reference",
+      "value": "5.1.0-rc.19+release.26219.9c81211b.gl",
+      "source": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Version file only, not complete simulation baseline"
+    },
+    {
+      "item": "px4_source_reference",
+      "value": "94cb2012792b2ae89f0b147cfee53ee31ae550be / v1.16.1",
+      "source": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Current-at-E1B source HEAD, not target provenance"
+    },
+    {
+      "item": "px4_binary_reference",
+      "value": "8382c08cd06e2917e11c3d9bf22f1cd037b3ef8592f7e8caa6355f3e7a41504f",
+      "source": "RRM/evidence/M00-E1B/installed-artifacts.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Backing executable differs from supplied frozen413033b8..."
+    },
+    {
+      "item": "guard_plugin_reference",
+      "value": "5173ece556bed1d09911c17c690f3702d42d4bcb1b95c9322a8d8d01e45e667b",
+      "source": "RRM/evidence/M00-E1B/installed-artifacts.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Reference production plugin, not future diagnostic host"
+    },
+    {
+      "item": "robot_middleware_reference",
+      "value": "Jazzy; MAVROS2.16.0; rmw_fastrtps_cpp8.4.5; domain1/robot_1",
+      "source": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Observed E1B robot; other containers differed"
+    },
+    {
+      "item": "vehicle_asset_historical_reference",
+      "value": "09f8390b45a6a9d7588418030907c16bdc141d3372af12101ceb0526d670985b",
+      "source": "RRM/evidence/M00-B/isaac-identity.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Historical Iris file only, not loaded target USD/dynamics/epoch"
+    },
+    {
+      "item": "transport_reference",
+      "value": "SimulatorTCP4561; companionUDP14541\u2192172.31.0.200:14581",
+      "source": "RRM/evidence/M00-E1B/installed-artifacts.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Software current-at-E1B config/socket observation, not safe peer deny proof"
+    },
+    {
+      "item": "resource_reference",
+      "value": "Enclosing10CPU-equivalent quota/48GiB memory/swap0",
+      "source": "RRM/evidence/M00-E1B/host-and-lifecycle.json",
+      "status": "INHERITED_REFERENCE_NOT_TARGET_ATTESTATION",
+      "limitation": "Enclosing workspace snapshot, not target resource allocation"
+    }
+  ],
+  "required_target_fields": {
+    "repository_source_and_overlay_manifest": null,
+    "workflow_uid_pool_host_boot_owner": null,
+    "simulator_registry_digest_and_installed_manifest": null,
+    "diagnostic_guard_host_registry_digest_and_build_manifest": null,
+    "mavros_registry_digest_and_plugin_dependency_manifest": null,
+    "isaac_scene_asset_closure_units_dynamics_seed_epoch": null,
+    "px4_source_executable_rcs_airframe_full_parameters": null,
+    "mavros_fcu_url_sysid_compid_parameter_profile": null,
+    "ros_distribution_rmw_packages_dds_qos_identity_permissions": null,
+    "private_network_peers_ports_route_firewall_manifest": null,
+    "gpu_only_device_uid_capability_mount_runtime_policy": null,
+    "cpu_memory_gpu_disk_io_duration_capture_storage_limits": null,
+    "instrumentation_schema_tool_versions_clock_maps_overhead": null,
+    "p0_p1_launcher_predicate_and_shutdown_identity_manifest": null,
+    "private_cache_snapshot_manifests_and_attempt_evidence_root": null,
+    "independent_supervisor_recorder_exit_durability_manifest": null,
+    "operator_stop_owner_and_exact_authority_scope_expiry": null
+  },
+  "proposed_policy": {
+    "physical_fc_or_actuator_connection": "EXCLUDED_BY_REQUIRED_DESIGN",
+    "serial_usb_can_radio_access": "DENY_REQUIRED_NOT_IMPLEMENTED",
+    "privileged_dind": "EXCLUDED",
+    "gcs_cosmos_routers_mission_autonomy": "EXCLUDED",
+    "normal_guard_transaction": "EXACT_ORIGINAL_SAFE_GET_SET_DOUBLE_1_0_ONLY_REQUIRES_FUTURE_SCOPE",
+    "automatic_restarts_or_replacement_trials": "FORBIDDEN",
+    "external_network_at_trial": "DENY_REQUIRED_NOT_IMPLEMENTED"
+  },
+  "trial_schedule_source": "RRM/verification/reports/M00-E1A/M00E1A_FINAL_TRIAL_MATRIX.csv",
+  "trial_schedule_change": "NONE;candidate-host adaptation requires explicit future scope review"
+}

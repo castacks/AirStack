@@ -1,0 +1,14 @@
+{
+  "attempts": [
+    {
+      "check": "Evidence-index assembly source lookup",
+      "result": "FAIL_CORRECTED",
+      "detail": "Referenced E1B exposure register under evidence instead of verification/reports; FileNotFoundError stopped assembly before index/status output. Corrected to actual immutable reports path and reran. No source/protected/runtime changes."
+    }
+  ],
+  "warnings": [
+    "No named environment owner verified; RFI prepared for PD routing, no external delivery.",
+    "Platform feasibility, exact target/controls and diagnostic guard-host delta remain unverified."
+  ],
+  "note": "Initial13 unit tests passed. Bounded owner search missing CODEOWNERS is a search limit, not a failed test. Actual assembly/check failures retained here."
+}

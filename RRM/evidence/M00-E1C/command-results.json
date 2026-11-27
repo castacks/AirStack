@@ -1,0 +1,57 @@
+{
+  "offline_tests": {
+    "command": "python3 -B -m unittest discover -s RRM/tests -p test_m00e1c_design.py -v",
+    "tests": 13,
+    "result": "PASS",
+    "artifact": "offline-tests.txt"
+  },
+  "design_check": {
+    "command": "python3 -B RRM/scripts/m00e1c_design_check.py",
+    "result": "PASS",
+    "artifact": "design-check-results.json"
+  },
+  "historical_replay": {
+    "result": "PASS",
+    "artifact": "starting-integrity.json",
+    "new_startups": 0
+  },
+  "skipped": [
+    {
+      "check": "Runtime environment reinspection",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "Dated E1B evidence explicitly used; no fresh runtime assertion"
+    },
+    {
+      "check": "External owner delivery/response authentication",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "No named contacts/authorized channel; formal request ready for PD routing, not externally sent"
+    },
+    {
+      "check": "Build/guard host/hooks/launcher construction",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "E1C design only, no protected implementation or builds"
+    },
+    {
+      "check": "Workflow/container/network/device deployment or activation",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "No construction/provisioning/deployment/start authority"
+    },
+    {
+      "check": "Boundary/clock/recorder/stop/fault/overhead validation",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "Separate exact active scope after ClassD physical/safety/owner preconditions"
+    },
+    {
+      "check": "TierB24-start or initial pair",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "Not authorized; target unassigned and safety/instrumentation unverified"
+    },
+    {
+      "check": "Qualification or CFG-SIL-01 equivalence",
+      "status": "NOT_PERFORMED_DESIGN_ONLY",
+      "reason": "Originals/approved exact config and runtime evidence unavailable"
+    }
+  ],
+  "assembly_warning": "Wrong exposure-register path corrected; see validation-attempts.json",
+  "push": "NOT_PERFORMED"
+}

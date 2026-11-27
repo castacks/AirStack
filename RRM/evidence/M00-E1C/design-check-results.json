@@ -1,0 +1,104 @@
+{
+  "model": {
+    "design_consistent": true,
+    "projections": [
+      {
+        "policy": "P0",
+        "nodes": 26,
+        "edges": 29,
+        "topological_order": [
+          "GATE",
+          "P1PERMIT",
+          "SUP",
+          "REC",
+          "ORCH",
+          "DDS",
+          "P0PERMIT",
+          "SIM",
+          "APP",
+          "GUARD",
+          "MAVROS",
+          "OBS",
+          "EVAL",
+          "PARAM",
+          "SCENE",
+          "LATCH",
+          "PLAY",
+          "PX4",
+          "TCP",
+          "UDP",
+          "HB",
+          "FRESH",
+          "CALLBACK",
+          "TX",
+          "READBACK",
+          "READY"
+        ]
+      },
+      {
+        "policy": "P1",
+        "nodes": 26,
+        "edges": 30,
+        "topological_order": [
+          "GATE",
+          "P0PERMIT",
+          "SUP",
+          "REC",
+          "ORCH",
+          "DDS",
+          "SIM",
+          "APP",
+          "MAVROS",
+          "OBS",
+          "PARAM",
+          "SCENE",
+          "PLAY",
+          "PX4",
+          "TCP",
+          "UDP",
+          "HB",
+          "FRESH",
+          "P1PERMIT",
+          "GUARD",
+          "CALLBACK",
+          "EVAL",
+          "LATCH",
+          "TX",
+          "READBACK",
+          "READY"
+        ]
+      }
+    ],
+    "implementation_accepted": false,
+    "execution_authorized": false
+  },
+  "manifest": {
+    "schema_consistent": true,
+    "missing_target_field_groups": [
+      "cpu_memory_gpu_disk_io_duration_capture_storage_limits",
+      "diagnostic_guard_host_registry_digest_and_build_manifest",
+      "gpu_only_device_uid_capability_mount_runtime_policy",
+      "independent_supervisor_recorder_exit_durability_manifest",
+      "instrumentation_schema_tool_versions_clock_maps_overhead",
+      "isaac_scene_asset_closure_units_dynamics_seed_epoch",
+      "mavros_fcu_url_sysid_compid_parameter_profile",
+      "mavros_registry_digest_and_plugin_dependency_manifest",
+      "operator_stop_owner_and_exact_authority_scope_expiry",
+      "p0_p1_launcher_predicate_and_shutdown_identity_manifest",
+      "private_cache_snapshot_manifests_and_attempt_evidence_root",
+      "private_network_peers_ports_route_firewall_manifest",
+      "px4_source_executable_rcs_airframe_full_parameters",
+      "repository_source_and_overlay_manifest",
+      "ros_distribution_rmw_packages_dds_qos_identity_permissions",
+      "simulator_registry_digest_and_installed_manifest",
+      "workflow_uid_pool_host_boot_owner"
+    ],
+    "complete_for_execution": false,
+    "execution_authorized": false
+  },
+  "decision": {
+    "record_consistent": true,
+    "selected_option": null,
+    "execution_authorized": false
+  }
+}
