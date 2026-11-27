@@ -1,0 +1,319 @@
+{
+  "files": [
+    {
+      "path": ".github/orchestrator/README.md",
+      "bytes": 19399,
+      "sha256": "c19d558a7e380419d9518c2613eb94c3ce08bc5925fb457effbb4f1d2c04b3f0"
+    },
+    {
+      "path": ".github/orchestrator/config.example.yaml",
+      "bytes": 4322,
+      "sha256": "4cc9c18106e556d5aae1a6f4eb10f934c02dd5d36bfa6f5e9eef36000619a62e"
+    },
+    {
+      "path": ".github/orchestrator/runner-workflow.yaml.j2",
+      "bytes": 2281,
+      "sha256": "6d184d913b2d37777b451018100dd0cb8ebd58ef86df8a4af319947565a0fea7"
+    },
+    {
+      "path": "RRM/ROADMAP_MANDATE.md",
+      "bytes": 12640,
+      "sha256": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57"
+    },
+    {
+      "path": "RRM/evidence/M00-C/startup-source-records.json",
+      "bytes": 131648,
+      "sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+    },
+    {
+      "path": "RRM/evidence/M00-E1A/M00E1A_PREREQUISITE_REGISTER.csv",
+      "bytes": 10785,
+      "sha256": "c4ad91673a54196ff76c4d481ec187fd0d1d2f6a6891ef3d4fc4ce7e3cdb31f5"
+    },
+    {
+      "path": "RRM/evidence/M00-E1D/M00E1D_PREREQUISITE_IMPACT.csv",
+      "bytes": 7256,
+      "sha256": "9b4115ccffd2048491e9e6bd15779a412c7bc7fd0030d91b90ed3f7abee8593b"
+    },
+    {
+      "path": "RRM/handoffs/M00E1D_HANDOFF.md",
+      "bytes": 4846,
+      "sha256": "860b6c4358831029ea536bcc1266f3ded6ec22eff8c44a062072491aa8604772"
+    },
+    {
+      "path": "RRM/requirements/F00_SOURCE_ASSESSMENT.md",
+      "bytes": 2761,
+      "sha256": "aabf875d542cd9736fd565acfe5ae8df0d33d9614599f8fb584f1c829e5c56b1"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_BLOCKER_REGISTER.csv",
+      "bytes": 7410,
+      "sha256": "8fa1ba3852c4f00f4042624a0e55f2167d356dae2df90306a434be363ed307af"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv",
+      "bytes": 10812,
+      "sha256": "5f010a082b39bcc84dd5045557cb9e69ae4ee71334ec6df24e77c067d72f092e"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_FROZEN_RECORDS.csv",
+      "bytes": 9942,
+      "sha256": "6dc0be6cbdc19de9eb4a75a6a798782b97742bcb1088e9d528cebfc78ae6bfc2"
+    },
+    {
+      "path": "RRM/verification/matrices/M00-B/M00B_REQUIREMENTS_IMPACT.csv",
+      "bytes": 16815,
+      "sha256": "e3bcb788a364c9bfa18a033f28b30b6b7936e1d2707b9a9b6a09bf93bc9bb68a"
+    },
+    {
+      "path": "RRM/verification/procedures/M00D_CONTROLLED_REPRODUCTION.md",
+      "bytes": 14705,
+      "sha256": "dbec430adf672bc5bf14e4e39015e966b4c82b0e74d18007861bee4bc6eae17d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_DEPENDENCY_GRAPH.md",
+      "bytes": 3215,
+      "sha256": "8591da534f9a9af5a0535542f373dbd461505d8aeb15f7266b36044347d4a106"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_G0_REASSESSMENT.md",
+      "bytes": 5338,
+      "sha256": "308903043c7b642be6ba5f743cb188e414e91976daf62cdac78798b7e0f4ba0d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_HYPOTHESIS_MATRIX.csv",
+      "bytes": 7059,
+      "sha256": "d3a4ff8307da7e6ad1c18f0aacb59df7de71a91f3a4a6a4836b665ebffeaf80f"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_INSTRUMENTATION_PLAN.md",
+      "bytes": 3682,
+      "sha256": "a78d0ec48c34c9c6471bead70208f479b732a0484a57c158f57cd4b417359f33"
+    },
+    {
+      "path": "RRM/verification/reports/M00-D/M00D_LATENCY_CHARACTERIZATION.md",
+      "bytes": 5481,
+      "sha256": "1673ff7d29dfed95f30de7cdbf6552b2380a323efbd16254a6c9978dd5218a4e"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_CONFIGURATION_CLOSURE.csv",
+      "bytes": 16581,
+      "sha256": "9e1a2b16c12c920bb8b719cb6d1454fa57ba653148aa73f9e2e8c60862289567"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_FINAL_TRIAL_MATRIX.csv",
+      "bytes": 61213,
+      "sha256": "2d07e9370b9de6f64282b1b3b011fff12c2ec0a16712c56d286cf04a69df6152"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_G0_CONTINUITY.md",
+      "bytes": 2919,
+      "sha256": "ff09b40a21fccec79d62d6008165a0149fbed4a19e6a3fd59d656f72b51d7704"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_INSTRUMENTATION_READINESS.csv",
+      "bytes": 7272,
+      "sha256": "a38815801eed07ec4101654ecd7d5f5a3b107a4cf8d0857ca5bf3be384adb710"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_ISOLATION_ASSURANCE.md",
+      "bytes": 4219,
+      "sha256": "afcb3119af89636306231990f46808ef3860c64e875e808c1778bcf961d46b24"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_MATRIX_REVIEW.md",
+      "bytes": 3950,
+      "sha256": "a59236d1c68d2fbe0f30ac2203472a3a7ee3987b9a131af88e3ae2ab12112586"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_PD_DECISION_SHEET.md",
+      "bytes": 4598,
+      "sha256": "f36e78fcb5d6294f14d2f3d6f2d78eac8cdfe97215907a0b796270842fbf0d1c"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_SAFETY_READINESS.md",
+      "bytes": 6388,
+      "sha256": "c5a6556355ea9ad60bc95435d698c5ba686ae2b9487db720b9916b20a296eb10"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_CONFIGURATION_TRACEABILITY.csv",
+      "bytes": 9912,
+      "sha256": "9ece52334a3d2bebf8b8dae165b0f997596212ce98088ad80af973f8209103be"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ENVIRONMENT_INVENTORY.md",
+      "bytes": 5584,
+      "sha256": "380214d3cec9dddac6ab0652db69f9efbdbc8d357f013a8112f0350b3fdb1113"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_EXPOSURE_REGISTER.csv",
+      "bytes": 7186,
+      "sha256": "bd0507f5dc0409cd7ff74c5d6a401ab582d7c3866a34b98a8fa51b39e12786f1"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_INSTRUMENTATION_ASSESSMENT.md",
+      "bytes": 4909,
+      "sha256": "0e4c5e4610b44d053528e79e7ce42fceb8304ef1850515b81a0f6cfd4a4b9fad"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ISOLATION_BOUNDARY.md",
+      "bytes": 3779,
+      "sha256": "6d400670daca3e242cab346a1c9aa1da800f75e82a889bbc750eb580aa6f1721"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_READINESS_DISPOSITION.md",
+      "bytes": 4440,
+      "sha256": "fd37c5de09ab4785cad4c8fc8e748b14789bd849013fe3ea6b4feabefe44232d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_CONFIGURATION_MANIFEST_SPEC.md",
+      "bytes": 5088,
+      "sha256": "5f49dd5a2e74a255e6063e4944236ad96868352c4b04aaf4e59898d143094d0a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_DESIGN_ACCEPTANCE_CHECKLIST.csv",
+      "bytes": 6187,
+      "sha256": "d00cb161ad3eaf0e936f30c12962ab3d3c817927080101af4bcf6c3f09f6006b"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_ENVIRONMENT_OWNER_MATRIX.csv",
+      "bytes": 5107,
+      "sha256": "ebbd2f252f2d9ba288d34dc49cd882b36976eacdead5f50d928a6eab2f57ca60"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_EVENT_CATALOG.csv",
+      "bytes": 5715,
+      "sha256": "c508e37d385db020574aec8a380a801b7265f1ced0e66e58baabf5b1645113a3"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_EXISTING_VS_INDEPENDENT.csv",
+      "bytes": 6384,
+      "sha256": "cff7209f46100864e929f1226d50fd27ec123205a6dba0295b0ca086ba57b59d"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_G0_CONTINUITY.md",
+      "bytes": 2413,
+      "sha256": "ba1935ae4084c37a0242263f7a2d16a108f88f8787974cfec55558c7b1096a52"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_INSTRUMENTATION_ARCHITECTURE.md",
+      "bytes": 5437,
+      "sha256": "a81a3413f8952f4dd38ef69fc64a41835c1071138addb875f3e41bcb0de59016"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_ISOLATION_CONTROL_MATRIX.csv",
+      "bytes": 10705,
+      "sha256": "a6948a824c72f80bd941322687c1184ec1e754a735b4b4da057168cbae5fec2a"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_OWNER_EVIDENCE_ITEMS.csv",
+      "bytes": 5112,
+      "sha256": "0b3adc6f1c551e6eb8ad0bc3ba2def5c0ff1ce66d3974413f453e4e66aabf747"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_OWNER_EVIDENCE_REQUEST.md",
+      "bytes": 5542,
+      "sha256": "7840df2b989231a0dc92c317dd9e653e22b321c9d185249834ada10a47c00f87"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_PD_ARCHITECTURE_DECISION.md",
+      "bytes": 6806,
+      "sha256": "787bcba22d9b0c821b31881a85686317442fe2bfdb7c1269861cdf5416affb81"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_RIG_ARCHITECTURE.md",
+      "bytes": 10039,
+      "sha256": "3bb37bc11b1f8531d64c0af67c666c862bd302bcf807e3a0e02cc9109b9b8692"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_ARCHITECTURE_ALTERNATIVES.md",
+      "bytes": 5677,
+      "sha256": "3091f4320c97418e33b583b8306de44f8a3d5bb2f5a8d5325be4d57bc17c06b9"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_ARCHITECTURE_TRADE_STUDY.csv",
+      "bytes": 4131,
+      "sha256": "8ff275ea345b95a47aeeab81ed222be98da858fbbb1187369cd8e9db87258c84"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_CONFIGURATION_CHANGE_IMPACT.md",
+      "bytes": 4895,
+      "sha256": "28c0c53f7556996a4cdf3668a3029a3cb5f4637741900018e12cb5a092b24a69"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_G0_CONTINUITY.md",
+      "bytes": 2323,
+      "sha256": "484ae342f2870c567317833f2ac32783b5162ef3c569ec289a9c4380ffdc5cb1"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_GUARD_HOST_FUNCTIONS.csv",
+      "bytes": 7950,
+      "sha256": "c3d2b4ff39a42c84e084454ea3beb7c34794b5fbe3b88f78725afd87939125ec"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_MEASUREMENT_INTEGRITY.md",
+      "bytes": 3556,
+      "sha256": "b81a7c4d2b9951653695b9b136195ad8649da764a683a1f70cfafdde3795fba3"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_MEASUREMENT_RISK_REGISTER.csv",
+      "bytes": 6732,
+      "sha256": "6e0512d377eeac7e0a6aad931db722f86d1e3b59729276d86dc90d4b847b01e4"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_PD_CONFIGURATION_DECISION.md",
+      "bytes": 6389,
+      "sha256": "edd2dabcebee32ac179008610f2792402233bf8a82d263070efa4f54a7a037d1"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_PLATFORM_FEASIBILITY.md",
+      "bytes": 2709,
+      "sha256": "c714839d9db332b4d691c4b2e46bdc9b93995bda99b12b2f4969b5f976ac86b9"
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_SAFETY_FAILURE_ANALYSIS.csv",
+      "bytes": 9651,
+      "sha256": "f4e78f3a79dae5acf62ae8501fc027160e7528bd21972736d2164c1569cdcaa5"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    },
+    {
+      "path": "docs/development/intermediate/contributing.md",
+      "bytes": 5193,
+      "sha256": "caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670"
+    },
+    {
+      "path": "docs/tutorials/airstack_on_osmo.md",
+      "bytes": 26434,
+      "sha256": "10ec37234b3bd5139858697f5edbd4e90ff289ba9540e7d93472e6b8587499be"
+    },
+    {
+      "path": "osmo/README.md",
+      "bytes": 14558,
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5"
+    },
+    {
+      "path": "osmo/workflows/airstack-dev.yaml",
+      "bytes": 4812,
+      "sha256": "2882952f8310fbaf7d2a61a3291a4f83cea7297686e66e7ed67f5663e7eef33a"
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-dev.yaml",
+      "bytes": 2873,
+      "sha256": "694d565e6d65f39c8c36499f136489e6a4fbf551c8b9b39d6bf40723f32b8311"
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-ore-proj.yaml",
+      "bytes": 3425,
+      "sha256": "7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1"
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan.yaml",
+      "bytes": 3798,
+      "sha256": "13f9713581919e21a7977f2c4568f715adc0cdca82876dd2b8a02f6a9d9b2efd"
+    }
+  ]
+}

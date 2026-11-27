@@ -1,0 +1,342 @@
+{
+  "acquired_utc": "2026-11-27T23:16:51.889253+00:00",
+  "method": "Bounded local read-only file and Git inventory; no live workflow query",
+  "ownership_filename_candidates": [
+    "RRM-transfer/rrm-9d26a58/tests/test_approval_admission.py",
+    "RRM/evidence/M00-C/GOVERNANCE_MANDATE.md",
+    "robot/ros_ws/src/local/planners/takeoff_landing_planner/include/takeoff_landing_planner/authority_check.hpp",
+    "robot/ros_ws/src/local/planners/takeoff_landing_planner/test/authority_check.cpp"
+  ],
+  "standard_codeowners_presence": {
+    "CODEOWNERS": false,
+    ".github/CODEOWNERS": false,
+    "docs/CODEOWNERS": false
+  },
+  "controlled_input_same_as_e1d": true,
+  "controlled_input_files": 48,
+  "records": [
+    {
+      "path": "osmo/README.md",
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5",
+      "bytes": 14558,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 12,
+          "text": "\u251c\u2500\u2500 README.md                     # This file (admin / operator reference)"
+        },
+        {
+          "line": 24,
+          "text": "README is the **lab admin / operator** reference: pool requirements,"
+        },
+        {
+          "line": 61,
+          "text": "| No NetworkPolicy blocking pod-namespace ports `47995\u201348012/tcp+udp`, `49099/udp`, `49100/tcp`, `8766/tcp`, `22/tcp` | These are the ports `osmo workflow port-forward` reaches inside the pod NS for Isaac Sim WebRTC, GCS Foxglove websocket, and sshd. |"
+        },
+        {
+          "line": 64,
+          "text": "`hostNetwork: true` is **not** required. `osmo workflow port-forward` reaches"
+        },
+        {
+          "line": 112,
+          "text": "> registry. Linux/amd64 admins can use plain `docker build && docker push`."
+        },
+        {
+          "line": 273,
+          "text": "Web3 navigator uses. **The native protocol ports 3009\u20133180 do NOT need to"
+        },
+        {
+          "line": 297,
+          "text": "- **OSMO-native split** \u2014 three separate OSMO tasks for `isaac-sim` /"
+        }
+      ]
+    },
+    {
+      "path": "docs/tutorials/airstack_on_osmo.md",
+      "sha256": "10ec37234b3bd5139858697f5edbd4e90ff289ba9540e7d93472e6b8587499be",
+      "bytes": 26434,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 31,
+          "text": "> alternative when local isn't an option."
+        },
+        {
+          "line": 89,
+          "text": "> **Lab admin prerequisites (someone else's job, once).** A lab admin"
+        },
+        {
+          "line": 257,
+          "text": "  submit time; the lab admin doesn't manage a global `authorized_keys`"
+        },
+        {
+          "line": 562,
+          "text": "| Isaac Sim container restarts repeatedly | GPU not visible to the inner Docker daemon (toolkit not configured on the node) | Lab admin task. From inside the pod: `docker info \\| grep -i runtime` should list `nvidia`. |"
+        },
+        {
+          "line": 585,
+          "text": "  \u2014 lab-admin reference (pool prerequisites, OSMO credential registration,"
+        },
+        {
+          "line": 593,
+          "text": "  alternative."
+        }
+      ]
+    },
+    {
+      "path": ".github/orchestrator/README.md",
+      "sha256": "c19d558a7e380419d9518c2613eb94c3ce08bc5925fb457effbb4f1d2c04b3f0",
+      "bytes": 19399,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 3,
+          "text": "This describes how a small always-on orchestrator service runs GitHub Actions jobs on truly ephemeral GPU workers scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/). The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, submits a fresh **OSMO workflow** for each one (a single-use JIT runner in a privileged, GPU-enabled container), and reaps it when the job completes. Each CI job runs on a clean pod with no state shared between runs and no long-lived credentials on the worker."
+        },
+        {
+          "line": 36,
+          "text": "\u2502  OSMO CI GPU pool (privileged)   \u2502  \u2502  GitHub Actions      \u2502"
+        },
+        {
+          "line": 55,
+          "text": "- **An OSMO service account + dedicated CI pool.** Ask your OSMO admin to:"
+        },
+        {
+          "line": 56,
+          "text": "  1. Create a service account (e.g. `svc-airstack-ci`) and a long-lived access token \u2014 `osmo user create` + `osmo token set`. On IdP-backed deployments (e.g. auth tied to the CMU Andrew directory) this is a non-personal identity, so it survives people graduating/leaving. If policy forbids OSMO-native service accounts, use a *functional/departmental* identity, never a personal one."
+        },
+        {
+          "line": 58,
+          "text": "  3. **Enable \"Privileged Mode Allowed\"** on that pool's platform. The AirStack tests run `airstack up` (docker compose) inside the worker, which requires an inner Docker daemon \u2192 a privileged container. Without this, submissions are rejected."
+        },
+        {
+          "line": 87,
+          "text": "**Pool note (AirLab):** use the Keycloak-autosynced `airstack` pool (`privileged_allowed: true`). A hand-created `airstack-ci` pool is wiped by `synchronize_osmo_team_pools.py`. Ephemerality is per-job OSMO workflows, not a separate pool."
+        },
+        {
+          "line": 92,
+          "text": "# GitHub PAT: needs `Actions: read/write` and `Administration: read/write`"
+        },
+        {
+          "line": 96,
+          "text": "# OSMO service-account token (from `osmo token set`, provided by your admin)."
+        },
+        {
+          "line": 115,
+          "text": "| `osmo_url` | Your OSMO web service URL | from your OSMO admin |"
+        },
+        {
+          "line": 120,
+          "text": "| `privileged` | Must be `true` (docker compose inside the pod) | \u2014 |"
+        },
+        {
+          "line": 122,
+          "text": "| `repos` | list of `owner/name` repos to poll (legacy `repo:` accepted) | from GitHub URLs |"
+        },
+        {
+          "line": 142,
+          "text": "# Within ~30s, a workflow should appear in the CI pool:"
+        },
+        {
+          "line": 173,
+          "text": "   repo with `Actions: read/write` + `Administration: read/write` (JIT runner"
+        },
+        {
+          "line": 193,
+          "text": "  # (admin) osmo token set svc-airstack-ci-token-2 --user svc-airstack-ci \\"
+        },
+        {
+          "line": 242,
+          "text": "| `osmo workflow submit failed ... privileged` | Pool platform doesn't allow privileged | Ask admin to enable \"Privileged Mode Allowed\" on the CI pool |"
+        },
+        {
+          "line": 287,
+          "text": "| `dockerd did not become ready` | Pod not privileged / DinD blocked | Enable privileged on the pool platform |"
+        },
+        {
+          "line": 288,
+          "text": "| `nvidia-smi unavailable` / no GPU | GPU not requested/passed, or toolkit missing | Check `gpu:` request, platform GPUs, privileged |"
+        }
+      ]
+    },
+    {
+      "path": ".github/orchestrator/config.example.yaml",
+      "sha256": "4cc9c18106e556d5aae1a6f4eb10f934c02dd5d36bfa6f5e9eef36000619a62e",
+      "bytes": 4322,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 17,
+          "text": "# with it. Created by an OSMO admin via `osmo user create` + `osmo token set`"
+        },
+        {
+          "line": 22,
+          "text": "# use the stable `airstack` pool (privileged_allowed=true). A hand-made"
+        },
+        {
+          "line": 26,
+          "text": "pool: \"airstack\""
+        },
+        {
+          "line": 49,
+          "text": "# inside the pod, which needs an inner Docker daemon -> a privileged container."
+        },
+        {
+          "line": 50,
+          "text": "# The pool's platform must have \"Privileged Mode Allowed\" enabled by your OSMO"
+        },
+        {
+          "line": 51,
+          "text": "# admin, otherwise submission/scheduling will be rejected."
+        },
+        {
+          "line": 52,
+          "text": "privileged: true"
+        },
+        {
+          "line": 57,
+          "text": "host_network: false"
+        },
+        {
+          "line": 69,
+          "text": "# admin (self-hosted runner) rights on each. The legacy singular `repo:` key"
+        }
+      ]
+    },
+    {
+      "path": ".github/orchestrator/runner-workflow.yaml.j2",
+      "sha256": "6d184d913b2d37777b451018100dd0cb8ebd58ef86df8a4af319947565a0fea7",
+      "bytes": 2281,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 12,
+          "text": "#   privileged          \"true\"/\"false\"; MUST be \"true\" because the AirStack"
+        },
+        {
+          "line": 15,
+          "text": "#                       platform with \"Privileged Mode Allowed\" (ask your OSMO"
+        },
+        {
+          "line": 16,
+          "text": "#                       admin to enable it for the CI pool)."
+        },
+        {
+          "line": 17,
+          "text": "#   host_network        \"true\"/\"false\""
+        },
+        {
+          "line": 40,
+          "text": "      privileged: {{ privileged }}"
+        },
+        {
+          "line": 41,
+          "text": "{% if host_network == \"true\" %}      hostNetwork: true"
+        }
+      ]
+    },
+    {
+      "path": "docs/development/intermediate/contributing.md",
+      "sha256": "caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670",
+      "bytes": 5193,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 81,
+          "text": "To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main`. The workflow bypasses `develop`'s ruleset using a `SYNC_PAT` secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases."
+        }
+      ]
+    },
+    {
+      "path": "osmo/workflows/airstack-dev.yaml",
+      "sha256": "2882952f8310fbaf7d2a61a3291a4f83cea7297686e66e7ed67f5663e7eef33a",
+      "bytes": 4812,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 31,
+          "text": "# osmo/README.md for the lab-admin setup (pool prerequisites, OSMO credential"
+        },
+        {
+          "line": 45,
+          "text": "      # Required so the inner dockerd can run. hostNetwork is intentionally"
+        },
+        {
+          "line": 48,
+          "text": "      privileged: true"
+        },
+        {
+          "line": 53,
+          "text": "        AUTOLAUNCH: \"true\"             # boot AirStack on startup"
+        }
+      ]
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-ore-proj.yaml",
+      "sha256": "7914a0968594f49e053c0693b439bc334e3c078df77255a62c321870016cdba1",
+      "bytes": 3425,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 33,
+          "text": "      privileged: true"
+        },
+        {
+          "line": 37,
+          "text": "        AUTOLAUNCH: \"true\""
+        }
+      ]
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan.yaml",
+      "sha256": "13f9713581919e21a7977f2c4568f715adc0cdca82876dd2b8a02f6a9d9b2efd",
+      "bytes": 3798,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 30,
+          "text": "      privileged: true"
+        },
+        {
+          "line": 34,
+          "text": "        AUTOLAUNCH: \"true\""
+        },
+        {
+          "line": 77,
+          "text": "        # Create once in the operator's OSMO profile; see cosmos-worker/README.md."
+        }
+      ]
+    },
+    {
+      "path": "osmo/workflows/airstack-live-replan-dev.yaml",
+      "sha256": "694d565e6d65f39c8c36499f136489e6a4fbf551c8b9b39d6bf40723f32b8311",
+      "bytes": 2873,
+      "kind": "NEW_E1E_PASSIVE_READ_OF_PREEXISTING_REPOSITORY_SOURCE",
+      "same_bytes_at_starting_commit": true,
+      "matches": [
+        {
+          "line": 16,
+          "text": "      privileged: true"
+        },
+        {
+          "line": 29,
+          "text": "        AUTOLAUNCH: \"true\""
+        }
+      ]
+    }
+  ],
+  "authoritative_new_owner_assignments": 0,
+  "new_platform_attestations": 0,
+  "new_pd_decisions": 0,
+  "new_prerequisite_closures": 0,
+  "scope_limit": "No global or remote absence claim; only named repository records and supplied controlled input examined. Credentials and live runtime uninspected."
+}

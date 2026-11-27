@@ -1,0 +1,13 @@
+# External-input hold and G0 continuity
+
+**EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**
+
+No new authoritative prerequisite closure. All 20 original IDs and requirements retain their prior 3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED dispositions;17 unresolved. The 17 dependency rows are one-to-one drilldowns of those unresolved CHK identifiers, not 17 extra prerequisites. Claims/originals retain their actual applicability: missing originals constrain comparison/qualification and requirement-fit conclusions, while a separately approved diagnostic deviation would have its own evidence obligations.
+
+Blocker categories: A passive evidence obtainable, B external owner/PD input, C implementation-dependent verification, D separately authorized active verification, E safety-critical unresolved. Rows use the most immediate blocking category; subsequent stages are explicit. A methods were assessed via the ten-source bounded review and unchanged controlled inventory; none yielded a closure or a remaining known locally obtainable authoritative record. Safety E rows may also require B/C/D stages; do not count them again. Missing evidence/approval is distinguished from reference-workflow source noncompliance with the proposed C design; no actual C target exists to certify noncompliance or compliance.
+
+All M00-B01–B10 remain open in the unchanged E1C continuing blocker register. G0 — BLOCKED BY EXTERNAL INPUT, with engineering blockers. RA01 PENDING PD REVIEW. WP01 NOT AUTHORIZED. Tier B target undesignated; target designation UNVERIFIED. Tier B/C execution NOT AUTHORIZED. F00 CLOSED/FROZEN/QUALIFICATION BLOCKED;29 mapped D2 rows/28 in-scope NOT_TESTED/1 OUT_OF_SCOPE, zero verified/failed/qualified. No controlled requirement, acceptance threshold, startup schedule or roadmap change.
+
+Prepared decision artifacts are complete as forms and proposed criteria; named owner assignments, approved exact configuration and capability/technical proof remain INCOMPLETE — EXTERNAL INPUT REQUIRED. D1/D3 conditional normative decisions and D4 actual appointment/routing can be considered; D2 exact release acceptance and D5 implementation/detailed-design entry cannot be asserted ready. All PD fields blank and all requests REQUEST PREPARED only.
+
+Smallest external action is D4 scoped infrastructure/safety owner appointment and Q1 approved execution-model/delegation records, with explicit delivery authority if external routing is desired. No known independently useful further local architecture rewrite will resolve this. Stop after E1E; subsequent owner-response reconciliation or exact offline detailed-design scope needs new input/authority. No automatic milestone, deployment, live observation, active test or WP01 starts.

@@ -1,0 +1,51 @@
+{
+  "architecture_c_approved": false,
+  "target_designation": "UNVERIFIED",
+  "phases": [
+    {
+      "phase_id": "AUTH1",
+      "phase": "Detailed design",
+      "entry_authority": "Explicit bounded offline D5 scope and relevant independently dispositioned D1\u2013D4/owner capability records",
+      "authorized": false,
+      "approval_reference": null
+    },
+    {
+      "phase_id": "AUTH2",
+      "phase": "Construction or configuration",
+      "entry_authority": "Separate exact source/config/build changes, approved entry checklist and accountable implementation owner",
+      "authorized": false,
+      "approval_reference": null
+    },
+    {
+      "phase_id": "AUTH3",
+      "phase": "Deployment",
+      "entry_authority": "Separate exact target identity/artifacts/security/mount/resource deployment scope; no activation inferred",
+      "authorized": false,
+      "approval_reference": null
+    },
+    {
+      "phase_id": "AUTH4",
+      "phase": "Passive observation of already-running environment",
+      "entry_authority": "Separate target-bound channels/identities/duration/data capture scope; no runtime attachment/subscription inferred from deployment",
+      "authorized": false,
+      "approval_reference": null
+    },
+    {
+      "phase_id": "AUTH5",
+      "phase": "Active startup verification",
+      "entry_authority": "Separate exact software start/stop count/commands/cap/owner/isolation/retention approval; any simulator/PX4 startup is Tier B scope, never mere passive preparation",
+      "authorized": false,
+      "approval_reference": null
+    },
+    {
+      "phase_id": "AUTH6",
+      "phase": "Tier B controlled trials",
+      "entry_authority": "Separate exact approved instrumented candidate/readiness/protocol/start count/order/checkpoint/cache/limits/stop/retention decision",
+      "authorized": false,
+      "approval_reference": null
+    }
+  ],
+  "no_inheritance_between_phases": true,
+  "tier_c_authorized": false,
+  "wp01_authorized": false
+}

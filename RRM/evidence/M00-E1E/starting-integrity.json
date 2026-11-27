@@ -1,0 +1,65 @@
+{
+  "milestone": "M00-E1D",
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_checkout",
+      "result": "PASS",
+      "detail": "Pinned clean E1C start; nine prior validation groups passed before writes"
+    },
+    {
+      "check": "protected_history_and_input",
+      "result": "PASS",
+      "detail": "2139 protected entries; 231 pinned sealed checksum entries; controlled package unchanged"
+    },
+    {
+      "check": "functions_alternatives_and_trade",
+      "result": "PASS",
+      "detail": "12 functions distinguish enforcement/diagnostics; A/B/C and eight qualitative criteria; conditional preference and sensitivity, no measured ranking"
+    },
+    {
+      "check": "measurement_safety_and_historical_replay",
+      "result": "PASS",
+      "detail": "11 open measurement risks/12 preliminary failure modes; independent Decimal replay of two n=1 intervals unchanged; future tests not performed"
+    },
+    {
+      "check": "configuration_and_owner_feasibility",
+      "result": "PASS",
+      "detail": "Material diagnostic context change and claim limits; six unanswered owner groups retain all14 E1C requests; no implementation feasibility claimed"
+    },
+    {
+      "check": "prerequisites_decision_and_governance",
+      "result": "PASS",
+      "detail": "20 original IDs/requirements/statuses; zero closures; four unselected options/blank PD fields; G0 blocked, RA01 pending, WP01 unauthorized; no active operations recorded"
+    },
+    {
+      "check": "package_hashes_and_git_scope",
+      "result": "PASS",
+      "detail": "27 exact authorized paths; status sole prior mutation; no runtime/deployment artifacts; results excluded from recursive sums and bound by Git"
+    }
+  ],
+  "recommendation": "PREFER_SEPARATED_SAFETY_AND_DIAGNOSTIC_COMPONENTS",
+  "target_designation": "UNVERIFIED",
+  "pd_decision": null,
+  "whole_prerequisite_closures": 0,
+  "active_operations_performed": false,
+  "warnings": [
+    "Attachment originally truncated; user supplied continuation before authoring review package",
+    "Initial python command unavailable (exit127); used python3",
+    "Discovery requested nonexistent RRM/configuration path (exit2); used existing controlled matrix/source paths",
+    "Review comparisons are engineering judgments; no measured ranking or validated effective target",
+    "First E1D checker run failed on absent original M00/SHA256SUMS (FileNotFoundError); corrected to match original milestone inventory convention. No engineering evidence changed.",
+    "First staged whitespace check rejected CSV CRLF line endings; normalized all new E1D CSV files to LF and reran staged checks."
+  ],
+  "skipped_checks": [
+    "Current runtime/safety readiness: design-only scope, historical E1B evidence labeled",
+    "Owner compatibility/identity: no authenticated owner responses",
+    "Actual isolation/API/clock/overhead/recorder survival: no implementation or active authority",
+    "F00 equivalence/qualification: originals, approved configuration and campaign evidence absent",
+    "Original M00 SHA256SUMS replay: file never existed; original files protected by full tracked snapshot and prior inventory checks."
+  ],
+  "limitations": [
+    "Offline consistency/integrity review cannot prove platform compatibility, physical/network isolation, authentic event coverage, overhead, recorder survival or qualification. No new startups or current runtime observations.",
+    "Architecture preference is conditional engineering judgment; C and A can converge. All actual owner/PD decisions remain outstanding. No push."
+  ]
+}
