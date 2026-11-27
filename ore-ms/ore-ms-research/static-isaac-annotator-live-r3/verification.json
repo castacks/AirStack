@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "INCONCLUSIVE",
+  "starting_commit": "7bce93c81f8751aa12fb12b855cc70d9204d8d92",
+  "branch": "ore-ms-orb-development",
+  "source_offline_tests": {
+    "r3_passed": 17,
+    "r2_passed": 10
+  },
+  "runtime": {
+    "authorized_simulator_attempts": 1,
+    "launcher_invocations": 1,
+    "simulator_starts": 0,
+    "render_attempts": 0,
+    "render_attempt_bound": 8,
+    "timeout_s": 150,
+    "diagnostic_container_id": "66b65095b469b896ca725c30fd82dcf12cc3d09248b8864abf544d80e0aceb05",
+    "container_state_at_cleanup": "created",
+    "launcher_exit": 1,
+    "supervisor_exit": 1,
+    "worker_exit": null
+  },
+  "earliest_failure": {
+    "phase": "preflight_mount_comparison",
+    "file": "launch-once.sh",
+    "line": 19,
+    "cause": "Docker inspect emits a final newline in addition to the template's row endings. Sorting places the extra blank line before the mount records, so the shell string comparison rejects the expected mount set."
+  },
+  "retained_evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-annotator-live-r3.Jh3AprK0",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "c4016c895626758dfeda4e5e9c2577f7d36f6f313ed45bf0196687c26a3d4d05",
+    "file_count": 29,
+    "sha256": {
+      "cleanup.txt": "ce6899864a42de35b2455d41680a7c729b22ad2c0d7c5ce283b965a8ecfb74a6",
+      "container-after.txt": "ffd6f63eca81a3f56b76077d6d1ae34fcf3e72f3b840d770fa0bac5c08f872a2",
+      "container-created.txt": "4a35dc7d25fdc3b58d52a60cb92dc453f6c6eca870638d213b816d56d6bcc494",
+      "container.cid": "ce6899864a42de35b2455d41680a7c729b22ad2c0d7c5ce283b965a8ecfb74a6",
+      "execute-once.sh": "3207f7ed5d0839de8c0f7543ee57d856cbf2f6bc6b0ce20ab3fb4eb4808fa17e",
+      "execution-bounds.txt": "53e7e04c28eb6adb3a792eb0304b0679d7e8909c5d993679315d2033baf29fba",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "021e830cb6331638ed66b933a7565d68ac1116e74bf5e6bfb055001e2755eea4",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "input-after.txt": "01076531f19659d18915edfbc42b8974e975e88d231fcfa2be374f6cda807e42",
+      "input.sha256": "5a8d18fe46c84a5e0a87d440b1754f9a8457ff571677a7f563bf7812348878d7",
+      "input/capture_one_r3.py": "3281b7649ccc4f00468ab062a4249fb15d101eda0b76d6ee8336a87d6ffc038c",
+      "input/readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+      "input/recorder.py": "90c7c4629e6252855cdb5ef33721dd0df17e336cb2e5d8dea13bf92da2dce640",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/supervise_r3.py": "cde4f7b5efc822b95e49e20c413298aea140b57ba204aefe69efc55bf561720b",
+      "launch-once.sh": "2640b12ae8131d01ad74daf6c0a4f03dd50db49cac0f6dcb751f32847466129c",
+      "mount-preflight-review.json": "f29d4ba5fd64b0aa5501eeebc81f19cfe085dceea0df6f35d9e82337f7de56ec",
+      "offline-qualification.json": "8bf52bdb44105f549cad819fa7b8bed07edb2b87438f3bb4bbe3b6c8ff68951a",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pre-existing-evidence-after.txt": "68a6eb4e0f714d4029bd51724448c981a9edf14dcd262ee677aecdcd673d71d8",
+      "pre-existing-evidence-before.txt": "68a6eb4e0f714d4029bd51724448c981a9edf14dcd262ee677aecdcd673d71d8",
+      "r2-offline-tests.log": "34cd045e87ed9633a280d12eca025f9b4d2b34ac048a6a2fb7ee57f086ab064d",
+      "r3-offline-tests.log": "9467120b66b6436e6b37396d05205dc9ac5c5a355daa9fb8e62ea638cde45e52",
+      "run/FAILED.json": "93e6896616a558f4e16d2a6fdd5bd5952b0ec43ff6d1cc261c678a756f6d8cba",
+      "run/child.log": "01076531f19659d18915edfbc42b8974e975e88d231fcfa2be374f6cda807e42",
+      "source-commit.txt": "f8ed16070bc5316973ab710787f048569fe4008652453b495e78ec18e2de872b",
+      "supervisor-exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  },
+  "gates": {
+    "offline_qualification": {
+      "status": "PASS",
+      "evidence": "17 R3 tests and 10 R2 tests passed.",
+      "files": [
+        "r3-offline-tests.log",
+        "r2-offline-tests.log"
+      ]
+    },
+    "input_and_image_provenance": {
+      "status": "PASS",
+      "evidence": "The checkout, stage, worker and cached image matched the pins.",
+      "files": [
+        "source-commit.txt",
+        "input.sha256",
+        "input-after.txt",
+        "container-created.txt"
+      ]
+    },
+    "launcher_isolation_assertion": {
+      "status": "FAIL",
+      "evidence": "Line 19 falsely rejected the mount list.",
+      "files": [
+        "launch-once.sh",
+        "mount-preflight-review.json"
+      ]
+    },
+    "created_container_isolation_review": {
+      "status": "PASS",
+      "evidence": "Structured mount tuples and the image, network and IPC header matched.",
+      "files": [
+        "container-created.txt",
+        "mount-preflight-review.json"
+      ]
+    },
+    "native_readiness_and_frame_association": {
+      "status": "NOT_RUN",
+      "evidence": "The container was never started.",
+      "files": [
+        "container-after.txt",
+        "mount-preflight-review.json"
+      ]
+    },
+    "simulation_timestamp_and_raw_arrays": {
+      "status": "NOT_RUN",
+      "evidence": "No worker process started.",
+      "files": []
+    },
+    "native_shutdown": {
+      "status": "NOT_RUN",
+      "evidence": "No worker process started.",
+      "files": [
+        "container-after.txt"
+      ]
+    },
+    "completion_marker": {
+      "status": "NOT_RUN",
+      "evidence": "The supervisor failed closed during launcher preflight.",
+      "files": [
+        "run/FAILED.json"
+      ]
+    },
+    "operational_state": {
+      "status": "PASS",
+      "evidence": "All three operational container snapshots matched byte for byte.",
+      "files": [
+        "operational-before.txt",
+        "operational-after.txt"
+      ]
+    },
+    "r1_r2_and_frozen_artifacts": {
+      "status": "PASS",
+      "evidence": "Retained evidence and frozen checksums passed before and after.",
+      "files": [
+        "pre-existing-evidence-before.txt",
+        "pre-existing-evidence-after.txt"
+      ]
+    },
+    "evidence_manifest": {
+      "status": "PASS",
+      "evidence": "All 29 retained preflight files were hashed and rechecked.",
+      "files": [
+        "SHA256SUMS.txt"
+      ]
+    }
+  }
+}
