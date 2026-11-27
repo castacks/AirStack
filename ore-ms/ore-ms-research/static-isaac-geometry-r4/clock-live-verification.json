@@ -1,0 +1,370 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "FAIL",
+  "classification": "INVALID_CLOCK_DATA",
+  "branch": "ore-ms-orb-development",
+  "starting_commit": "482a2db25ef8030b9196e19224ddf93c49834ce2",
+  "runtime": {
+    "starts": 1,
+    "configured_steps": 2,
+    "render_steps_started": 1,
+    "render_steps_returned": 1,
+    "host_attach_timeout_s": 150,
+    "elapsed_s": 118.197122,
+    "attach_exit": 0,
+    "container_id": "50290bb5e4208961b174a268fa3aaaf6d67a2c5170629f2c4effe2a1f55644e9",
+    "native_exit": {
+      "Dead": false,
+      "Error": "",
+      "ExitCode": 0,
+      "FinishedAt": "2026-11-27T15:46:55.969916701Z",
+      "OOMKilled": false,
+      "Paused": false,
+      "Pid": 0,
+      "Restarting": false,
+      "Running": false,
+      "StartedAt": "2026-11-27T15:44:57.772794782Z",
+      "Status": "exited"
+    },
+    "shutdown_return_observed": false
+  },
+  "clock_observation": {
+    "configuration": {
+      "graph": "/World/ReceiptClock",
+      "namespace": "/",
+      "subscription_topic": "/clock",
+      "node": "ore_r4_isolated_receipt",
+      "rclpy_domain": 91,
+      "executor": "rclpy.spin_once",
+      "ros_environment": {
+        "ROS_DOMAIN_ID": "91",
+        "ROS_DISTRO": "jazzy",
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "ROS_AUTOMATIC_DISCOVERY_RANGE": "LOCALHOST",
+        "ROS_LOCALHOST_ONLY": null,
+        "ROS_NAMESPACE": null
+      },
+      "initial": {
+        "graph": {
+          "exists": true,
+          "enabled": true,
+          "counts": {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          "ports": {
+            "Time.outputs:simulationTime": 0.0,
+            "Publish.inputs:timeStamp": 0.0,
+            "Publish.inputs:context": 0,
+            "Publish.inputs:nodeNamespace": "",
+            "Publish.inputs:topicName": "clock",
+            "Publish.inputs:qosProfile": ""
+          },
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "errors": {}
+        },
+        "dds": {
+          "topic": "/clock",
+          "publishers": [],
+          "subscriber_qos": {
+            "history": "UNKNOWN",
+            "reliability": "RELIABLE",
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "depth": 0,
+            "deadline_ns": 9223372036854775807,
+            "lifespan_ns": 9223372036854775807,
+            "liveliness_lease_ns": 9223372036854775807
+          },
+          "subscriber_qos_source": "discovered",
+          "errors": {}
+        },
+        "callback_count": 0,
+        "errors": {}
+      },
+      "errors": {}
+    },
+    "step_outcome": {
+      "event": "step_outcome",
+      "step": 1,
+      "status": "INVALID_CLOCK_DATA",
+      "phase": "subscriber_wait",
+      "spin_calls": 2,
+      "deadline_s": 3.0,
+      "received_callbacks": 2,
+      "before": {
+        "graph": {
+          "exists": true,
+          "enabled": true,
+          "counts": {
+            "Tick": 0,
+            "Time": 0,
+            "Publish": 0
+          },
+          "ports": {
+            "Time.outputs:simulationTime": 0.0,
+            "Publish.inputs:timeStamp": 0.0,
+            "Publish.inputs:context": 0,
+            "Publish.inputs:nodeNamespace": "",
+            "Publish.inputs:topicName": "clock",
+            "Publish.inputs:qosProfile": ""
+          },
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": true,
+          "errors": {}
+        },
+        "dds": {
+          "topic": "/clock",
+          "publishers": [],
+          "subscriber_qos": {
+            "history": "UNKNOWN",
+            "reliability": "RELIABLE",
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "depth": 0,
+            "deadline_ns": 9223372036854775807,
+            "lifespan_ns": 9223372036854775807,
+            "liveliness_lease_ns": 9223372036854775807
+          },
+          "subscriber_qos_source": "discovered",
+          "errors": {}
+        },
+        "callback_count": 0,
+        "errors": {}
+      },
+      "final": {
+        "graph": {
+          "exists": true,
+          "enabled": true,
+          "counts": {
+            "Tick": 6413,
+            "Time": 6413,
+            "Publish": 6413
+          },
+          "ports": {
+            "Time.outputs:simulationTime": 0.30000000447034836,
+            "Publish.inputs:timeStamp": 0.30000000447034836,
+            "Publish.inputs:context": 0,
+            "Publish.inputs:nodeNamespace": "",
+            "Publish.inputs:topicName": "clock",
+            "Publish.inputs:qosProfile": ""
+          },
+          "timeline_s": -0.09999999701976778,
+          "timeline_playing": false,
+          "errors": {}
+        },
+        "dds": {
+          "topic": "/clock",
+          "publishers": [
+            {
+              "name": "_World_ReceiptClock_Publish",
+              "namespace": "/",
+              "type": "rosgraph_msgs/msg/Clock",
+              "gid": [
+                1,
+                15,
+                127,
+                1,
+                50,
+                0,
+                143,
+                244,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                3,
+                3
+              ],
+              "qos": {
+                "history": "UNKNOWN",
+                "reliability": "RELIABLE",
+                "durability": "VOLATILE",
+                "liveliness": "AUTOMATIC",
+                "depth": 0,
+                "deadline_ns": 9223372036854775807,
+                "lifespan_ns": 9223372036854775807,
+                "liveliness_lease_ns": 9223372036854775807
+              },
+              "compatibility": "OK",
+              "reason": ""
+            }
+          ],
+          "subscriber_qos": {
+            "history": "UNKNOWN",
+            "reliability": "RELIABLE",
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "depth": 0,
+            "deadline_ns": 9223372036854775807,
+            "lifespan_ns": 9223372036854775807,
+            "liveliness_lease_ns": 9223372036854775807
+          },
+          "subscriber_qos_source": "discovered",
+          "errors": {}
+        },
+        "callback_count": 2,
+        "errors": {}
+      }
+    },
+    "raw_messages": [
+      {
+        "sec": 0,
+        "nanosec": 300000004
+      },
+      {
+        "sec": 0,
+        "nanosec": 300000004
+      }
+    ],
+    "callback_count": 2
+  },
+  "gates": {
+    "provenance_and_offline_tests": {
+      "status": "PASS",
+      "evidence": "Pinned image and input hashes verified; all 76 tests passed.",
+      "paths": [
+        "preflight.json",
+        "input.sha256",
+        "image.txt"
+      ]
+    },
+    "isolated_start": {
+      "status": "PASS",
+      "evidence": "Structured validation accepted the exact scratch binds before one start.",
+      "paths": [
+        "container-created.txt",
+        "container-mounts.json",
+        "mount-validation.log",
+        "start-requested.txt"
+      ]
+    },
+    "graph_execution": {
+      "status": "PASS",
+      "evidence": "Graph valid and enabled; Tick, Time and Publish counts rose from 0 to 6413.",
+      "paths": [
+        "run/capture/clock-diagnostic.jsonl"
+      ]
+    },
+    "native_clock_value": {
+      "status": "PASS",
+      "evidence": "Graph clock output and publisher timestamp input changed from 0 to 0.30000000447034836 s.",
+      "paths": [
+        "run/capture/clock-diagnostic.jsonl"
+      ]
+    },
+    "publisher_discovery_and_qos": {
+      "status": "PASS",
+      "evidence": "One discovered Clock publisher in root namespace was QoS compatible.",
+      "paths": [
+        "run/capture/clock-diagnostic.jsonl"
+      ]
+    },
+    "subscriber_delivery": {
+      "status": "PASS",
+      "evidence": "Two callbacks delivered on the first render step.",
+      "paths": [
+        "run/capture/clock-diagnostic.jsonl",
+        "run/capture/clock-raw.jsonl"
+      ]
+    },
+    "one_advancing_stamp_per_step": {
+      "status": "FAIL",
+      "evidence": "Both callbacks carried 300000004 ns in step 1.",
+      "paths": [
+        "run/capture/clock-diagnostic.jsonl",
+        "run/capture/clock-raw.jsonl"
+      ]
+    },
+    "second_step": {
+      "status": "NOT_REACHED",
+      "evidence": "Probe stopped at the first invalid step.",
+      "paths": [
+        "run/capture/phases.jsonl"
+      ]
+    },
+    "clean_host_exit": {
+      "status": "PASS",
+      "evidence": "Durable shutdown request, Kit fast-shutdown witness, and host exit 0 verified. Python return was not observed.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log",
+        "run/container-exit.json"
+      ]
+    },
+    "operational_and_frozen_preservation": {
+      "status": "PASS",
+      "evidence": "Operational snapshots and prior evidence/plan checksums matched.",
+      "paths": [
+        "operational-before.txt",
+        "operational-after.txt",
+        "pre-existing-before.txt",
+        "pre-existing-after-live.txt"
+      ]
+    },
+    "evidence_manifest": {
+      "status": "PASS",
+      "evidence": "All 44 retained SHA-256 file hashes passed.",
+      "paths": [
+        "SHA256SUMS.txt"
+      ]
+    }
+  },
+  "historical_r4_timeout_cause": "UNRESOLVED",
+  "evidence": {
+    "directory": "/root/ore-ms-artifacts/static-isaac-clock-live-r4.MNZQantf",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "a086605c77957e4469b4f9fa3da89fda97dbb7275504cd9dfa9ccf7a1204273b",
+    "sha256": {
+      "PREFLIGHT_SHA256SUMS.txt": "023b2d06eb1c33d413fa294b79e08a53663e4962e24abf39571efb99711aa84e",
+      "attach-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "authorization-scope.txt": "5c487f80777750d0c525f65f048ab57d1b54d241126cc5a734476e144cc97800",
+      "check-existing-evidence.sh": "9430b808afb1792d08a83c023b1e71528f71a87140302cb593236d97fc7eab04",
+      "cleanup.txt": "1e99e6493abb4fc545c3ee791299176606bc471e3f388845f9c9dd1edf0cacdb",
+      "container-created.txt": "0394e1f9180a0dd1277f8ad5e38be9274bb3e280487eb437707fd71a6453b760",
+      "container-mounts.json": "c2ce0cc21deb07c608ecd4f10d9f3cbff3188fe45f74e6c7bbc069c9a8e4c134",
+      "container.cid": "1e99e6493abb4fc545c3ee791299176606bc471e3f388845f9c9dd1edf0cacdb",
+      "execute-once.sh": "381ff38aa647c9675fa556861248124033b13c5ae0a5a1f68834d6eca2bd4b2f",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "9141eb2d8ddaee0abf75a7bd73ab614c27c174fd1795af3a06bd084d5a5cb9ed",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "independent-clock-review.json": "913da113147e3020ffe0659a769e8bbd3342cdfde97b7473aa52854542092951",
+      "independent-review.py": "ba5d8f59e2de2de1b45f7f7cd52156f11ecd04d44b5137b9ad4418cf03cbe8a0",
+      "input-after.txt": "9141eb2d8ddaee0abf75a7bd73ab614c27c174fd1795af3a06bd084d5a5cb9ed",
+      "input.sha256": "b333f7ef74b1989124c49671c87ee7669ad3bc4247d2464139dfa2b8af8385e4",
+      "input/clock_probe_r4.py": "11a3483b651c4ccea9eef64d8578146133bc5be069e97002d15712435398e35f",
+      "input/recorder.py": "f20dd82fe4ce12cf1dbe3805ddfde504c47a28cbb2908b45ea6882022a57bd43",
+      "input/run-clock.sh": "178120a8cb4d8d60f89e7c5fb4e80a0aab97c70d7690b52ecdc2c0fa996eaa98",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+      "mount-validation.log": "fc535588c897d98ad651f372987f9b81abdc0db1a90fc1a4b84499a59ba69e08",
+      "operational-after-preflight.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-preflight.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pre-existing-after-live.txt": "4477b2be42f6b275097f82acf3665317236344098239275107296f2e63adbdb2",
+      "pre-existing-at-authorization.txt": "4477b2be42f6b275097f82acf3665317236344098239275107296f2e63adbdb2",
+      "pre-existing-before.txt": "4477b2be42f6b275097f82acf3665317236344098239275107296f2e63adbdb2",
+      "preflight.json": "23e32b13e514679ea447cda2d64d73ec695f213b3ce84ee1913123dff747b205",
+      "r2-tests.log": "7114aa26d027c23cafdf44769633c435a6d457a4a538a62167c6bd7cda791530",
+      "r3-tests.log": "61cd1852914cad865e8f791968631515b3e9d984150bc2550c65fea23091795b",
+      "r4-tests.log": "02d8a59ddc3c74d92220f8b0732c6cc11319769b2c319fa83a8c9d45a492bb85",
+      "receipt-tests.log": "131d93a61559db5f197498a39f93215378ec809ac73abf34a3fa5742ff454882",
+      "ros-preflight.json": "afbd3335532b7d91697df66fa395e887c86a5c42414d076a6b319fe1f1c895ad",
+      "run/capture/clock-configuration.json": "0a5dec4912327ff5ae33e8e13f43ec9341f52d94b8b25f8adbbff76d215c00de",
+      "run/capture/clock-diagnostic.jsonl": "c0d94ad664177ea3b327b9f24c353fccb4d79bba5e540235f0b7f8c1fb8a3396",
+      "run/capture/clock-raw.jsonl": "0d49faafbaed75558cbb745010dc840c3d3e2f86611ec578e683a566514df8d0",
+      "run/capture/phases.jsonl": "ccdbf67dfa1bccd1b982bd8e4e07329c9177eefbc5eb4398ecc0b42746550a69",
+      "run/child.log": "be05cfc8afc71d623fdfd84e581aeaa57fed0f9094168cb5e9696831bf6c454f",
+      "run/container-exit.json": "6555a17eb81e2df93b6601633453d037474d18df2e91420d83702fb02fbfa02d",
+      "snapshot-operational.sh": "232ef2a5fd392c06a3d394fc9f253a8bfa4432abb3a8341d91505642fcf9368d",
+      "source-commit.txt": "7f4479a367b09f3d0721eb060bf214ebe39b5ee5f03ff50e5f522a0d05b86bd7",
+      "start-requested.txt": "17b30936eec5b9b0235264deaa5e9bb159d49bb834d9b534e435a97b5a02a92a"
+    }
+  }
+}
