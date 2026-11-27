@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-11-27",
+  "status": "FAIL",
+  "branch": "ore-ms-orb-development",
+  "starting_commit": "2f6e80f8a549d41df5fa36c3ff5b5a744b83383d",
+  "runtime": {
+    "starts": 1,
+    "timeout_s": 360,
+    "elapsed_s": 99.692923,
+    "container_id": "61e291449aa73daf017a072042142ced642d802ab387f5df0a8af9d96e95f8c0",
+    "container_exit": 0,
+    "supervisor_exit": 1,
+    "completion_marker_present": false
+  },
+  "camera_review": {
+    "status": "PASS",
+    "events": [
+      {
+        "phase": "authored_camera",
+        "status": "started",
+        "wall_time_ns": 1795760281108367517
+      },
+      {
+        "phase": "authored_camera",
+        "status": "completed",
+        "wall_time_ns": 1795760281123430649
+      },
+      {
+        "phase": "initialize_render_product",
+        "status": "started",
+        "wall_time_ns": 1795760281127445423
+      },
+      {
+        "phase": "initialize_render_product",
+        "status": "completed",
+        "wall_time_ns": 1795760281689557427
+      },
+      {
+        "phase": "effective_camera_pose",
+        "status": "started",
+        "wall_time_ns": 1795760281694820766
+      },
+      {
+        "phase": "effective_camera_pose",
+        "status": "completed",
+        "wall_time_ns": 1795760281715071125
+      },
+      {
+        "phase": "effective_camera_intrinsics",
+        "status": "started",
+        "wall_time_ns": 1795760281720135274
+      },
+      {
+        "phase": "effective_camera_intrinsics",
+        "status": "verified",
+        "wall_time_ns": 1795760281734834487,
+        "intrinsics_native": [
+          [
+            20.0,
+            0,
+            16.5
+          ],
+          [
+            0,
+            20.0,
+            12.5
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      {
+        "phase": "effective_camera_intrinsics",
+        "status": "completed",
+        "wall_time_ns": 1795760281745073013
+      }
+    ],
+    "camera": "/World/ReceiptCamera",
+    "render_product": "/Render/OmniverseKit/HydraTextures/Replicator",
+    "intrinsics": {
+      "width": 33,
+      "height": 25,
+      "fx": 20.0,
+      "fy": 20.0,
+      "cx": 16.0,
+      "cy": 12.0
+    },
+    "effective_usd_local_to_world": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        2.220446049250313e-16,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        -1.0,
+        2.220446049250313e-16,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ]
+    ],
+    "maximum_matrix_change": 0.0
+  },
+  "observations": {
+    "control-5": {
+      "status": "PASS",
+      "reference_time": [
+        7702,
+        30
+      ],
+      "native_sim_s": 0.30000000447034836,
+      "ros_clock_ns": null,
+      "samples": [
+        {
+          "uv": [
+            16,
+            12
+          ],
+          "axial_m": 5.0,
+          "native_id": 1,
+          "label": "/World/ReceiptTarget",
+          "analytic_ray_range_m": 5.0,
+          "observed_ray_range_m": 5.0
+        },
+        {
+          "uv": [
+            18,
+            12
+          ],
+          "axial_m": 5.000000476837158,
+          "native_id": 1,
+          "label": "/World/ReceiptTarget",
+          "analytic_ray_range_m": 5.024937810560445,
+          "observed_ray_range_m": 5.024938289775858
+        }
+      ]
+    },
+    "control-15": {
+      "status": "PASS",
+      "reference_time": [
+        7704,
+        30
+      ],
+      "native_sim_s": 0.4000000059604645,
+      "ros_clock_ns": null,
+      "samples": [
+        {
+          "uv": [
+            16,
+            12
+          ],
+          "axial_m": 15.0,
+          "native_id": 1,
+          "label": "/World/ReceiptTarget",
+          "analytic_ray_range_m": 15.0,
+          "observed_ray_range_m": 15.0
+        },
+        {
+          "uv": [
+            18,
+            12
+          ],
+          "axial_m": 15.0,
+          "native_id": 1,
+          "label": "/World/ReceiptTarget",
+          "analytic_ray_range_m": 15.074813431681335,
+          "observed_ray_range_m": 15.074813431681335
+        }
+      ]
+    },
+    "issue": {
+      "status": "NOT_REACHED"
+    },
+    "target": {
+      "status": "NOT_REACHED"
+    }
+  },
+  "receipt": null,
+  "first_failed_gate": {
+    "phase": "clock_epoch",
+    "status": "failed",
+    "wall_time_ns": 1795760349888012389,
+    "traceback": "Traceback (most recent call last):\n  File \"/capture-input/recorder.py\", line 64, in phase\n    yield\n  File \"/capture-input/capture_r4.py\", line 276, in capture\n    clock_step()\n  File \"/capture-input/capture_r4.py\", line 243, in clock_step\n    wait_for(lambda: len(clock_messages) > before, \"Isaac /clock\")\n  File \"/capture-input/capture_r4.py\", line 238, in wait_for\n    raise RuntimeError(f\"timed out waiting for {what}\")\nRuntimeError: timed out waiting for Isaac /clock\n",
+    "journal": "run/capture/phases.jsonl",
+    "line": 16
+  },
+  "gates": {
+    "offline_and_provenance": {
+      "status": "PASS",
+      "evidence": "63 CPU tests passed; image and staged inputs match the pins.",
+      "paths": [
+        "preflight.json",
+        "image-preflight.json",
+        "input.sha256"
+      ]
+    },
+    "isolated_start": {
+      "status": "PASS",
+      "evidence": "Exact mounts and isolated settings verified before the single start.",
+      "paths": [
+        "container-created.txt",
+        "container-mounts.json",
+        "start-requested.txt"
+      ]
+    },
+    "live_camera": {
+      "status": "PASS",
+      "evidence": "Fresh camera pose, render-product binding, resolution and frozen intrinsics verified.",
+      "paths": [
+        "independent-camera-review.json",
+        "run/capture/camera-setup/phases.jsonl"
+      ]
+    },
+    "depth_control_5m": {
+      "status": "PASS",
+      "evidence": "Both native first hits independently agree with the surveyed quad.",
+      "paths": [
+        "run/capture/control-5",
+        "independent-review.json"
+      ]
+    },
+    "depth_control_15m": {
+      "status": "PASS",
+      "evidence": "Both native first hits independently agree with the surveyed quad.",
+      "paths": [
+        "run/capture/control-15",
+        "independent-review.json"
+      ]
+    },
+    "isaac_clock_epoch": {
+      "status": "FAIL",
+      "evidence": "No ROS /clock sample was observed within the configured wait.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log"
+      ]
+    },
+    "issue_and_target_native_geometry": {
+      "status": "NOT_REACHED",
+      "evidence": "The worker stopped at the clock epoch.",
+      "paths": []
+    },
+    "exact_two_seconds_and_exact_time_tf": {
+      "status": "NOT_REACHED",
+      "evidence": "No valid epoch, issue stamp or target stamp exists.",
+      "paths": []
+    },
+    "frozen_receipt_and_m08_binding": {
+      "status": "NOT_REACHED",
+      "evidence": "No receipt exists. Seven frozen offline verifier tests passed.",
+      "paths": [
+        "receipt-tests.log"
+      ]
+    },
+    "kit_shutdown_and_host_exit": {
+      "status": "PASS",
+      "evidence": "Shutdown request and Kit log retained. Host exit was clean.",
+      "paths": [
+        "run/capture/phases.jsonl",
+        "run/child.log",
+        "run/container-exit.json"
+      ]
+    },
+    "supervisor_completion": {
+      "status": "FAIL",
+      "evidence": "Incomplete sequence rejected despite process exit 0.",
+      "paths": [
+        "run/FAILED.json",
+        "supervisor-exit.txt"
+      ]
+    },
+    "operational_isolation": {
+      "status": "PASS",
+      "evidence": "Operational container and image IDs, start times, restart counts and status matched.",
+      "paths": [
+        "operational-before.txt",
+        "operational-after.txt"
+      ]
+    },
+    "retained_evidence": {
+      "status": "PASS",
+      "evidence": "All 74 evidence hashes, prior capture manifests and frozen M05\u2013M08 hashes verified.",
+      "paths": [
+        "SHA256SUMS.txt",
+        "pre-existing-before.txt",
+        "pre-existing-after-live.txt"
+      ]
+    }
+  },
+  "evidence": {
+    "local_directory": "/root/ore-ms-artifacts/static-isaac-geometry-r4-retry.XUIjeQHu",
+    "manifest": "SHA256SUMS.txt",
+    "manifest_sha256": "463b63e32eef35d191f74e11ff1cebbde0057e0caee936ddde6c73fc42535f7e",
+    "artifact_hashes": {
+      "PREFLIGHT_SHA256SUMS.txt": "8a71c9fa21b293fc3c32ed8388a1d94a1ab0c0ebf2c76bf5ce04bf4c44bb2fb8",
+      "authorization-scope.txt": "fba2a66701b79e491cfae90749ff98b96dc386743da54198d3b507e182ff103a",
+      "camera-review.py": "9809be70e9ff9757a990af4828081f4d58c2ad080dd10c3a5d19db8efa3c366f",
+      "check-existing-evidence.sh": "e5896ed109bd59855ec1fcb455a1488e3431eb359ad22afcbc05d12e73c4a329",
+      "cleanup.txt": "f6823239a0ddd69b5e9fffcf347963f2f69c84947fbee84d7918d8ac7223279a",
+      "container-after.txt": "2a713bcf0876c80d9d74792a945f687044152ae66b358d427c64db171c417d7c",
+      "container-created.txt": "a25b2fd3635db82dc7b52b8bb22e008a5992b217596eae0a3c1453caaeff84f6",
+      "container-mounts.json": "5f9115dc779b47b64abdd0a7b5965859638f3f495a2e0b4ed849b2db608867f5",
+      "container.cid": "f6823239a0ddd69b5e9fffcf347963f2f69c84947fbee84d7918d8ac7223279a",
+      "execute-once.sh": "a6ba5299e49308dc0d7a840b52d6cd9c986abe33d2b65899ba97cdb57c2b74ab",
+      "gpu-preflight.csv": "dd09655f7215088ad63d051f7c9e1f61e0b552dd5a5b5b8fa908272fbf6dc474",
+      "host-execution.log": "ea6f80a756112629e0f3d325e429f39f2f7a0958a75824a9c2beb8e0beaad31d",
+      "image-preflight.json": "492e97dc7c257ddbc491bd6e292b0e9e8c53178d17772cc666b70924c53eae08",
+      "image.txt": "f2363d1c100784606ac1d0cc506c042f84960c83868b03f05b50092685b60caf",
+      "independent-camera-review.json": "c9e0a954c7f7a856e52465fb209264e1e87d96417205bdf96e607695c38eacfb",
+      "independent-camera-review.log": "9d80959f24675dd709aae1dccd59b216e2ed12d9e552755b7873729b1fea7b1a",
+      "independent-review-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "independent-review.json": "bda2bc5c4933380334792211ada7db46b7682ffd8f969029df1d0b1d06c40d15",
+      "independent-review.log": "a21ae739a227d05719378076c6e9f5a499b7de4b514b0627ae05646bdadbbed4",
+      "independent-review.py": "e17c476aaba3f769fc1acda3a2b07ddb41a123830a408340ea1a8b5584f49734",
+      "input-after.txt": "a4e19e3668192aa5e280e933b512305af035d5c82652cd60a79cb6cd17cc7dd9",
+      "input.sha256": "ea790aa75ea5193667ef97f4824fa99e42fe1f673dac5c6f2366f9e07cbce0c9",
+      "input/capture_one_r3.py": "4696a4101a9762f0dbb42ca316cde9ba6b9d72dc8c1940e29b37269c566969a4",
+      "input/capture_r4.py": "04ab393950e9ff7753ec2491c59b94c29d17583add5a7307e6cd85ba22f9fbb2",
+      "input/fixture.json": "156257ded54d3cef83626eb3178ec9fb032843ffc0cb24f4a708e95a5e16506e",
+      "input/readiness.py": "2377d48c690cbbc92e2503b4de02dac1eb5b76a3b71a21ff786e6663dafd28ad",
+      "input/recorder.py": "f20dd82fe4ce12cf1dbe3805ddfde504c47a28cbb2908b45ea6882022a57bd43",
+      "input/review_r4.py": "d6d46f280ab2629cc7b83f1e39e23214be74582a5007b50afba2ee2be79a613b",
+      "input/run-r4.sh": "96798b014762d6b18828845de6309620c6b76fa695bc5c9aabee22aa6bf10a17",
+      "input/stage.usda": "a6664a3bd426d28a6c958b046901e3b3fd9656909700ad3dfb9bb43e198fd6f7",
+      "input/supervise_r3.py": "2079557a6ca33652391864c2ddd47cba238b64835e9dd8fab8cac9974316c81f",
+      "input/supervise_r4.py": "d74c27e9535dd7f08c9038601ac39f54852dc79ed3b2fe814b1fcbebcedad9bc",
+      "input/validate_mounts.py": "0b733f770c5f5ff401412688bcfe06b1c4d5ca5f5f0440a55bcff734239cceb1",
+      "launch-once.sh": "0897dd5c26e8b61632846ce19b1678f81e33594131bae486d61225c0824106ad",
+      "operational-after-preflight.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-after.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-authorization.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-before.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "operational-preflight.txt": "98d2f9e4306a774d2ebe1741e18ee4619831d02c76df69a565b526cc1aa42036",
+      "pegasus-commit.txt": "43bd150da9ebe05e714431e52a4680dcb3f953a240f57e30e71e9654b3603cfd",
+      "postflight.sh": "5e44ff556b61e5351973963374bea5321046e5ae7f68042ad55f676e323e29ab",
+      "pre-existing-after-live.txt": "732092d89506bdd598b78b197c035b108ba27175394af4a736b9557d9c0b8a53",
+      "pre-existing-after-preflight.txt": "732092d89506bdd598b78b197c035b108ba27175394af4a736b9557d9c0b8a53",
+      "pre-existing-at-authorization.txt": "732092d89506bdd598b78b197c035b108ba27175394af4a736b9557d9c0b8a53",
+      "pre-existing-before.txt": "732092d89506bdd598b78b197c035b108ba27175394af4a736b9557d9c0b8a53",
+      "preflight-scope.txt": "7641620e482b26e095b3f85eb93353fddbfb964850ffe639ea83e6be399ffbda",
+      "preflight.json": "7eaf0fc3729d6bd682f0149bd932205bf44c11707855f5781fe7d1bd70277cca",
+      "r2-offline-tests.log": "722c516b4c23fff4f86deb6136a74d3c9a4ad26d1d8209747943e5867f1ed784",
+      "r3-offline-tests.log": "744673b8127cad99c7887cc04092168d55a6b82e3283bbcd5237b0321a06070f",
+      "r4-camera-tests.log": "fba0870e81e23f5a2e6a05c06c850763d20b39d0b2a1e748b75612c2e693e477",
+      "receipt-tests.log": "8786e5768a23726ac8c1b9c66ef1676903a2c83f39d7bc7316f0cf9eb5a6a638",
+      "run/FAILED.json": "151e70dfb636337f23816659e7a5e1529e1abc57104e896852b628ad36f4e9f8",
+      "run/capture/camera-setup/authored.json": "b435420d36097643dc38fcb68a5bce77fad396cc974b1796acd1653358cd740c",
+      "run/capture/camera-setup/effective-camera.json": "a560aa136bdf3f2d834d557b0aad1a1428b4cd086f5221a49867f8a308e7abb8",
+      "run/capture/camera-setup/effective-pose.json": "fb143ea48418e11f2b21eecfb509c3054c8197037153aa8ed57aba96345defc5",
+      "run/capture/camera-setup/phases.jsonl": "afb463eab22fc793d94255f5d5ad42c05030acb1304013eba77f310191de41c6",
+      "run/capture/control-15/depth.f32le": "9c8df310e109228484048fcec919f60e14b3e6ea93c163212cb3aa65fd388bda",
+      "run/capture/control-15/frame.json": "9ccd53a185e5e0ef4041b2c43ae5d1a30fc2c1ef41fee24fcc56d3fb05d88554",
+      "run/capture/control-15/instances.u32le": "ede0a6519f996875b3afb27444c6892c24bd95eff7dd24f171beaf42e5bde010",
+      "run/capture/control-15/phases.jsonl": "e01c7f183b517db9a18e8181349314325b0d3855f352f5960661e86900bf0ae0",
+      "run/capture/control-15/readiness.jsonl": "8c07a2b601a24c64da426d19d02ecd0a939287fdcb1b7dabaca021c9dfaab4d5",
+      "run/capture/control-15/survey.json": "5c04d3bcf66b07fb8389fd3b6e65b391f5f6dba76037a5aef67790cfd5aae848",
+      "run/capture/control-5/depth.f32le": "d75070f378f06e2ba2d0687c93fbdb30d20e12bd9768960db8ccd85f394459fc",
+      "run/capture/control-5/frame.json": "aed3f465c122c230f70b33811d055209265f1ceb07083ef241c4281d63c40140",
+      "run/capture/control-5/instances.u32le": "b1267c3b9419de4c8e426039923f2c2604033bb76629f781bd41cd6980329a5a",
+      "run/capture/control-5/phases.jsonl": "cf61d311084b5b8d15d05113a983f19b396d7eb283e37ffd731a4390e3e41427",
+      "run/capture/control-5/readiness.jsonl": "3fef5fb7e87a7e28e347a6ab4333823ca2c0f400afe7453b37a8a6ace7ffa2da",
+      "run/capture/control-5/survey.json": "5ad36dee93c500be2c7c8751ed165b01adeda9effbbc703b6abf05fd4b4a21d0",
+      "run/capture/phases.jsonl": "04237de2ff16f2de5a5ce367c6d1619c5a3b6f663f26ac8c6c70fede84654da7",
+      "run/child.log": "768eceb35b929322c8115e4432d212dc710d55b2da272770f48715ebf29d04e0",
+      "run/container-exit.json": "936fa089b3ba91030e025d50017a58b019862f239f7b0f75a21140da0f79926c",
+      "source-commit.txt": "803549ed15ea06ebb6b27542c48d4d73c23c6417828992f6149b3eafc18856bb",
+      "start-requested.txt": "5835b1c5a21aa8a47921543abe725290ff3045abb32e03a853b11dd384816daf",
+      "supervisor-exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    }
+  }
+}
