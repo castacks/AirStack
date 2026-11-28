@@ -1,0 +1,214 @@
+{
+  "G0": "BLOCKED",
+  "K_Git_bound_hashes_verified": 5,
+  "M00M_authorized": false,
+  "RA01": "PENDING",
+  "Tier_B_execution": "UNAUTHORIZED",
+  "Tier_B_target": "UNDESIGNATED",
+  "WP01": "UNAUTHORIZED",
+  "changed_file_sha256_excluding_self": {
+    "RRM/PROJECT_STATUS.md": "cadeadcfadacbfdca3aedc8a8dfb7de81c142a84738a88712735f06d82b00261",
+    "RRM/engineering/M00-L/M00L_20_PREREQUISITE_REASSESSMENT.csv": "e99a3d8dcc1e97e9dfb08ea907ffa3a5a7f6fc12b0d454a14270ec4c3d809b14",
+    "RRM/engineering/M00-L/M00L_29_REQUIREMENT_RECONCILIATION.csv": "2e9d75b73eac8d261cf40efc1c964f1c98eda2b7eca650374889e776d231f1fa",
+    "RRM/engineering/M00-L/M00L_F00_ACCEPTANCE_BASELINE.md": "7ed160649836dcc30dab04b8c38d53a1699a566fa07c3714e4738e9b4501cfea",
+    "RRM/engineering/M00-L/M00L_MINIMUM_COMPLETION_PLAN.md": "7f4d96b8e513bdabf5d5fe169b6c6bafd31461abf5d82f1065b9c47274c1049e",
+    "RRM/engineering/M00-L/M00L_NATIVE_BUILD_NECESSITY.md": "f84a050ccfbd9c743cff98b1566245b83e44c85f2621eb5671e16612d290acc1",
+    "RRM/engineering/M00-L/M00L_PD_RECOMMENDED_ROUTE.md": "2de0652d9a7a9bd35666fd5694272676e4b50f8d5223f7df79bc0ee9925efe9a",
+    "RRM/handoffs/M00L_HANDOFF.md": "9eae6e757a05ec1486389d396f68474d488274e7291e4b6a3c09684551c4bedb"
+  },
+  "changed_files": [
+    "RRM/PROJECT_STATUS.md",
+    "RRM/engineering/M00-L/M00L_20_PREREQUISITE_REASSESSMENT.csv",
+    "RRM/engineering/M00-L/M00L_29_REQUIREMENT_RECONCILIATION.csv",
+    "RRM/engineering/M00-L/M00L_F00_ACCEPTANCE_BASELINE.md",
+    "RRM/engineering/M00-L/M00L_MINIMUM_COMPLETION_PLAN.md",
+    "RRM/engineering/M00-L/M00L_NATIVE_BUILD_NECESSITY.md",
+    "RRM/engineering/M00-L/M00L_PD_RECOMMENDED_ROUTE.md",
+    "RRM/evidence/M00-L/M00L_VALIDATION_RESULTS.json",
+    "RRM/handoffs/M00L_HANDOFF.md"
+  ],
+  "checks": [
+    {
+      "check": "pinned_checkout_and_protected_integrity",
+      "detail": "Clean ore_proj/d4186b5512237d293f176230db9a37675f5d743c start; 2484 protected prior entries unchanged; PROJECT_STATUS sole authorized prior-file update",
+      "result": "PASS"
+    },
+    {
+      "check": "sealed_history_and_readonly_baseline",
+      "detail": "561 pinned historical checksum entries;5 K Git-bound file hashes;48 unchanged controlled inputs; no protected/history/input edits",
+      "result": "PASS"
+    },
+    {
+      "check": "baseline_authority_limits",
+      "detail": "No12 named originals found in two existing search roots; four expected roots absent; original authority/approval/raw evidence NOT fully recovered; supplied EXT transcriptions explicitly distinguished from authenticated originals; no authority invented",
+      "result": "PASS"
+    },
+    {
+      "check": "twentynine_requirement_reconciliation",
+      "detail": "All29 MAP/requirement/objective/KPI/IVV identities and every original source/criterion field byte-for-byte preserved;0 satisfied/0 partial/0 unsatisfied/28 unverified/1 original explicit survey exclusion; no synthetic/observational acceptance promotion or new FAIL",
+      "result": "PASS"
+    },
+    {
+      "check": "twenty_prerequisite_reassessment",
+      "detail": "All original20 IDs/wording and historical3 SAT/8 UNSAT/9 UNVER preserved; separate5 provisional acceptance/evidence cores,14 method-specific,1 unresolved; B controls retained when method executes; no final applicability authority invented",
+      "result": "PASS"
+    },
+    {
+      "check": "bounded_historical_startup_and_native_necessity",
+      "detail": "Independent Decimal subtraction matches original L11/L03 exactly; one episode/no new trial/no threshold; source vs missing runtime trace/recovery/statistics/compatibility separated;4 method-conditional/2 unresolved native-method questions, no invented mandatory build",
+      "result": "PASS"
+    },
+    {
+      "check": "minimum_plan_route_and_governance",
+      "detail": "Only A/B/C compared;RouteB recommended for next offline admission, none presently demonstrates completion;exact CHK19/MAP023 and reported MAP018/019/020 gaps identified;method work stop/defer proposal preserves safety/evidence;M00-M/new runtime unauthorized;G0 blocked/RA01 pending/WP01 unauthorized/TierB undesignated/unauthorized/runtime unverified",
+      "result": "PASS"
+    },
+    {
+      "check": "nine_deliverable_scope",
+      "detail": "Exactly9 RRM-only paths;6 requested engineering reports/matrices, validation, handoff and current status; no extra implementation or runtime automation",
+      "result": "PASS"
+    }
+  ],
+  "controlled_input_count": 48,
+  "current_applicability_counts": {
+    "A": 5,
+    "B": 14,
+    "E": 1
+  },
+  "directive_sha256": "5c1326b579c2fd21f101ba3edc1bcfa61df744eab703e83443e4a2ad7e1dfb89",
+  "failures": [],
+  "historical_checksum_entries_verified": 561,
+  "limitations": [
+    "No acceptance criterion, numerical threshold, original historical disposition or frozen artifact changed.",
+    "Integrity/static PASS does not mean original authority recovered, data admitted, requirement satisfied, runtime contained or F00 qualified.",
+    "No forbidden active operation occurred is an executed-action record, not a claim proved solely by file hashes.",
+    "Result JSON excludes its own hash to avoid circularity; containing Git commit binds it."
+  ],
+  "native_source_compilation": "CONDITIONAL METHOD DEPENDENCY; NOT ESTABLISHED AS ORIGINAL MANDATORY ACCEPTANCE",
+  "original_acceptance_authority": "NOT AUTHENTICATED / INCOMPLETE",
+  "original_source_search": {
+    "errors": [],
+    "existing_search_roots": [
+      "/root/AirStack",
+      "/root/.codex/attachments"
+    ],
+    "limit": "No search of inaccessible external custodian/cloud/daemon filesystems; file presence alone would not authenticate approval chains.",
+    "matches": [],
+    "method": "Local filename search only; no daemon, external storage or network query",
+    "missing_search_roots": [
+      "/root/Downloads",
+      "/root/RRM-C001-F00",
+      "/root/RRM-agent-coordination",
+      "/root/RRM-C001-BOUNDARY"
+    ],
+    "rg_exit_code": 1,
+    "target_basenames": [
+      "F00_FINAL_CLOSURE_FREEZE_RECEIPT.json",
+      "F00_FINAL_QUALIFICATION_MATRIX.csv",
+      "F00_KIRO_QUALIFICATION_DECISION_REGISTER.csv",
+      "RRM-SRS-001_v1.md",
+      "RRM_C001_F00_OPEN_FINDINGS.md",
+      "038_EXP-017-R1.md",
+      "019_EXP-016.md",
+      "F00_FINAL_CLOSURE_MANIFEST.sha256",
+      "F00_AMENDMENT_A1.sha256",
+      "F00_AMENDMENT_A2.sha256",
+      "RRM_C001_F00_FINAL_BASELINE_MANIFEST.md",
+      "RRM_C001_F00_FREEZE_CERTIFICATE.md"
+    ]
+  },
+  "prerequisite_historical_counts": {
+    "SATISFIED": 3,
+    "UNSATISFIED": 8,
+    "UNVERIFIED": 9
+  },
+  "proposed_next_milestone": "M00-M original record/raw-evidence admission and coverage decision; NOT AUTHORIZED",
+  "protected_prior_entry_count": 2484,
+  "provisional_acceptance_critical_cores": [
+    "CHK03",
+    "CHK11",
+    "CHK14",
+    "CHK18",
+    "CHK19"
+  ],
+  "recommended_route": "B as next offline admission step; no presently defensible complete-acceptance route",
+  "requirement_status_counts": {
+    "NOT APPLICABLE \u2014 BASELINE-SUPPORTED": 1,
+    "PARTIALLY SATISFIED": 0,
+    "SATISFIED \u2014 DIRECT EVIDENCE": 0,
+    "UNSATISFIED": 0,
+    "UNVERIFIED": 28
+  },
+  "result": "PASS",
+  "runtime_isolation": "NOT VERIFIED",
+  "skipped_checks": [
+    "Original authenticated record/raw-flight/approval admission: unavailable; search bounds explicitly recorded, no cloud/daemon or external source query.",
+    "Native build/container access, image/pull/install, ROS/PX4/MAVROS/Isaac, physical/operational network tests and TierB/C: outside L scope; none performed.",
+    "Repeated broad synthetic suites and new infrastructure: unnecessary for acceptance reconciliation; historical tests retained without acceptance promotion.",
+    "Formal independent test acceptance/successor qualification/PD sign-off: not supplied or inferred."
+  ],
+  "source_baseline_fully_recovered": false,
+  "source_sha256": {
+    "RRM/ROADMAP_MANDATE.md": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_DELIVERY_SPECIFICATION.md": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_OPEN_DECISIONS.md": "1763f214075d2ce3885ccbb125d95b1399ca94c99018e6e1987ac123e9e9f205",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_REQUIREMENTS_TEST_MATRIX.md": "2042b3930ab1a03fb7893f97172f7c554ca5ede746ad03e6a04285e025f6f619",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md": "6f0a45d13c28d82bddf590b8d7fd9f5d06635fc92d05f0c01c48cfbe36220f44",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_SOURCES.md": "18e125634e8a7c8d0cb4dee666d88e987eee9df4acafcdd19484327cab263062",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_VERIFICATION_PLAN.md": "38881621745eb53932da9a39c40f1b2bd18cb295cb55f71ac48e054e657a93b0",
+    "RRM/RRM-C001-F00-EXT/README.md": "ae48fd6d0ecee15a42ab0c05bafe0445f16a7d850f42dc572187a170ca8d01e6",
+    "RRM/engineering/M00-H/GUARD_SEMANTIC_COMPATIBILITY.csv": "597aa48e1602e91d432a292bcbb1d0cb9584c6ec9463c6b7430af053649bcfa9",
+    "RRM/engineering/M00-I/M00I_NATIVE_BUILD_RESULTS.json": "1c64047e6faba04431f3a8d0c0cfbda5013ac0ca5cd1e7ca7dd47d3ec84e8910",
+    "RRM/engineering/M00-I/M00I_NATIVE_DEPENDENCY_MATRIX.csv": "7c56636fd256ff21c906e508c1e3b8b4edebc14b8e01141eddb9e84e08702063",
+    "RRM/engineering/M00-I/M00I_PRODUCTION_INTERFACE_MATRIX.csv": "2bf361d748dea6c40d6e09ee9e610b973acc627036568a1fc07bb78299b2bb62",
+    "RRM/engineering/M00-I/M00I_REGRESSION_RESULTS.json": "0f8ef8e0f0408ed1d1c3dc8e12bd3ba61e2320726e33ea7387be17b6b462f5f7",
+    "RRM/evidence/M00-C/startup-source-records.json": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c",
+    "RRM/evidence/M00-D/M00D_EVIDENCE_MANIFEST.json": "12040c96ac3b3307eb300643e9fcc1233202eee1282e57184d9167e7ce803680",
+    "RRM/evidence/M00-D/characterization-summary.json": "43697361d8726949a58eb51fe2801f252e543db3e3fad24b5e9ed9ef58b36ed2",
+    "RRM/evidence/M00-D/latency-measurements.csv": "298eea1c32e7a18930360c5361c07e3f796c0460465a80d548351ec994b9fe47",
+    "RRM/evidence/M00-E1A/M00E1A_PREREQUISITE_REGISTER.csv": "c4ad91673a54196ff76c4d481ec187fd0d1d2f6a6891ef3d4fc4ce7e3cdb31f5",
+    "RRM/evidence/M00-F/source-manifest.json": "5ee4172bbaa629994651827dcaf0495733eb6f1ef0b6a6321338386b84af60c9",
+    "RRM/evidence/M00-G/M00G_EVIDENCE_INDEX.csv": "c2c810eddd1001fe94aa7e9d6d6fe7c2cc378360e107f350d1e1418fe20bac8f",
+    "RRM/evidence/M00-H/M00H_EVIDENCE_INDEX.csv": "f8c03844ca5e92b85adaba789b9cd82b74d62eef26bd432ff4abf6fda4e0ad40",
+    "RRM/evidence/M00-H/M00H_TEST_RESULTS.json": "c16fbee708f7780d0de13ff4d2f394d1caafeb6d90d49c995cbaaaaa4ea19b1e",
+    "RRM/evidence/M00-I/M00I_EVIDENCE_INDEX.csv": "40251bf6d9381f24b4a298aef94a604d85cb5eab9664cb7e1164e493db26be21",
+    "RRM/evidence/M00-J/M00J_EVIDENCE_INDEX.csv": "9b8eb033d2b4d52287533f8a1b4f3154fbb7d46361041789f10eaad69c92537c",
+    "RRM/evidence/M00-K/M00K_VALIDATION_RESULTS.json": "6458e6b926e8ee62b8ebdfc4e9c0d73c743a704750a976d71ff5f89a853c6bfc",
+    "RRM/handoffs/M00D_HANDOFF.md": "f4425f0b7cb20d97533d21ffd07378726c0049f21ba5140ec74615b9aaa9229e",
+    "RRM/handoffs/M00F_HANDOFF.md": "dc23ece0743b626e4315e21c5ab01ce60aa06df6fd024cb2ce5a66598b94ac18",
+    "RRM/handoffs/M00G_HANDOFF.md": "52be7d6c4b1a1945fafca7fca872d34d8641b10f851a5c8216be81924911f3ef",
+    "RRM/handoffs/M00H_HANDOFF.md": "c79deb8dc12b84831c1dfd57b40c510dfd164454e8fa24878e892dca595b1c02",
+    "RRM/handoffs/M00I_HANDOFF.md": "0c910c993ef84f594de652e640a135ffd32cffbeebcb58082322998bfc326224",
+    "RRM/handoffs/M00J_HANDOFF.md": "0ef82ae0ce6fa16b49ebd46192fe7af35e366f4d074d79641de0f64fcc106c0e",
+    "RRM/handoffs/M00K_HANDOFF.md": "4c84d57a0e4d1148ea0c78b184bb03e1d1264d60503d542ef1708313664820a5",
+    "RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv": "5f010a082b39bcc84dd5045557cb9e69ae4ee71334ec6df24e77c067d72f092e",
+    "RRM/verification/matrices/M00-B/M00B_FROZEN_RECORDS.csv": "6dc0be6cbdc19de9eb4a75a6a798782b97742bcb1088e9d528cebfc78ae6bfc2",
+    "RRM/verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv": "f84f9b5e1c41ee1ffae4b2a288634d83c998619b8ca815db6d8574f7151339a6",
+    "RRM/verification/reports/M00-B/M00B_VERIFICATION_RECONCILIATION.md": "626f3ae5365c12ae25dbada5f5cb5972d16a09bf5a71a176d3b2f2482d17a2be",
+    "RRM/verification/reports/M00-C/M00C_STARTUP_TIMELINE.csv": "35678f0f7cc9d80aa3f91f12ed6742862e84cced2e1155ab419e70b5e4558dde",
+    "RRM/verification/reports/M00-D/M00D_LATENCY_CHARACTERIZATION.md": "1673ff7d29dfed95f30de7cdbf6552b2380a323efbd16254a6c9978dd5218a4e",
+    "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+  },
+  "starting_branch": "ore_proj",
+  "starting_commit": "d4186b5512237d293f176230db9a37675f5d743c",
+  "starting_tracked_inventory_sha256": "fe2de41c899bb2357b7b329cd2810884a3a939c94d861632e553bda016c8714c",
+  "starting_tree": "CLEAN",
+  "startup_recomputation": {
+    "L03_seconds": "74.228771713",
+    "L11_seconds": "19.276162179",
+    "episode_count": 1,
+    "interpretation": "Reproducible arithmetic only; no repeated-start reliability/native compatibility/flight acceptance/recovery claim",
+    "new_trials": 0,
+    "raw_source": "RRM/evidence/M00-C/startup-source-records.json"
+  },
+  "validation_scope": "Documentary/source-trace/static/integrity checks; acceptance authority remains BLOCKED, not qualification",
+  "warnings": [
+    "Authoritative original F00/SRS/REC-01/BOUNDARY/qualifying raw records and signed approval chain not recovered; available EXT package is a separate preparation transcription.",
+    "Survey N/A preserves explicit supplied baseline exclusion/original mapping; no new applicability exemption, and original authority remains unverified.",
+    "Five A classifications are acceptance/evidence cores against supplied clauses, not final authenticated original applicability decisions; B safety controls remain binding for their selected method.",
+    "All28 other rows are UNVERIFIED; neither missing evidence nor engineering mocks override reported frozen PASS/INDETERMINATE or create FAIL.",
+    "RouteB is the shortest justified next evidence step, not proof that dynamic/physical gaps can close offline; findings remain in successor only."
+  ]
+}

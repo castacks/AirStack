@@ -1,0 +1,17 @@
+# Shortest defensible route
+
+**Recommend Route B as the immediate next scope: targeted offline original-record and existing-evidence admission. No route currently supports a declaration of complete F00 acceptance.** The exact entry blocker is missing authoritative scope/criteria/configuration/raw-evidence authority (CHK19 and MAP-023), with reported unresolved REC-01 (MAP-018) and registered-boundary findings (MAP-019/020). Modern guard compilation does not resolve those by itself.
+
+| Route | Present viability / condition for actual completion |
+|---|---|
+|A Existing-evidence completion | Shortest in principle if full authenticated existing evidence covers every applicable criterion/finding and independent/PD sign-off is supplied. Not currently defensible: original matrix/DR/SRS/qualifying raw records and approval chains missing. Reported AUT16/17 PASS is not new authenticated data admission |
+|B Targeted offline closure | Recommended next milestone. Can establish authentic scope, admit/recompute existing records and resolve exact remainder without new startup/image access. Can reach final disposition only if admitted evidence actually closes all applicable obligations; no claim that source inspection or mocks can close an outstanding dynamic boundary test |
+|C Minimal controlled runtime demonstration | Conditional after B, only for a confirmed uncovered mandatory claim. REC-01 may need only supervised OS processes; native boundary/flight gaps need actual approved PX4/system runtime, truth and controls. No current approved target/containment/authority. Reduced startup rig may lack required task/control/truth paths; HIL/REAL only for retained corresponding claims |
+
+For any future Route C execution, require only controls appropriate to the actual task: authenticated exact input/claim configuration, admissible independent recording/clock/truth, device/network/command confinement for software-only tasks, legitimate host resources and independent target-only stop; physical tasks additionally retain the actual staged safety/TRR/RC/kill/enclosure conditions. No configuration or test is approved here. An alternative simulator or Python reference cannot inherit F00 equivalence without accepted D5/criterion-specific justification.
+
+**Exact proposed next milestone:** M00-M, *Authoritative F00 record admission and existing-evidence coverage decision*, limited to P0/P1: receive/authenticate original closure/criteria/open-findings/SRS/REC-01/BOUNDARY records and qualifying raw evidence, preserve original acceptance wording/windows, independently map admitted evidence to29 identities, and return a smallest residual test/decision list for PD review. This names a proposal, not authority to begin it. Do not resume container-access work or repeat architectural/organizational discovery.
+
+Requested PD review is a scope decision, not a waiver: confirm that frozen F00 stays frozen; distinguish successor closure of reported findings from optional EXT HIL/REAL expansion; direct delivery/admission of exact missing originals and raw records; approve no native-build dependency unless tied to a confirmed gap. Source-authentication gaps are not fixed by changing criteria or erasing physical-only rows. Approval/qualification remains pending.
+
+G0 BLOCKED; RA01 PENDING; WP01 NOT AUTHORIZED; Tier B target undesignated; execution NOT AUTHORIZED; runtime containment NOT VERIFIED. Stop after M00-L local commit. No M00-M or runtime action is authorized.

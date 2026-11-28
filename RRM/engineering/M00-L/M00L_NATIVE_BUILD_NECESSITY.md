@@ -1,0 +1,27 @@
+# Native-build necessity and existing startup evidence
+
+**Native compilation is not established as a mandatory F00 acceptance activity.** It is a conditional implementation dependency if a selected, justified verification method requires rebuilding the original-header host. Missing originals prevent an unconditional finding that source compilation is either universally required or universally unnecessary. No H–K build permission or infrastructure request is continued by L.
+
+| Activity | Classification | Evidence and limit |
+|---|---|---|
+|1 Compile original guard from source | CONDITIONAL | D2 states behavior/evidence criteria; E4 §1 describes frozen executables/configuration, not a fresh compile requirement. G–K chosen host needs compilation, but authenticated existing binaries/raw evidence could remove that task. Original requirement authority unresolved |
+|2 Execute original guard in production-equivalent ROS2 | CONDITIONAL | E4 §2 requires readiness before selected SIL tests; D5 governs actual claim equivalence. Native runtime proof is needed if making a new native-compatibility/guard-behavior claim, not automatically for offline original-data admission. Synthetic tests cannot stand in for it |
+|3 Demonstrate equivalent behavior by another method | UNRESOLVED | D5/E4 distinguish exact reproduction from NE corroboration. No authenticated approval allows an alternative model/mock to replace original system acceptance. Equivalence needs claim-specific evidence and technical disposition |
+|4 Reproduce the exact historical startup episode | UNRESOLVED | M00-D is diagnostic characterization; no available D2 criterion requires replaying this specific failure or the proposed24-start schedule. Original startup/timing allocation is missing; do not declare requirement satisfied or nonexistent from that absence |
+|5 Run reduced AirStack simulation stack | CONDITIONAL | F/G reduce startup diagnosis topology. Actual D2 takeoff/trajectory/fault/boundary claims may require task/control/truth components excluded from that rig. Select smallest configuration covering a confirmed residual requirement; E4 CFG-SIL-01 reference conditions remain for reproduction |
+|6 Verify dedicated independent guard host | CONDITIONAL | F/G architecture choice, no available baseline clause prescribing it. D2 §4 explicitly requires independent **recorder supervision**, which is a different obligation. A separate guard process is not REC-01 proof |
+
+No row is positively established MANDATORY by an authenticated original. Conditional here means method-dependent, not approved or acceptance-equivalent. Exact classification basis is the available clause cited, with authority limits in the baseline report.
+
+**M00-D episode: one startup, zero new trials.** Raw source is `RRM/evidence/M00-C/startup-source-records.json`; exact locators/domains are in `RRM/evidence/M00-D/latency-measurements.csv`. L independently subtracts the two producer ROS-log epochs and the two Docker-receipt application/graph timestamps, using Decimal without converting them into one clock domain.
+
+| Claim | What the existing evidence supports | What remains unproved |
+|---|---|---|
+| Deadline→MAVROS |19.276162179s between error log1795805000.934741647 and first recorded connected-heartbeat log1795805020.210903826 | Not total PX4 startup, wire latency, exact steady-deadline edge or validated response budget; realtime clock continuity not independently calibrated |
+| App complete→vehicle graph |74.228771713s between Docker receipts18:42:09.695796205 and18:43:23.924567918 UTC | Not exclusive scene-load duration or causal attribution to shader/I/O/CPU/GPU contention; buffering unknown |
+| Deadline evaluation | Checked-out guard source has steady member origin, default10s deadline,200ms wall timer,500ms freshness and QUERY_BUSY early return | Missing numeric origin/callback/lock trace means no exact historical jitter/deadline evaluation proof. These implementation values are not acceptance thresholds; E4 readiness true≥30s is a different run-entry condition |
+| Failure latch/late connection | Error precedes connection; later retained61/61 readiness false/STARTUP_DEADLINE samples are consistent with source's failed-initializer latch | No complete initial state/transaction/unsafe trace; late heartbeat does not prove successful initialization or independently measured physical state |
+| Recovery | Source does not retry failed attempted initialization; recovery by renewed readback applies only after an initially successful initialization | No successful restart/recovery experiment or return to readiness demonstrated in this episode; do not reset the latch or infer repair from later connection |
+| Repeatability/acceptance | Raw arithmetic and source inspection are reproducible offline | Startup behavior repeatability, independent trial distribution, p95/Wilson reliability, flight criteria, production ABI/configuration equivalence and qualification are not demonstrated |
+
+Source-semantic interpretation is pinned to the unchanged guard header (SHA in validation), not claimed proof of original frozen binary execution. M00-D L13–L19 explicitly record missing spans/traces. Repeated log parsing or61 Boolean samples are not61 startups. Existing evidence is admissible **as bounded diagnostic observation**, with acquisition/clock/source limits, not as a requirement-level PASS or statistical result. No observed duration supplies a new acceptance threshold.
