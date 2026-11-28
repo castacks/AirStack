@@ -1,0 +1,58 @@
+[
+  {
+    "name": "privileged",
+    "service": "sim",
+    "field": "privileged",
+    "value": true
+  },
+  {
+    "name": "host_ipc",
+    "service": "sim",
+    "field": "ipc",
+    "value": "host"
+  },
+  {
+    "name": "host_pid",
+    "service": "sim",
+    "field": "pid",
+    "value": "host"
+  },
+  {
+    "name": "all_caps",
+    "service": "sim",
+    "field": "cap_add",
+    "value": [
+      "ALL"
+    ]
+  },
+  {
+    "name": "physical_device",
+    "service": "sim",
+    "field": "devices",
+    "value": [
+      "/dev/ttyUSB0"
+    ]
+  },
+  {
+    "name": "host_port",
+    "service": "sim",
+    "field": "ports",
+    "value": [
+      "14550:14550/udp"
+    ]
+  },
+  {
+    "name": "unsafe_entrypoint",
+    "service": "sim",
+    "field": "entrypoint",
+    "value": [
+      "/bin/bash"
+    ]
+  },
+  {
+    "name": "unsafe_network",
+    "service": "sim",
+    "field": "network_mode",
+    "value": "host"
+  }
+]

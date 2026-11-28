@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RRM diagnostic event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "event_id",
+    "kind",
+    "source",
+    "clock_id",
+    "producer_boot_id",
+    "configuration_sha256",
+    "evidence_class",
+    "previous_sha256",
+    "sha256",
+    "schema_version",
+    "sequence",
+    "producer_pid",
+    "producer_sequence",
+    "producer_monotonic_ns",
+    "producer_wall_ns",
+    "receipt_monotonic_ns",
+    "receipt_wall_ns",
+    "data"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "application_complete",
+        "data_loss",
+        "deadline_failure",
+        "evidence_sealed",
+        "first_play",
+        "guard_constructed",
+        "guard_initialized",
+        "guard_status",
+        "mavros_connection",
+        "px4_spawn",
+        "recorder_end",
+        "recorder_failure",
+        "recorder_init",
+        "recorder_ready",
+        "recovery_approved",
+        "recovery_isolated",
+        "recovery_requested",
+        "vehicle_graph_ready"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clock_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "producer_boot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "configuration_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence_class": {
+      "const": "B_RRM_ENGINEERING_DIAGNOSTIC"
+    },
+    "previous_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "producer_pid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "producer_sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "producer_monotonic_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "producer_wall_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "receipt_monotonic_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "receipt_wall_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "data": {
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "overall": "BLOCKED",
+  "execution_ready": false,
+  "static_configuration": {
+    "status": "BLOCKED",
+    "static_policy": "PASS",
+    "failures": [],
+    "blocked": [
+      "guard: entrypoint intentionally disabled pending image/startup review",
+      "guard: immutable image identity unresolved",
+      "mavros: entrypoint intentionally disabled pending image/startup review",
+      "mavros: immutable image identity unresolved",
+      "recorder: entrypoint intentionally disabled pending image/startup review",
+      "recorder: immutable image identity unresolved",
+      "sim: entrypoint intentionally disabled pending image/startup review",
+      "sim: immutable image identity unresolved",
+      "Required asset identity unresolved"
+    ],
+    "runtime_containment": "NOT VERIFIED",
+    "note": "Static PASS can include deliberately disabled entrypoints; it never permits execution."
+  },
+  "runtime_containment": {
+    "status": "NOT VERIFIED",
+    "properties": [
+      {
+        "property": "host_device_isolation",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "network_confinement",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "gpu_least_privilege",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "recorder_reliability",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "independent_stop",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "command_exclusion",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "clock_maps",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      },
+      {
+        "property": "host_resource_permissions",
+        "status": "NOT VERIFIED",
+        "evidence": null
+      }
+    ]
+  },
+  "acceptance_gate": [
+    {
+      "gate_id": "IG01",
+      "criterion": "No physical-device mounts",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG02",
+      "criterion": "No privileged access",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG03",
+      "criterion": "No serial or USB passthrough",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG04",
+      "criterion": "No MAVLink route to physical FC",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG05",
+      "criterion": "Confined DDS",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG06",
+      "criterion": "Command services cannot reach actuators",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG07",
+      "criterion": "Host network and external ports understood",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG08",
+      "criterion": "No silent hardware entrypoint",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG09",
+      "criterion": "Image and dependency identity",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG10",
+      "criterion": "Probes preserve safety-critical behavior",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG11",
+      "criterion": "Independent shutdown and containment",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG12",
+      "criterion": "Execution host and resource permissions known",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG13",
+      "criterion": "Clocks and recorder readiness",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    },
+    {
+      "gate_id": "IG14",
+      "criterion": "Separate exact execution authorization",
+      "status": "NOT VERIFIED",
+      "result": "NOT PASSED"
+    }
+  ],
+  "implementation_blockers": [
+    {
+      "component": "all",
+      "id": "DEP01",
+      "needed": "Immutable simulator/robot/recorder images and installed artifact manifests; no target digests invented",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "sim",
+      "id": "DEP02",
+      "needed": "Pinned local USD, vehicle assets and complete offline dependency closure; no asset downloading; per-attempt cache/epoch identity: fixed Compose volume names do not establish fresh or audited warm caches",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "sim",
+      "id": "DEP03",
+      "needed": "Nonprivileged GPU user/filesystem/device grant and startup initialization compatible with pinned image",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "mavros",
+      "id": "DEP04",
+      "needed": "Exact plugin list/API/auto-traffic and physical-route exclusion; default upstream list is not restricted authorization",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "guard",
+      "id": "DEP05",
+      "needed": "Build and review minimal guard host against original header and exact ROS/MAVROS/YAML dependencies; source-only now",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "all",
+      "id": "DEP06",
+      "needed": "Image initialization and disabled entrypoint resolution; no root .bashrc/tmux/SSH defaults",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "all",
+      "id": "DEP07",
+      "needed": "DDS XML parser/peer/UDP startup compatibility and independent effective network/device containment",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "recorder",
+      "id": "DEP08",
+      "needed": "Real source-event adapters, spool transport, independent supervision/fsync/durability/loss/resource-bound failure evidence",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "guard",
+      "id": "DEP09",
+      "needed": "Finite independent P1 readiness observer and reviewed P0/P1 sequencing; Compose service_started is insufficient",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "all",
+      "id": "DEP10",
+      "needed": "Exact host entitlement/identity/finite resources and target-only stop/recovery procedure",
+      "status": "UNRESOLVED"
+    },
+    {
+      "component": "all",
+      "id": "DEP11",
+      "needed": "Exact PD bounded execution authorization and target designation; G0/RA01/WP01 boundaries unchanged",
+      "status": "UNRESOLVED"
+    }
+  ],
+  "additional_failures": [],
+  "authorization": "NOT AUTHORIZED",
+  "tier_b_target": "UNDESIGNATED",
+  "note": "Static PASS and synthetic tests never constitute overall execution readiness."
+}

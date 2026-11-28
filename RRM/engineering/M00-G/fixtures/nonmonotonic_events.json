@@ -1,0 +1,121 @@
+[
+  {
+    "clock_id": "recorder_monotonic",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": {
+      "state": "INITIALIZING"
+    },
+    "event_id": "SYNTHETIC-RUN:1",
+    "evidence_class": "B_RRM_ENGINEERING_DIAGNOSTIC",
+    "kind": "recorder_init",
+    "previous_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "producer_boot_id": "SYNTHETIC_BOOT",
+    "producer_monotonic_ns": 100,
+    "producer_pid": 10,
+    "producer_sequence": 1,
+    "producer_wall_ns": 200,
+    "receipt_monotonic_ns": 300,
+    "receipt_wall_ns": 400,
+    "run_id": "SYNTHETIC-RUN",
+    "schema_version": 1,
+    "sequence": 1,
+    "sha256": "f193264ed40b84eeaeee2ed07a09fa7a1d3dec565b68ed72f8afcf7799a47f53",
+    "source": "recorder"
+  },
+  {
+    "clock_id": "recorder_monotonic",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": {
+      "state": "READY_OFFLINE_WRITER_ONLY"
+    },
+    "event_id": "SYNTHETIC-RUN:2",
+    "evidence_class": "B_RRM_ENGINEERING_DIAGNOSTIC",
+    "kind": "recorder_ready",
+    "previous_sha256": "f193264ed40b84eeaeee2ed07a09fa7a1d3dec565b68ed72f8afcf7799a47f53",
+    "producer_boot_id": "SYNTHETIC_BOOT",
+    "producer_monotonic_ns": 500,
+    "producer_pid": 10,
+    "producer_sequence": 2,
+    "producer_wall_ns": 600,
+    "receipt_monotonic_ns": 700,
+    "receipt_wall_ns": 800,
+    "run_id": "SYNTHETIC-RUN",
+    "schema_version": 1,
+    "sequence": 2,
+    "sha256": "42c483e5c6be714b00cf10ae8fb319ab3a1a0265cf0bd8f82e1442d814f1617b",
+    "source": "recorder"
+  },
+  {
+    "clock_id": "synthetic_steady",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": {
+      "connected": false,
+      "guard_instance": "synthetic-guard-1",
+      "synthetic": true
+    },
+    "event_id": "SYNTHETIC-RUN:3",
+    "evidence_class": "B_RRM_ENGINEERING_DIAGNOSTIC",
+    "kind": "application_complete",
+    "previous_sha256": "42c483e5c6be714b00cf10ae8fb319ab3a1a0265cf0bd8f82e1442d814f1617b",
+    "producer_boot_id": "SYNTHETIC_BOOT",
+    "producer_monotonic_ns": 1000,
+    "producer_pid": 11,
+    "producer_sequence": 1,
+    "producer_wall_ns": 2000,
+    "receipt_monotonic_ns": 900,
+    "receipt_wall_ns": 1000,
+    "run_id": "SYNTHETIC-RUN",
+    "schema_version": 1,
+    "sequence": 3,
+    "sha256": "d28318e1e2708aa08392dd8334817d26c42b241d6118db2f40d6d870629eaaf3",
+    "source": "synthetic_sim"
+  },
+  {
+    "clock_id": "synthetic_steady",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": {
+      "connected": false,
+      "guard_instance": "synthetic-guard-1",
+      "synthetic": true
+    },
+    "event_id": "SYNTHETIC-RUN:4",
+    "evidence_class": "B_RRM_ENGINEERING_DIAGNOSTIC",
+    "kind": "vehicle_graph_ready",
+    "previous_sha256": "d28318e1e2708aa08392dd8334817d26c42b241d6118db2f40d6d870629eaaf3",
+    "producer_boot_id": "SYNTHETIC_BOOT",
+    "producer_monotonic_ns": 0,
+    "producer_pid": 11,
+    "producer_sequence": 2,
+    "producer_wall_ns": 4000,
+    "receipt_monotonic_ns": 1100,
+    "receipt_wall_ns": 1200,
+    "run_id": "SYNTHETIC-RUN",
+    "schema_version": 1,
+    "sequence": 4,
+    "sha256": "cb1cb3f28dfeb90d78826cff9a7e1e7418f4f48a7620951184e57d42542dd06d",
+    "source": "synthetic_sim"
+  },
+  {
+    "clock_id": "recorder_monotonic",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data": {
+      "state": "CLOSED"
+    },
+    "event_id": "SYNTHETIC-RUN:5",
+    "evidence_class": "B_RRM_ENGINEERING_DIAGNOSTIC",
+    "kind": "recorder_end",
+    "previous_sha256": "cb1cb3f28dfeb90d78826cff9a7e1e7418f4f48a7620951184e57d42542dd06d",
+    "producer_boot_id": "SYNTHETIC_BOOT",
+    "producer_monotonic_ns": 1300,
+    "producer_pid": 10,
+    "producer_sequence": 5,
+    "producer_wall_ns": 1400,
+    "receipt_monotonic_ns": 1500,
+    "receipt_wall_ns": 1600,
+    "run_id": "SYNTHETIC-RUN",
+    "schema_version": 1,
+    "sequence": 5,
+    "sha256": "20e6f391271c3742fa47cb0f978555678ac4e820292d8ee5c133cb201c900ec7",
+    "source": "recorder"
+  }
+]

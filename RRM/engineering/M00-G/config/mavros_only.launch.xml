@@ -1,0 +1,13 @@
+<launch>
+  <!-- Prototype: upstream plugin list and image initialization remain unverified. -->
+  <group>
+    <push_ros_namespace namespace="robot_1/interface" />
+    <include file="$(find-pkg-share interface_bringup)/launch/mavros_px4.launch.xml">
+      <arg name="fcu_url" value="udp://:14541@172.30.50.2:14581" />
+      <arg name="gcs_url" value="" />
+      <arg name="tgt_system" value="2" />
+      <arg name="namespace" value="" />
+      <arg name="respawn_mavros" value="false" />
+    </include>
+  </group>
+</launch>

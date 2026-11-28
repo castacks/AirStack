@@ -1,0 +1,303 @@
+{
+  "name": "rrm-m00g-offline-prototype",
+  "networks": {
+    "rrm_internal": {
+      "driver": "bridge",
+      "internal": true,
+      "ipam": {
+        "config": [
+          {
+            "subnet": "172.30.50.0/24"
+          }
+        ]
+      }
+    }
+  },
+  "services": {
+    "guard": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "/rrm/install/rrm_startup_guard/lib/rrm_startup_guard/rrm_startup_guard",
+        "--ros-args",
+        "-r",
+        "__ns:=/robot_1/interface",
+        "-p",
+        "actuation_startup_timeout_s:=10.0",
+        "-p",
+        "mavros_actuation_config:=/rrm-upstream/px4_config.yaml"
+      ],
+      "depends_on": {
+        "mavros": {
+          "condition": "service_started"
+        },
+        "recorder": {
+          "condition": "service_started"
+        }
+      },
+      "device_cgroup_rules": [],
+      "devices": [],
+      "entrypoint": [
+        "/UNRESOLVED_M00G_ENTRYPOINT_NO_EXECUTION_AUTHORIZED"
+      ],
+      "environment": {
+        "AUTOLAUNCH": "false",
+        "FASTRTPS_DEFAULT_PROFILES_FILE": "/rrm/config/dds.xml",
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "ROS_DOMAIN_ID": "1"
+      },
+      "image": "${RRM_GUARD_IMAGE:?UNRESOLVED_IMMUTABLE_IMAGE_IDENTITY}",
+      "ipc": "private",
+      "networks": {
+        "rrm_internal": {
+          "ipv4_address": "172.30.50.4"
+        }
+      },
+      "ports": [],
+      "privileged": false,
+      "profiles": [
+        "rrm-disabled-pending-review"
+      ],
+      "pull_policy": "never",
+      "read_only": true,
+      "restart": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864"
+      ],
+      "user": "10001:10001",
+      "volumes": [
+        {
+          "read_only": true,
+          "source": "../",
+          "target": "/rrm",
+          "type": "bind"
+        },
+        {
+          "read_only": false,
+          "source": "event_spool",
+          "target": "/rrm/spool",
+          "type": "volume"
+        },
+        {
+          "read_only": true,
+          "source": "../../../../robot/ros_ws/src/interface/interface_bringup/config/px4_config.yaml",
+          "target": "/rrm-upstream/px4_config.yaml",
+          "type": "bind"
+        }
+      ]
+    },
+    "mavros": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "ros2",
+        "launch",
+        "/rrm/config/mavros_only.launch.xml"
+      ],
+      "depends_on": {
+        "recorder": {
+          "condition": "service_started"
+        },
+        "sim": {
+          "condition": "service_started"
+        }
+      },
+      "device_cgroup_rules": [],
+      "devices": [],
+      "entrypoint": [
+        "/UNRESOLVED_M00G_ENTRYPOINT_NO_EXECUTION_AUTHORIZED"
+      ],
+      "environment": {
+        "AUTOLAUNCH": "false",
+        "FASTRTPS_DEFAULT_PROFILES_FILE": "/rrm/config/dds.xml",
+        "FCU_URL": "udp://:14541@172.30.50.2:14581",
+        "GCS_URL": "",
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "ROS_DOMAIN_ID": "1",
+        "TGT_SYSTEM": "2"
+      },
+      "image": "${RRM_MAVROS_IMAGE:?UNRESOLVED_IMMUTABLE_IMAGE_IDENTITY}",
+      "ipc": "private",
+      "networks": {
+        "rrm_internal": {
+          "ipv4_address": "172.30.50.3"
+        }
+      },
+      "ports": [],
+      "privileged": false,
+      "profiles": [
+        "rrm-disabled-pending-review"
+      ],
+      "pull_policy": "never",
+      "read_only": true,
+      "restart": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864"
+      ],
+      "user": "10001:10001",
+      "volumes": [
+        {
+          "read_only": true,
+          "source": "../",
+          "target": "/rrm",
+          "type": "bind"
+        },
+        {
+          "read_only": false,
+          "source": "event_spool",
+          "target": "/rrm/spool",
+          "type": "volume"
+        }
+      ]
+    },
+    "recorder": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "python3",
+        "/rrm/recorder.py"
+      ],
+      "depends_on": {},
+      "device_cgroup_rules": [],
+      "devices": [],
+      "entrypoint": [
+        "/UNRESOLVED_M00G_ENTRYPOINT_NO_EXECUTION_AUTHORIZED"
+      ],
+      "environment": {},
+      "image": "${RRM_RECORDER_IMAGE:?UNRESOLVED_IMMUTABLE_IMAGE_IDENTITY}",
+      "ipc": "private",
+      "network_mode": "none",
+      "ports": [],
+      "privileged": false,
+      "profiles": [
+        "rrm-disabled-pending-review"
+      ],
+      "pull_policy": "never",
+      "read_only": true,
+      "restart": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864"
+      ],
+      "user": "10001:10001",
+      "volumes": [
+        {
+          "read_only": true,
+          "source": "../",
+          "target": "/rrm",
+          "type": "bind"
+        },
+        {
+          "read_only": true,
+          "source": "event_spool",
+          "target": "/rrm/spool",
+          "type": "volume"
+        },
+        {
+          "read_only": false,
+          "source": "evidence",
+          "target": "/rrm/evidence",
+          "type": "volume"
+        }
+      ]
+    },
+    "sim": {
+      "cap_add": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "/isaac-sim/python.sh",
+        "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py"
+      ],
+      "depends_on": {
+        "recorder": {
+          "condition": "service_started"
+        }
+      },
+      "device_cgroup_rules": [],
+      "devices": [],
+      "entrypoint": [
+        "/UNRESOLVED_M00G_ENTRYPOINT_NO_EXECUTION_AUTHORIZED"
+      ],
+      "environment": {
+        "AUTOLAUNCH": "false",
+        "FASTRTPS_DEFAULT_PROFILES_FILE": "/rrm/config/dds.xml",
+        "ISAAC_SIM_HEADLESS": "true",
+        "ISAAC_SIM_LIVESTREAM": "false",
+        "ISAAC_SIM_SCENE": "/rrm/assets/UNRESOLVED_PINNED_SCENE.usd",
+        "NUM_ROBOTS": "1",
+        "PLAY_SIM_ON_START": "false",
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+        "ROS_DOMAIN_ID": "1"
+      },
+      "image": "${RRM_SIM_IMAGE:?UNRESOLVED_IMMUTABLE_IMAGE_IDENTITY}",
+      "ipc": "private",
+      "networks": {
+        "rrm_internal": {
+          "ipv4_address": "172.30.50.2"
+        }
+      },
+      "ports": [],
+      "privileged": false,
+      "profiles": [
+        "rrm-disabled-pending-review"
+      ],
+      "pull_policy": "never",
+      "read_only": true,
+      "restart": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864"
+      ],
+      "user": "10001:10001",
+      "volumes": [
+        {
+          "read_only": true,
+          "source": "../",
+          "target": "/rrm",
+          "type": "bind"
+        },
+        {
+          "read_only": false,
+          "source": "event_spool",
+          "target": "/rrm/spool",
+          "type": "volume"
+        },
+        {
+          "read_only": true,
+          "source": "../../../../simulation/isaac-sim/launch_scripts",
+          "target": "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts",
+          "type": "bind"
+        },
+        {
+          "read_only": false,
+          "source": "sim_cache",
+          "target": "/isaac-sim/.cache",
+          "type": "volume"
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "event_spool": {},
+    "evidence": {},
+    "sim_cache": {}
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "components": {
+    "guard": {
+      "depends_on": [
+        "recorder",
+        "mavros"
+      ],
+      "readiness": "P0 concurrent/P1 independent finite dependency predicate; unchanged guard callbacks after construction",
+      "status": "SOURCE_IMPLEMENTED_UNBUILT; P1 adapter blocked"
+    },
+    "mavros": {
+      "depends_on": [
+        "recorder",
+        "sim"
+      ],
+      "readiness": "actual new connected/disarmed/on-ground callbacks and required services",
+      "status": "BLOCKED_IMAGE_PLUGIN_AUDIT"
+    },
+    "recorder": {
+      "depends_on": [],
+      "readiness": "durable initialization record and collector health; service_started insufficient",
+      "status": "OFFLINE_LIBRARY_IMPLEMENTED; runtime collector blocked"
+    },
+    "sim": {
+      "depends_on": [
+        "recorder"
+      ],
+      "readiness": "separate app-complete, graph, first Play, PX4 spawn and connected events",
+      "status": "BLOCKED_IMAGE_ASSETS_GPU_ENTRYPOINT"
+    }
+  },
+  "px4": "SITL child of Pegasus sim, not a fifth independently commanded service",
+  "recorder_controls_startup": false,
+  "runtime_sequence_implemented": false,
+  "schema_version": 1
+}

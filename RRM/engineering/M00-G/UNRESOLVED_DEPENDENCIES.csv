@@ -1,0 +1,12 @@
+component,id,needed,status
+all,DEP01,Immutable simulator/robot/recorder images and installed artifact manifests; no target digests invented,UNRESOLVED
+sim,DEP02,"Pinned local USD, vehicle assets and complete offline dependency closure; no asset downloading; per-attempt cache/epoch identity: fixed Compose volume names do not establish fresh or audited warm caches",UNRESOLVED
+sim,DEP03,Nonprivileged GPU user/filesystem/device grant and startup initialization compatible with pinned image,UNRESOLVED
+mavros,DEP04,Exact plugin list/API/auto-traffic and physical-route exclusion; default upstream list is not restricted authorization,UNRESOLVED
+guard,DEP05,Build and review minimal guard host against original header and exact ROS/MAVROS/YAML dependencies; source-only now,UNRESOLVED
+all,DEP06,Image initialization and disabled entrypoint resolution; no root .bashrc/tmux/SSH defaults,UNRESOLVED
+all,DEP07,DDS XML parser/peer/UDP startup compatibility and independent effective network/device containment,UNRESOLVED
+recorder,DEP08,"Real source-event adapters, spool transport, independent supervision/fsync/durability/loss/resource-bound failure evidence",UNRESOLVED
+guard,DEP09,Finite independent P1 readiness observer and reviewed P0/P1 sequencing; Compose service_started is insufficient,UNRESOLVED
+all,DEP10,Exact host entitlement/identity/finite resources and target-only stop/recovery procedure,UNRESOLVED
+all,DEP11,Exact PD bounded execution authorization and target designation; G0/RA01/WP01 boundaries unchanged,UNRESOLVED
