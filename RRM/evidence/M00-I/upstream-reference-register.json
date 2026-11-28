@@ -1,0 +1,71 @@
+{
+  "consulted_date_utc": "2026-11-28",
+  "identity_limit": "URLs and named tag/branch references, not authenticated installed package/binary identities or immutable commit hashes; local consumer SHA in source-manifest.json",
+  "method": "Read-only browser consultation; no dependencies fetched or installed",
+  "references": [
+    {
+      "id": "WEB01",
+      "reference": "MAVROS2.16.0 tag",
+      "supported_claim": "Boolean connected/armed, header and mode state",
+      "url": "https://raw.githubusercontent.com/mavlink/mavros/2.16.0/mavros_msgs/msg/State.msg"
+    },
+    {
+      "id": "WEB02",
+      "reference": "MAVROS2.16.0 tag",
+      "supported_claim": "uint8 landed-state constants0..4",
+      "url": "https://raw.githubusercontent.com/mavlink/mavros/2.16.0/mavros_msgs/msg/ExtendedState.msg"
+    },
+    {
+      "id": "WEB03",
+      "reference": "jazzy branch",
+      "supported_claim": "names to ParameterValue values",
+      "url": "https://raw.githubusercontent.com/ros2/rcl_interfaces/jazzy/rcl_interfaces/srv/GetParameters.srv"
+    },
+    {
+      "id": "WEB04",
+      "reference": "jazzy branch",
+      "supported_claim": "Parameter array to SetParametersResult array",
+      "url": "https://raw.githubusercontent.com/ros2/rcl_interfaces/jazzy/rcl_interfaces/srv/SetParameters.srv"
+    },
+    {
+      "id": "WEB05",
+      "reference": "jazzy branch",
+      "supported_claim": "type discriminator and float64 double_value",
+      "url": "https://raw.githubusercontent.com/ros2/rcl_interfaces/jazzy/rcl_interfaces/msg/ParameterValue.msg"
+    },
+    {
+      "id": "WEB06",
+      "reference": "jazzy branch",
+      "supported_claim": "depth converts KeepLast; reliable/volatile defaults; services default profile",
+      "url": "https://raw.githubusercontent.com/ros2/rclcpp/jazzy/rclcpp/include/rclcpp/qos.hpp"
+    },
+    {
+      "id": "WEB07",
+      "reference": "MAVROS2.16.0 tag",
+      "supported_claim": "State/ExtendedState publishers and StateQoS; heartbeat/connection callbacks",
+      "url": "https://raw.githubusercontent.com/mavlink/mavros/2.16.0/mavros/src/plugins/sys_status.cpp"
+    },
+    {
+      "id": "WEB08",
+      "reference": "MAVROS2.16.0 tag",
+      "supported_claim": "setpoint_raw node parameter thrust_scaling; residual command subscriptions",
+      "url": "https://raw.githubusercontent.com/mavlink/mavros/2.16.0/mavros/src/plugins/setpoint_raw.cpp"
+    },
+    {
+      "id": "WEB09",
+      "reference": "MAVROS2.16.0 tag",
+      "supported_claim": "StateQoS reliable transient-local depth10; LatchedStateQoS separate depth1",
+      "url": "https://raw.githubusercontent.com/mavlink/mavros/2.16.0/mavros/include/mavros/qos.hpp"
+    },
+    {
+      "id": "WEB10",
+      "reference": "AirStack0.20 documentation URL",
+      "supported_claim": "Key Concepts: Dockerized robot/simulation composition; declaration only",
+      "url": "https://airlab-cmu.github.io/AirStack/0.20/"
+    }
+  ],
+  "warnings": [
+    "docs.ros.org rendered service/QoS pages denied access via Anubis; official ROS raw sources used instead.",
+    "Remote branches/tags can change; obtain exact image digest, package manifest and native artifacts in next environment."
+  ]
+}

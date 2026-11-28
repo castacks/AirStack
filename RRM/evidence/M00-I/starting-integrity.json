@@ -1,0 +1,71 @@
+{
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned M00-G start; 2368 protected entries, 453 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "offline_integration_and_reliability",
+      "status": "PASS",
+      "detail": "60 tests PASS,0 failures/errors/skips; all20 required synthetic integration cases; original-source reference and temporary-file/process faults"
+    },
+    {
+      "check": "build_verification",
+      "status": "PASS",
+      "detail": "Full guard compile/link BLOCKED by10 explicit missing tool/package dependencies; all H Python sources compiled/tested; no C++/CMake invocation, stubs or syntax-only production claim"
+    },
+    {
+      "check": "source_compatibility_adapters_and_preflight",
+      "status": "PASS",
+      "detail": "Original guard header preserved; failed-transaction reference correction tested; observational adapters implemented, ROS binding/full guard NOT VERIFIED; runtime/overall remain blocked"
+    },
+    {
+      "check": "prerequisite_requirement_continuity",
+      "status": "PASS",
+      "detail": "All20 original CHKs unchanged3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED; 29 mappings28 NOT_TESTED/1 OUT_OF_SCOPE; zero new qualification/whole closure"
+    },
+    {
+      "check": "package_integrity_governance_and_scope",
+      "status": "PASS",
+      "detail": "51 RRM-only changed paths; PROJECT_STATUS sole prior-file mutation; 25 dependency records,12 semantic rows and complete implementation/provenance evidence"
+    }
+  ],
+  "test_count": 60,
+  "failures": 0,
+  "errors": 0,
+  "test_skipped": 0,
+  "changed_file_count": 51,
+  "guard_build": "BLOCKED",
+  "dependency_free_python": "PASS",
+  "guard_source_correspondence": "PASS_SYNTHETIC_ONLY",
+  "full_guard_compatibility": "NOT VERIFIED",
+  "adapter_implementation": "OFFLINE_IMPLEMENTED;PRODUCTION_ROS_BINDING_NOT_VERIFIED",
+  "recorder_reliability": "LOCAL_SYNTHETIC_FAILURE_TESTS_PASS;RUNTIME_NOT_VERIFIED",
+  "static_isolation": "PASS",
+  "runtime_containment": "NOT VERIFIED",
+  "overall_execution_readiness": "BLOCKED",
+  "target_designation": "UNDESIGNATED",
+  "execution_authorized": false,
+  "warnings": [
+    "No compiler/CMake/ROS/YAML dependency set found in checked host PATH/prefixes; no full guard compile/link occurred.",
+    "G reference omitted failed-transaction attempt latch; corrected in H synthetic reference only; original/header/G history unchanged.",
+    "ROS/native event bindings and source authentication/clock mapping remain unverified; graph presence is not safety readiness.",
+    "Local fsync/partial-write/process-exit tests do not prove storage power-loss, independent recorder/host survival or REC-01 qualification.",
+    "Historical image/binary/asset facts do not establish assigned target identity or access; no digest/version invented."
+  ],
+  "skipped_checks": [
+    "Full native C++ guard build: exact10 dependency blockers, not replaced by stubs or syntax-only tests.",
+    "ROS/PX4/MAVROS/Isaac/Docker/network/device/GPU/runtime operations: unauthorized, none performed.",
+    "Independent runtime recorder supervision/overhead/host/power-failure proof and effective containment: not authorized or supplied.",
+    "Formal frozen F00 equivalence/qualification/original approval chains: unavailable.",
+    "Original M00 lacks a SHA256SUMS; protected baseline inventory covers unchanged history."
+  ],
+  "limitations": [
+    "Pure adapters and synthetic reference are engineering diagnostics, not original C++ runtime execution or qualification.",
+    "One offline Python child intentionally exits abruptly; no robot/simulator/service process is launched.",
+    "Checksums and terminal bytes attest structure, not source authenticity or successful durability acknowledgment; external health evidence required.",
+    "No active operations outside authorized offline tests/build inventory occurred, based on executed tool actions; file hashes alone cannot prove absence."
+  ]
+}

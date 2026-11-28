@@ -1,15 +1,15 @@
 # RRM project status
 
-Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly designates ChatGPT as project PD and directs D1/D3/D5 dispositions; technical/organizational evidence limits remain separate. Machine evidence retains UTC/native clocks.
+Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates ChatGPT as project PD and directs D1/D3/D5 dispositions; technical/organizational evidence limits remain separate. Machine evidence retains UTC/native clocks.
 
 | Field | Current state / evidence |
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | M00-H guard-build feasibility, source correspondence, pure adapters and recorder reliability complete in containing validated local commit; native guard build BLOCKED; STOP for PD review |
+| Current milestone | M00-I native build path and production interface assessment complete in containing validated local commit; outcome I2; native configure/compile/link BLOCKED; STOP for PD review |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | M00-G:45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac; M00-H completion is containing local commit |
-| Last local commit (full SHA verified at snapshot preparation) | 45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac |
+| Last completed milestone | M00-H:f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61; M00-I completion is containing local commit |
+| Last local commit (full SHA verified at snapshot preparation) | f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61 |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -19,19 +19,19 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
 | GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
 | GOV-002 completion commit | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; historical handoff preserved |
-| Remote synchronization | No push/fetch/remote ref updates; official AirStack /0.20/ documentation consulted read-only in M00-H |
+| Remote synchronization | No push/fetch/remote ref updates; official AirStack/ROS/MAVROS sources consulted read-only in M00-I |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | Deterministic host dependency/build check, original-header semantic matrix/corrected synthetic reference, lifecycle/MAVROS/graph/recorder adapters, durable local journal and60 offline tests |
+| Current engineering activity | Supported robot development container/Jazzy build path; nine native prerequisites absent; isolated-prefix-aware resolver, typed observation corrections and14 focused regressions PASS |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | Reduced desktop Architecture C basis retained; M00-G explicitly approves RRM-only offline implementation. Deployment and effective isolation not approved or verified |
 | D2 — Material configuration change | M00-G approves this offline prototype only; protected integration/deployment/runtime material changes remain deferred pending exact review |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
-| D5 — Engineering scope | M00-H authorizes offline implementation/compilation/synthetic tests/evidence only under RRM. No dependency installs/pulls or robot/simulator/device/network operations |
-| Primary finding | Full guard build BLOCKED: cxx,CMake and8 ROS/ament/message/YAML packages absent in checked local prefixes. Python compile and60 tests PASS; guard source correspondence synthetic-only, production ROS/runtime containment NOT VERIFIED |
-| Next action | PD review M00-H; separately scope exact local native toolchain/package handoff and full guard compile/link/ROS-binding verification plus named image/asset gaps; no organizational-discovery loop |
+| D5 — Engineering scope | M00-I authorizes passive inspection, RRM-only offline correction, compilation using existing genuine dependencies and focused offline tests. No installs/pulls/startup/ROS-node/device/probe/deployment operations |
+| Primary finding | I2: BUILD PATH VERIFIED, EXECUTION ENVIRONMENT UNAVAILABLE. Missing compiler,CMake and7 native ROS/ament/message/YAML packages; interface_bringup runtime resource locally resolved. Source checks/Python compile/14 tests PASS; native compile/link and runtime binding NOT VERIFIED |
+| Next action | PD review M00-I; provide an existing preloaded matching robot development environment or equivalent Jazzy SDK with exact image/package/compiler manifest; successor narrow RRM-only configure/compile/link task. No runtime startup/target designation implied |
 | Remaining approvals | No runtime target or bounded execution authority. Effective devices/network/DDS/GPU, host resource/stop scope and independent recorder evidence missing. RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED |
-| Last update evidence | RRM/handoffs/M00H_HANDOFF.md; RRM/evidence/M00-H/M00H_VALIDATION_RESULTS.json; M00H_PREFLIGHT_RESULTS.json; build/BUILD_RESULT.json; M00H_TEST_RESULTS.json |
+| Last update evidence | RRM/handoffs/M00I_HANDOFF.md; RRM/evidence/M00-I/M00I_VALIDATION_RESULTS.json; RRM/engineering/M00-I/M00I_NATIVE_BUILD_RESULTS.json; M00I_REGRESSION_RESULTS.json |
 
 ## Milestone history
 
@@ -52,11 +52,12 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | GOV-002 | Outcome A: authentic public professional routing contact for limited R1; no verified organizational approval authority or delivery authorization; historical checkpoint | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; RRM/handoffs/GOV002_HANDOFF.md |
 | M00-F | Offline AirStack simulation feasibility/isolation design and validation complete; F1 recommended; no execution gate pass | dc17fa3918c5e8af12ecabade3cee3efdc223f85; RRM/handoffs/M00F_HANDOFF.md |
 | M00-G | Offline simulation configuration/source/recorder implementation complete; synthetic validation PASS, execution BLOCKED | 45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac; RRM/handoffs/M00G_HANDOFF.md |
-| M00-H | Native build blockers precisely identified; corrected synthetic guard correspondence/adapters/durable recorder implemented,60 offline tests PASS; runtime BLOCKED | Containing local commit; RRM/handoffs/M00H_HANDOFF.md |
+| M00-H | Native build blockers precisely identified; corrected synthetic guard correspondence/adapters/durable recorder implemented,60 offline tests PASS; runtime BLOCKED | f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61; RRM/handoffs/M00H_HANDOFF.md |
+| M00-I | I2 supported container build path/source contracts established; nine native blockers;14 focused tests PASS; no native compilation/linking/runtime verification | Containing local commit; RRM/handoffs/M00I_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-H. Subquestion closure does not imply gate passage.
+Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-I. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|

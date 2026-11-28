@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rrm_startup_guard</name><version>0.1.0</version>
+  <description>Unbuilt offline RRM diagnostic host for unchanged AirStack guard</description>
+  <maintainer email="codex@localhost">RRM engineering</maintainer>
+  <license>BSD-3-Clause-Clear</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend><depend>ament_index_cpp</depend><depend>mavros_msgs</depend>
+  <depend>rcl_interfaces</depend><depend>std_msgs</depend><depend>yaml-cpp</depend>
+  <exec_depend>interface_bringup</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

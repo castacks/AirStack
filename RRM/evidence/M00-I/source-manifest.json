@@ -1,0 +1,346 @@
+{
+  "baseline": "f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61",
+  "files": [
+    {
+      "bytes": 466,
+      "path": ".devcontainer/robot/devcontainer.json",
+      "sha256": "2e9e0454f2db8b6eb4d83629c139321cb4f181b3305d7ab6725b82b6428f0b6b"
+    },
+    {
+      "bytes": 13273,
+      "path": ".github/workflows/docker-build.yml",
+      "sha256": "e59e5d8c76e7af6219edb009f140482cec18b0a729aaff61ea979f2c7c215655"
+    },
+    {
+      "bytes": 2161,
+      "path": ".github/workflows/unit-tests.yml",
+      "sha256": "a0613b0b733f0c00971028cb0f50167fbf7f04f51882199d4bbab768c219bb91"
+    },
+    {
+      "bytes": 54345,
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    },
+    {
+      "bytes": 3511,
+      "path": "RRM/engineering/M00-F/M00F_ISOLATION_ACCEPTANCE_GATE.csv",
+      "sha256": "ea27687c75fc6fad2f56a438ff33d826c24bee30d6aeb8111f9f38ef10f78c7e"
+    },
+    {
+      "bytes": 15963,
+      "path": "RRM/engineering/M00-G/PROVENANCE.json",
+      "sha256": "b5dbe4cd192eddfae89ff70c79091faf327fdb1b0df421df2878e8c6f6837fd6"
+    },
+    {
+      "bytes": 1531,
+      "path": "RRM/engineering/M00-G/UNRESOLVED_DEPENDENCIES.csv",
+      "sha256": "f376096639f5e6f4d4cd6a8bafaebf84fdf6897eee2e72abb554c7fd711fab2b"
+    },
+    {
+      "bytes": 12337,
+      "path": "RRM/engineering/M00-G/config_validator.py",
+      "sha256": "87e5be0ecb7239dece105cb5c9a4631debd8b69967a777d12b53dce3f113f1a3"
+    },
+    {
+      "bytes": 1255,
+      "path": "RRM/engineering/M00-G/guard_host/CMakeLists.txt",
+      "sha256": "f114928a57ac0d5d63bf86e557485399d1b901a4e008043a9b88b03dc2d6b5af"
+    },
+    {
+      "bytes": 636,
+      "path": "RRM/engineering/M00-G/guard_host/package.xml",
+      "sha256": "2e24af6e7a66fd3dcc5f8ef556639a48e1d68e277615b25119fe03ec4ed66a4f"
+    },
+    {
+      "bytes": 604,
+      "path": "RRM/engineering/M00-G/guard_host/src/guard_host.cpp",
+      "sha256": "7ee3268d3c56ab0029ed43fd20c28439e63b471bdd9fde5499f31c0897585e1d"
+    },
+    {
+      "bytes": 2713,
+      "path": "RRM/engineering/M00-G/preflight.py",
+      "sha256": "aacd443ebfb56c3c1f48da62505c16613ee3e56b0529df620f0da70a894292dd"
+    },
+    {
+      "bytes": 9027,
+      "path": "RRM/engineering/M00-G/recorder.py",
+      "sha256": "5a5329b4b8c709fff6ec466935f39fb4569037f3811f47de77bcb75f61c826dd"
+    },
+    {
+      "bytes": 1177,
+      "path": "RRM/engineering/M00-G/startup_reference.py",
+      "sha256": "40a9a339d9669c064d938dbaccbad9a2c3a7628666b248caef44dca05361e5f7"
+    },
+    {
+      "bytes": 12627,
+      "path": "RRM/engineering/M00-G/test_offline.py",
+      "sha256": "6ec20c74c0998b0fcf7a2034050261324632960dcb6f988e950245fe87edf2d4"
+    },
+    {
+      "bytes": 5101,
+      "path": "RRM/engineering/M00-H/observation_adapters.py",
+      "sha256": "2a45011901907fd6bfd9dd8c10bbd8677416081091b35488a2cd40af9d3372b5"
+    },
+    {
+      "bytes": 11481,
+      "path": "RRM/engineering/M00-H/reliable_recorder.py",
+      "sha256": "00b49ae4a3e93e750825a20385267e2c833a29bbcbcb10a91ba2d50f3f9dab91"
+    },
+    {
+      "bytes": 15630,
+      "path": "RRM/engineering/M00-H/test_h.py",
+      "sha256": "33d5fcdd4c0d2db6350a48e5e5a882e8b9ebf213373fd6a93802b32f7214560e"
+    },
+    {
+      "bytes": 131648,
+      "path": "RRM/evidence/M00-C/startup-source-records.json",
+      "sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+    },
+    {
+      "bytes": 6818,
+      "path": "RRM/evidence/M00-D/latency-measurements.csv",
+      "sha256": "298eea1c32e7a18930360c5361c07e3f796c0460465a80d548351ec994b9fe47"
+    },
+    {
+      "bytes": 10785,
+      "path": "RRM/evidence/M00-E1A/M00E1A_PREREQUISITE_REGISTER.csv",
+      "sha256": "c4ad91673a54196ff76c4d481ec187fd0d1d2f6a6891ef3d4fc4ce7e3cdb31f5"
+    },
+    {
+      "bytes": 3175,
+      "path": "RRM/governance/GOV-002/GOV002_PD_RELEASE_DECISION.md",
+      "sha256": "06f21e2512562c1a4b8765426bbc728c1fc7fd96b1c89ad7aaa757142ffac668"
+    },
+    {
+      "bytes": 2761,
+      "path": "RRM/requirements/F00_SOURCE_ASSESSMENT.md",
+      "sha256": "aabf875d542cd9736fd565acfe5ae8df0d33d9614599f8fb584f1c829e5c56b1"
+    },
+    {
+      "bytes": 10812,
+      "path": "RRM/verification/matrices/M00-B/M00B_CONFIGURATION_EQUIVALENCE.csv",
+      "sha256": "5f010a082b39bcc84dd5045557cb9e69ae4ee71334ec6df24e77c067d72f092e"
+    },
+    {
+      "bytes": 11716,
+      "path": "RRM/verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv",
+      "sha256": "f84f9b5e1c41ee1ffae4b2a288634d83c998619b8ca815db6d8574f7151339a6"
+    },
+    {
+      "bytes": 5481,
+      "path": "RRM/verification/reports/M00-D/M00D_LATENCY_CHARACTERIZATION.md",
+      "sha256": "1673ff7d29dfed95f30de7cdbf6552b2380a323efbd16254a6c9978dd5218a4e"
+    },
+    {
+      "bytes": 5584,
+      "path": "RRM/verification/reports/M00-E1B/M00E1B_ENVIRONMENT_INVENTORY.md",
+      "sha256": "380214d3cec9dddac6ab0652db69f9efbdbc8d357f013a8112f0350b3fdb1113"
+    },
+    {
+      "bytes": 10039,
+      "path": "RRM/verification/reports/M00-E1C/M00E1C_RIG_ARCHITECTURE.md",
+      "sha256": "3bb37bc11b1f8531d64c0af67c666c862bd302bcf807e3a0e02cc9109b9b8692"
+    },
+    {
+      "bytes": 3556,
+      "path": "RRM/verification/reports/M00-E1D/M00E1D_MEASUREMENT_INTEGRITY.md",
+      "sha256": "b81a7c4d2b9951653695b9b136195ad8649da764a683a1f70cfafdde3795fba3"
+    },
+    {
+      "bytes": 4927,
+      "path": "RRM/verification/reports/M00-E1E/M00E1E_ARCHITECTURE_C_DECISION_BASELINE.md",
+      "sha256": "bd70bad19db7c92198f73a7d216d6d222f2581e294cd5b677a588b99a3f0f23c"
+    },
+    {
+      "bytes": 112596,
+      "path": "airstack.sh",
+      "sha256": "a371375b9a0e806e9eb6b5704021b929bcda1beae6446be498941a0a3cc270d9"
+    },
+    {
+      "bytes": 1346,
+      "path": "common/fastdds.xml",
+      "sha256": "70561d8b76dad39595298057dff5febdf8fd4ea703f3565561ebcc78f2fc941c"
+    },
+    {
+      "bytes": 47740,
+      "path": "common/ros_packages/gui/rviz/rviz_tasks_panel/src/tasks_panel.cpp",
+      "sha256": "68e9251f9b85fcd4c6f3593a932fa6fcb17b192ac3e47a577fa350f774fbf674"
+    },
+    {
+      "bytes": 664,
+      "path": "docker-compose.yaml",
+      "sha256": "62ef4c714aeabbae3d19f9d700a4aa2b487e4bb51fbf2a69a933d63b30324c4d"
+    },
+    {
+      "bytes": 16210,
+      "path": "docs/development/stacks.md",
+      "sha256": "6936f24841c70a7b2bb95fb4aef3e000d625518da460df9ade271de8c5345884"
+    },
+    {
+      "bytes": 6920,
+      "path": "docs/robot/docker/index.md",
+      "sha256": "b200bf36b39ae4bbceb9e6256ac8f4070478720af1ffce325cd2c6aed33c0b25"
+    },
+    {
+      "bytes": 936,
+      "path": "gcs/docker/docker-compose.yaml",
+      "sha256": "a71c8d68ee840250e0b78d9c70e7903c3ebabd0a0d7d7d7dec6c8edd98bc4a5c"
+    },
+    {
+      "bytes": 3119,
+      "path": "gcs/docker/gcs-base-docker-compose.yaml",
+      "sha256": "603da79b2601622f57bb91afda2fbac7b815115195b7574943624431046eab00"
+    },
+    {
+      "bytes": 13895,
+      "path": "robot/docker/.bashrc",
+      "sha256": "53de32ca0fa6ca627dd2ed78e86671e6777c40a02e309caa750d3275ca44769e"
+    },
+    {
+      "bytes": 14006,
+      "path": "robot/docker/Dockerfile.robot",
+      "sha256": "d238c9ae9ee8c2338a7991b2b4efe40e7a564cd3a95411be818cb302f80960c4"
+    },
+    {
+      "bytes": 14012,
+      "path": "robot/docker/docker-compose.yaml",
+      "sha256": "f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0"
+    },
+    {
+      "bytes": 2908,
+      "path": "robot/docker/robot-base-docker-compose.yaml",
+      "sha256": "c7f4c0ebbd39011e06c3cfb7fb94b0ee411f5752ae493eea458a9d5fa86753ac"
+    },
+    {
+      "bytes": 49733,
+      "path": "robot/ros_ws/build/mavros_interface/CMakeCache.txt",
+      "sha256": "5baf106424c96206c2ec5472929488529a97f7d1a4758096863190d2fe3aadb7"
+    },
+    {
+      "bytes": 5539,
+      "path": "robot/ros_ws/build/mavros_interface/CMakeFiles/3.28.3/CMakeCXXCompiler.cmake",
+      "sha256": "12aa7c8bbf1cab72086c6cf13c49e3efb595ce9a89e3a1cbc73bf019b660bd12"
+    },
+    {
+      "bytes": 1343,
+      "path": "robot/ros_ws/install/interface_bringup/share/interface_bringup/cmake/interface_bringupConfig.cmake",
+      "sha256": "bec4f49eb9d038dfac03ab2214f1554ac14e3873ee2bc83850d892fdfd876d99"
+    },
+    {
+      "bytes": 8837,
+      "path": "robot/ros_ws/install/interface_bringup/share/interface_bringup/config/px4_config.yaml",
+      "sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c"
+    },
+    {
+      "bytes": 686,
+      "path": "robot/ros_ws/install/interface_bringup/share/interface_bringup/package.xml",
+      "sha256": "c96bc48b5299c38f48aad956d0926e15dc64a1ff14b709359ab0bbfe11d45604"
+    },
+    {
+      "bytes": 3298,
+      "path": "robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml",
+      "sha256": "5c24910d240a733c32e7b8aa96838697564ed066dda5ae03e682ce295e57a7a4"
+    },
+    {
+      "bytes": 3076,
+      "path": "robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml",
+      "sha256": "d1f8bf418dc57b50bd6189e8b20ec026a8b744c7ab81363d97534b67728412c1"
+    },
+    {
+      "bytes": 1048,
+      "path": "robot/ros_ws/src/interface/interface_bringup/CMakeLists.txt",
+      "sha256": "9af6290ae5ee4a72de3f6280ec8f3bcdaac93c69262515961d78379463561c5c"
+    },
+    {
+      "bytes": 8837,
+      "path": "robot/ros_ws/src/interface/interface_bringup/config/px4_config.yaml",
+      "sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c"
+    },
+    {
+      "bytes": 5963,
+      "path": "robot/ros_ws/src/interface/interface_bringup/launch/interface.launch.py",
+      "sha256": "02e53a230046eedd05dd7a9b4edb71b17896fea6eae79d736545fd840e15ffd2"
+    },
+    {
+      "bytes": 1915,
+      "path": "robot/ros_ws/src/interface/interface_bringup/launch/mavros_px4.launch.xml",
+      "sha256": "e15e14ef8ae703fef7381dac1bca4b6e051857995fe94c0405c51e540aaf2fed"
+    },
+    {
+      "bytes": 686,
+      "path": "robot/ros_ws/src/interface/interface_bringup/package.xml",
+      "sha256": "c96bc48b5299c38f48aad956d0926e15dc64a1ff14b709359ab0bbfe11d45604"
+    },
+    {
+      "bytes": 3209,
+      "path": "robot/ros_ws/src/interface/mavros_interface/CMakeLists.txt",
+      "sha256": "0dc6f489ad00661a5644bea9322541520a81d8bd6045d01a0df221cda27fb1e2"
+    },
+    {
+      "bytes": 9493,
+      "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+    },
+    {
+      "bytes": 1381,
+      "path": "robot/ros_ws/src/interface/mavros_interface/package.xml",
+      "sha256": "ddc5a03a72185d6dbd53683fc1df466cae8e2490aec0736485e7bc8b0b9ff8af"
+    },
+    {
+      "bytes": 35957,
+      "path": "robot/ros_ws/src/interface/mavros_interface/src/mavros_interface.cpp",
+      "sha256": "b582c618a030bd2c6ae75c94c447c3863c5d46c77e5a4cd9d04e964c256ff79b"
+    },
+    {
+      "bytes": 8077,
+      "path": "robot/ros_ws/src/interface/robot_interface/src/robot_interface_node.cpp",
+      "sha256": "37a5d77382c9e9386cb70d30a702fd64ab3acb4b736d02c1ddd411a67564a9be"
+    },
+    {
+      "bytes": 5162,
+      "path": "simulation/isaac-sim/docker/.bashrc",
+      "sha256": "6eaedce5f02a20e54994b2acd717f7ac79cc00a57c39dbb38413b7256abd3674"
+    },
+    {
+      "bytes": 8565,
+      "path": "simulation/isaac-sim/docker/Dockerfile.isaac-ros",
+      "sha256": "3020c1ff6e2c4776ff4beb60f43082a4320259453c72c4b59f34bb2281150b26"
+    },
+    {
+      "bytes": 11360,
+      "path": "simulation/isaac-sim/docker/docker-compose.yaml",
+      "sha256": "67f46254fa10c4567a8532eb895f2ec7bedcd460957d416bb8398abddbf3b88e"
+    },
+    {
+      "bytes": 37315,
+      "path": "simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py",
+      "sha256": "b40c10210cb3c2b75a65812e46f67bd956e14d7d18b8ca608d0b8a8f633f296c"
+    },
+    {
+      "bytes": 8440,
+      "path": "simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/ogn/api/spawn_multirotor.py",
+      "sha256": "19219a1f21de6a04cc1fca6a0badc0c562294fd1ed3469d400bd3da23865900a"
+    },
+    {
+      "bytes": 1835,
+      "path": "simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py",
+      "sha256": "6170c2737bf5ea3008a4c709aefa3b5e4ce4107fb3a7af1fef021de2e3bd43d5"
+    },
+    {
+      "bytes": 33358,
+      "path": "simulation/isaac-sim/launch_scripts/pegasus_app.py",
+      "sha256": "49a1fec5008c2082086604307c38aa55943573f7b63c001c122cd6679afd8d35"
+    },
+    {
+      "bytes": 7814,
+      "path": "stacks/full_default/launch/stack.launch.xml",
+      "sha256": "5e32c0437b9225a40b84df2b479b4d4528993384efbbe195be12a66e8aa6aeef"
+    },
+    {
+      "bytes": 5710,
+      "path": "stacks/lite_offload_global/bridge.yaml",
+      "sha256": "8fdf772dc895723161282668833ce1f1d9b84cf4250e861d1f4df264c3e0ea11"
+    }
+  ],
+  "limit": "Generated workspace artifacts prove past configuration/file identity only; no current compiler/ABI/runtime proof"
+}

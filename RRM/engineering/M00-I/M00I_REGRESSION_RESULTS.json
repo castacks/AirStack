@@ -1,0 +1,23 @@
+{
+  "baseline_commit": "f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61",
+  "errors": 0,
+  "failures": 0,
+  "log": "test_blocked_build_never_invokes_native_tools (test_regression.FocusedTests.test_blocked_build_never_invokes_native_tools) ... ok\ntest_broken_cmake_config_not_available (test_regression.FocusedTests.test_broken_cmake_config_not_available) ... ok\ntest_cmake_and_guard_body_preserved (test_regression.FocusedTests.test_cmake_and_guard_body_preserved) ... ok\ntest_config_metadata_cannot_replace_generated_interfaces (test_regression.FocusedTests.test_config_metadata_cannot_replace_generated_interfaces) ... ok\ntest_isolated_workspace_prefix_discovery (test_regression.FocusedTests.test_isolated_workspace_prefix_discovery) ... ok\ntest_landed_enums_unknown_and_transition (test_regression.FocusedTests.test_landed_enums_unknown_and_transition) ... ok\ntest_no_alias_or_ambiguous_graph_type (test_regression.FocusedTests.test_no_alias_or_ambiguous_graph_type) ... ok\ntest_runtime_resource_not_native_requirement (test_regression.FocusedTests.test_runtime_resource_not_native_requirement) ... ok\ntest_state_types_and_receipt_clock (test_regression.FocusedTests.test_state_types_and_receipt_clock) ... ok\ntest_typed_graph_scope_and_persisted_journal (test_regression.FocusedTests.test_typed_graph_scope_and_persisted_journal) ... ok\ntest_version_evidence_and_unresolved_version (test_regression.FocusedTests.test_version_evidence_and_unresolved_version) ... ok\ntest_cross_clock_late_connection_unmeasurable (test_h.AdapterTests.test_cross_clock_late_connection_unmeasurable) ... ok\ntest_graph_missing_required_interface (test_h.AdapterTests.test_graph_missing_required_interface) ... ok\ntest_no_control_interfaces (test_h.AdapterTests.test_no_control_interfaces) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 0.198s\n\nOK\n",
+  "production_runtime_executed": false,
+  "resolved_pre_final_failures": [
+    "Initial test fixture used undeclared journal source; declared observer explicitly.",
+    "Initial source comparison included G leading comment omitted in I copy; preserved full G source comment/body after added standard headers."
+  ],
+  "run_at_utc": "2026-11-28T02:51:23.582510+00:00",
+  "scope": "I corrected checker/build/type/recorder mappings plus three affected H adapter tests; no broad H rerun",
+  "skipped": 0,
+  "source_sha256": {
+    "build_native.py": "c39f723a4fb37b9ce92227b498606ffa0e38d2719243e2790b003022899cace8",
+    "interface_mapping.py": "2bb34c81b878b589d65526fa63b37235ce71419ef096252aeaa21551564abb20",
+    "native_environment.py": "646a6e9007dc6aa002ae732eb59f0acfdeaec7146bc36130bdc317a2ba24758c",
+    "run_regression.py": "c965609091378bf6e336fb8dda44a784f376cee99ae0dfe60cf61a9538329ec7",
+    "test_regression.py": "07ed8a245f49c32a1a2056b2d0ce6a81e07001edfc7637ff525a68c021a2e601"
+  },
+  "status": "PASS",
+  "tests": 14
+}
