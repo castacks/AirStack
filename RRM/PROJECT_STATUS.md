@@ -1,15 +1,15 @@
 # RRM project status
 
-Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates ChatGPT as project PD and directs D1/D3/D5 dispositions; technical/organizational evidence limits remain separate. Machine evidence retains UTC/native clocks.
+Status snapshot: 2026-11-28 America/New_York; author Codex. GOV-001A explicitly designates ChatGPT as project PD and directs D1/D3/D5 dispositions; technical/organizational evidence limits remain separate. Machine evidence retains UTC/native clocks.
 
 | Field | Current state / evidence |
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | M00-M early-stop authentication/evidence-inventory package complete in containing validated local commit; governing authority NOT AUTHENTICATED; requirement adjudication BLOCKED; STOP for PD review |
+| Current milestone | M00-N provisional baseline reconstruction/offline verification complete in containing validated local commit; STOP for PD review |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | M00-L:d3eba01e478ed186703686e8076718e075b5a9eb; M00-M completion is containing local commit |
-| Last local commit (full SHA verified at snapshot preparation) | d3eba01e478ed186703686e8076718e075b5a9eb |
+| Last completed milestone | M00-M:10bccb78a6afaeb5268d0fa90181cbffe90d1b74; M00-N completion is containing local commit |
+| Last local commit (full SHA verified at snapshot preparation) | 10bccb78a6afaeb5268d0fa90181cbffe90d1b74 |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -19,19 +19,25 @@ Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates Ch
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
 | GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
 | GOV-002 completion commit | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; historical handoff preserved |
-| Remote synchronization | No push/fetch/remote updates or external/container-access work in M00-M; local file/source/hash/inventory and deterministic retained-text arithmetic only |
+| Remote synchronization | No push/fetch/remote changes; M00-N local offline work only |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | Bounded governing-record integrity/register,10-artifact diagnostic admission inventory and blocked29-row coverage; exact missing-record recovery handoff; no acceptance adjudication |
+| Current engineering activity | M00-N: 20 FR claim-specific dispositions; B29/C4 provisional baseline; 69 offline tests passed; no new defect/code correction |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | Reduced desktop Architecture C basis retained; M00-G explicitly approves RRM-only offline implementation. Deployment and effective isolation not approved or verified |
 | D2 — Material configuration change | M00-G approves this offline prototype only; protected integration/deployment/runtime material changes remain deferred pending exact review |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
-| D5 — Engineering scope | M00-M offline/read-only source/integrity/evidence reconciliation only; original authority gate failed, so early-stop package and no residual execution plan. No runtime/container/image/installation/network/hardware work |
-| Primary finding | 0 authenticated governing records;20 missing expected originals and8 integrity-verified authority-unconfirmed preparation candidates. Ten artifacts:1 specified text-arithmetic claim/9 diagnostic; no F00 acceptance admission. Prior28 unverified/1 survey exclusion retained |
-| Next action | PD/custodian supplies original governing closure/criteria/approval package with full hashes and applicable original raw-run contracts/associations. Stop requirement adjudication until integrity AND authority established; runtime/native-build need undetermined |
+| D5 — Engineering scope | M00-N authorizes provisional reconstruction and bounded offline source/tests; no deployment, simulator, hardware or environment changes |
+| Primary finding | Missing20 records are claim-specific dependencies, not universal offline blockers. A0/B29/C4/D0; source/test contracts checked; REC-01 independence/boundary/telemetry/monitor system evidence incomplete |
+| Next action | PD review prospective scope/version and proposed M00-O offline contract/evidence-method closure; supply exact missing boundary/monitor/fault criteria. Historical authority recovery remains specific to historical claims |
 | Remaining approvals | No runtime target or bounded execution authority. Effective devices/network/DDS/GPU, host resource/stop scope and independent recorder evidence missing. RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED |
-| Last update evidence | RRM/handoffs/M00M_HANDOFF.md; RRM/evidence/M00-M/M00M_VALIDATION_RESULTS.json; RRM/engineering/M00-M/M00M_BASELINE_AUTHENTICATION.md; M00M_GOVERNING_RECORD_REGISTER.csv; M00M_EVIDENCE_ADMISSION.csv; M00M_REQUIREMENT_COVERAGE.csv |
+| Last update evidence | RRM/handoffs/M00N_HANDOFF.md; RRM/evidence/M00-N/M00N_VALIDATION_RESULTS.json; RRM/engineering/M00-N/ |
+
+## M00-N current status
+
+Historical F00 qualification: Not established; original baseline NOT AUTHENTICATED; 28 UNVERIFIED and one existing survey exclusion. Prospective view: 69 bounded offline tests PASS, no system acceptance PASS. Reconstructed baseline is not governing without explicit PD scope/authority decision. FR: 10 historical-authentication, 6 reconstructable, 4 conditional; no originals recovered. All 20 CHK identities and historical 3/8/9 dispositions remain unchanged.
+
+G0: BLOCKED. RA01: Pending. WP01: Unauthorized. Tier B execution: Unauthorized. Runtime containment: NOT VERIFIED. No new execution authorization. Native build is method-specific. See M00N_HANDOFF.md and per-requirement minimum path; stop for PD review.
 
 ## Milestone history
 
@@ -57,11 +63,13 @@ Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates Ch
 | M00-J | J4 passive native-build environment readiness complete; current image/package inventory and scoped host access unavailable; compilation-only proposal BLOCKED | f72d9515fef39f16d8620fb9326abb42e35f6350; RRM/handoffs/M00J_HANDOFF.md |
 | M00-K | K-C; single Path2 build-only request blocked on current local image/access verification and separate approval; passive preparation complete | d4186b5512237d293f176230db9a37675f5d743c; RRM/handoffs/M00K_HANDOFF.md |
 | M00-L | Original acceptance authority incomplete;28 unverified/1 existing survey exclusion; native build not established mandatory; RouteB offline admission proposed | d3eba01e478ed186703686e8076718e075b5a9eb; RRM/handoffs/M00L_HANDOFF.md |
-| M00-M | Early stop: governing authority unauthenticated; bounded integrity/admission inventory and precise recovery handoff; no requirement verdicts | Containing local commit; RRM/handoffs/M00M_HANDOFF.md |
+| M00-M | Early stop: governing authority unauthenticated; bounded integrity/admission inventory and precise recovery handoff; no requirement verdicts | 10bccb78a6afaeb5268d0fa90181cbffe90d1b74; RRM/handoffs/M00M_HANDOFF.md |
+
+| M00-N | Completed provisional reconstruction and 69 bounded offline tests; no code correction; stop for PD review | Containing local commit; RRM/handoffs/M00N_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-M. Subquestion closure does not imply gate passage.
+Severity labels below are retained planning labels, not changed SRS risk classifications. M00-N closes no whole original blocker and reclassifies missing-reference dependencies in its separate FR register; historical qualification blockers do not prohibit the specifically authorized offline work. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|
@@ -131,7 +139,7 @@ All20 historical prerequisites preserve3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED. C
 
 Recommend RouteB immediate next: separately directed M00-M authoritative record/raw-evidence admission and coverage decision; only confirmed remaining REC-01/boundary/other applicable gaps justify minimal new testing, appropriate runtime and exact safety authority. Stop default native-build/container discovery and broad synthetic/governance/integration work; preserve all artifacts. No currently viable route establishes complete acceptance or qualifies the frozen record; successor findings/claims require independent review and PD decision. G0 BLOCKED; RA01 PENDING; WP01 NOT AUTHORIZED; Tier B target undesignated and execution NOT AUTHORIZED; runtime isolation NOT VERIFIED; runtime gate NOT PASSED. Stop after local M00-L commit for PD review; no M00-M/container-access resumption or push.
 
-## M00-M current authentication disposition
+## Historical M00-M authentication disposition
 
 Governing acceptance authority NOT AUTHENTICATED; early stop under M00M-01/continuation section13. Supplied EXT preparation manifests verify26 top-level/20 staged entries, but no governing original/approval chain is established.20 expected original/evidence/approval references missing;8 preparation/manifest candidates integrity-verified with authority unconfirmed. No container/cloud/external record search or original revision selection occurred.
 

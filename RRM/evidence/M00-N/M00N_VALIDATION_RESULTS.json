@@ -1,0 +1,381 @@
+{
+  "FR_disposition_counts": {
+    "CONDITIONAL": 4,
+    "HISTORICAL AUTHENTICATION REQUIRED": 10,
+    "RECONSTRUCTABLE AS NEW ARTIFACT": 6
+  },
+  "K_L_Git_bound_hashes_verified": 13,
+  "changed_file_sha256_excluding_self": {
+    "RRM/PROJECT_STATUS.md": "e0dfed1b5ba1ba087ec282c18d1a71b948a23f0552ddec3be6ec2b16adc80ef4",
+    "RRM/engineering/M00-N/M00N_ENGINEERING_FINDINGS.md": "7f1864e3a1b7b01f00551d51d761c7a880c27f21c84e0ebce6b740ec75bb8e99",
+    "RRM/engineering/M00-N/M00N_MINIMUM_VERIFICATION_PATH.md": "c64866ec069fee73229122787e0bb7d69dfe9b385ca1b728a3258bb3760cafb5",
+    "RRM/engineering/M00-N/M00N_RECONSTRUCTED_BASELINE.csv": "5e41c01e492b6b0c135ae1360fce08911459e10624f06ee6a9c85fde193757a4",
+    "RRM/engineering/M00-N/M00N_REFERENCE_DISPOSITION.csv": "4cbf6c4583dc21684502b452d73c7ce1543396271cf4d79f1457a0a292a3d9d4",
+    "RRM/engineering/M00-N/M00N_VERIFICATION_FUNCTIONS.md": "bc7e874a1a781207d0455e4e087f91c66c37acebee184622e01fea860b5c495b",
+    "RRM/evidence/M00-N/M00N_EVIDENCE_INDEX.csv": "de1ab5b4a11fe4e44a95845c6588b55c11a45cdc3ffcf698c66f4330ca86aa27",
+    "RRM/evidence/M00-N/SHA256SUMS": "18b5479a52462f573568bc3291e2541f1ccad98f5cd4c66dbe16ecd83e7a5cdc",
+    "RRM/handoffs/M00N_HANDOFF.md": "79cf44620fb425ed897356636ccd267707d9c265a177206340662bdba1c06081"
+  },
+  "changed_files": [
+    "RRM/PROJECT_STATUS.md",
+    "RRM/engineering/M00-N/M00N_ENGINEERING_FINDINGS.md",
+    "RRM/engineering/M00-N/M00N_MINIMUM_VERIFICATION_PATH.md",
+    "RRM/engineering/M00-N/M00N_RECONSTRUCTED_BASELINE.csv",
+    "RRM/engineering/M00-N/M00N_REFERENCE_DISPOSITION.csv",
+    "RRM/engineering/M00-N/M00N_VERIFICATION_FUNCTIONS.md",
+    "RRM/evidence/M00-N/M00N_EVIDENCE_INDEX.csv",
+    "RRM/evidence/M00-N/M00N_VALIDATION_RESULTS.json",
+    "RRM/evidence/M00-N/SHA256SUMS",
+    "RRM/handoffs/M00N_HANDOFF.md"
+  ],
+  "checks": [
+    {
+      "check": "starting_checkout",
+      "detail": "ore_proj, exact required parent; initial status was clean before first mutation",
+      "result": "PASS"
+    },
+    {
+      "check": "protected_entries_unchanged",
+      "detail": "2505 prior tracked entries unchanged in content/mode/link target; only project status may change",
+      "result": "PASS"
+    },
+    {
+      "check": "controlled_package",
+      "detail": "48 files equal previous pinned inventory; no additions or mutations",
+      "result": "PASS"
+    },
+    {
+      "check": "historical_integrity",
+      "detail": {
+        "K_L_Git_bound_hashes": 13,
+        "pinned_checksum_entries": 573
+      },
+      "result": "PASS"
+    },
+    {
+      "check": "FR_disposition",
+      "detail": {
+        "CONDITIONAL": 4,
+        "HISTORICAL AUTHENTICATION REQUIRED": 10,
+        "RECONSTRUCTABLE AS NEW ARTIFACT": 6
+      },
+      "result": "PASS"
+    },
+    {
+      "check": "baseline_provenance_and_mapping_preservation",
+      "detail": {
+        "A": 0,
+        "B": 29,
+        "C": 4,
+        "D": 0,
+        "criteria_copied_exactly": 29,
+        "historical_coverage": {
+          "NOT APPLICABLE \u2014 BASELINE-SUPPORTED": 1,
+          "UNVERIFIED": 28
+        },
+        "survey_exclusion": "MAP-027 unchanged"
+      },
+      "result": "PASS"
+    },
+    {
+      "check": "prerequisites_preserved",
+      "detail": {
+        "SATISFIED": 3,
+        "UNSATISFIED": 8,
+        "UNVERIFIED": 9
+      },
+      "result": "PASS"
+    },
+    {
+      "check": "prospective_offline_validation",
+      "detail": {
+        "errors": 0,
+        "failures": 0,
+        "new_trials": 0,
+        "tests": 69,
+        "timing": "Exact retained-text arithmetic only"
+      },
+      "result": "PASS"
+    },
+    {
+      "check": "failure_latch_source_identity",
+      "detail": "Unchanged upstream header plus 12 current guard regression tests; native/runtime equivalence unverified",
+      "result": "PASS"
+    },
+    {
+      "check": "original_record_search",
+      "detail": "13 exact original basenames absent from local filename inventory and available all-ref Git path history; composite/unknown filenames remain unresolved, not proven globally absent",
+      "result": "PASS"
+    },
+    {
+      "check": "governance_and_claim_limits",
+      "detail": "Historical view retained; provisional baseline does not govern; no original decisions/approvals created; no synthetic system PASS; source/test inspection plus unchanged protected files",
+      "result": "PASS"
+    },
+    {
+      "check": "deliverable_evidence_identity",
+      "detail": {
+        "checksum_entries": 8,
+        "deliverables": 10,
+        "exclusions": "SHA256SUMS excludes itself and validation JSON; index cycle entries bound by report/Git",
+        "source_inputs": 78
+      },
+      "result": "PASS"
+    }
+  ],
+  "controlled_input_count": 48,
+  "failures": [],
+  "format_corrections": [
+    "Initial staged whitespace check flagged CSV CRLF; new M00-N CSVs normalized to LF before final review"
+  ],
+  "generated_utc": "2026-11-28T05:32:19.047185+00:00",
+  "governance": {
+    "G0": "BLOCKED",
+    "Historical F00 qualification": "Not established",
+    "RA01": "Pending",
+    "Runtime containment": "NOT VERIFIED",
+    "Tier B execution": "Unauthorized",
+    "WP01": "Unauthorized"
+  },
+  "historical_baseline_authenticated": false,
+  "historical_checksum_entries_verified": 573,
+  "historical_requirement_status_counts": {
+    "EXISTING_SURVEY_EXCLUSION": 1,
+    "NEW_ACCEPTANCE_PASS": 0,
+    "UNVERIFIED": 28
+  },
+  "limitations": [
+    "Source/test review is bounded, not exhaustive formal verification",
+    "Local child abrupt-exit test is not REC-01 independence or storage power-failure proof",
+    "No runtime activity inferred; no external action or active probing initiated. Absence of operations is based on this execution record, not an independent host-wide audit",
+    "Available local Git refs/path inventory searched; remote/offline/unprovided archives not searched",
+    "No current native environment access claim made from metadata fixtures"
+  ],
+  "next_proposed_milestone": "M00-O offline prospective contract and evidence-method closure; no new authority implied",
+  "original_source_search": {
+    "exact_basenames": [
+      "F00_FINAL_CLOSURE_FREEZE_RECEIPT.json",
+      "F00_FINAL_CLOSURE_MANIFEST.sha256",
+      "F00_AMENDMENT_A1.sha256",
+      "F00_AMENDMENT_A2.sha256",
+      "RRM_C001_F00_FREEZE_CERTIFICATE.md",
+      "RRM_C001_F00_FINAL_BASELINE_MANIFEST.md",
+      "F00_FINAL_QUALIFICATION_MATRIX.csv",
+      "F00_KIRO_QUALIFICATION_DECISION_REGISTER.csv",
+      "RRM_C001_F00_OPEN_FINDINGS.md",
+      "RRM-SRS-001_v1.md",
+      "F00_R8_DEPLOYMENT_SPECIFICATION.md",
+      "038_EXP-017-R1.md",
+      "019_EXP-016.md"
+    ],
+    "git_path_history_command": [
+      "git",
+      "log",
+      "--all",
+      "--name-only",
+      "--format=",
+      "--",
+      "*/F00_FINAL_CLOSURE_FREEZE_RECEIPT.json",
+      "*/F00_FINAL_CLOSURE_MANIFEST.sha256",
+      "*/F00_AMENDMENT_A1.sha256",
+      "*/F00_AMENDMENT_A2.sha256",
+      "*/RRM_C001_F00_FREEZE_CERTIFICATE.md",
+      "*/RRM_C001_F00_FINAL_BASELINE_MANIFEST.md",
+      "*/F00_FINAL_QUALIFICATION_MATRIX.csv",
+      "*/F00_KIRO_QUALIFICATION_DECISION_REGISTER.csv",
+      "*/RRM_C001_F00_OPEN_FINDINGS.md",
+      "*/RRM-SRS-001_v1.md",
+      "*/F00_R8_DEPLOYMENT_SPECIFICATION.md",
+      "*/038_EXP-017-R1.md",
+      "*/019_EXP-016.md"
+    ],
+    "history_matches": [],
+    "local_filename_command": [
+      "rg",
+      "--files",
+      "--hidden",
+      "--no-ignore",
+      "-g",
+      "!**/.git/**",
+      "/root/AirStack",
+      "/root/.codex/attachments"
+    ],
+    "matches": []
+  },
+  "prospective_offline_test_count": 69,
+  "protected_prior_entry_count": 2505,
+  "provenance_class_counts": {
+    "A": 0,
+    "B": 29,
+    "C": 4,
+    "D": 0
+  },
+  "result": "PASS",
+  "skipped_checks": [
+    "Native compilation: not necessary for selected offline claims; no environment changes authorized",
+    "ROS/PX4/MAVROS/simulator/container execution, hardware and Tier B/C: not authorized",
+    "System-level REC-01/boundary/telemetry/physical demonstrations: inputs/contracts/authority unavailable",
+    "Original signature/approval validation: original governing records unavailable",
+    "Historical milestone validators not executed because they assume their own file horizon; their sealed artifacts checked at pinned commits"
+  ],
+  "software_corrections": [],
+  "software_defects_confirmed": 0,
+  "source_sha256": {
+    "/root/.codex/attachments/dffffa68-e5f0-40f6-b289-815b56e58303/Pasted text.txt": "c144fecd9ee802bbe15a2fe316cdbfc105cb2824a92209b352e07793d089a75d",
+    "RRM/ROADMAP_MANDATE.md": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_ACCESS_AND_SECURITY.md": "4ce8b9b1b1f34e74f8a8a61cc8d904a434b46a09779aa777fcefabdcd1539e6a",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_AWS_DATA_LAYOUT.md": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_COST_AND_SCHEDULE_ESTIMATE.md": "684f301ae16897ff6a675838f1d239be697e46c04439094e99baa3818b4b5cc7",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_DELIVERY_SPECIFICATION.md": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_DATA_REUSE_MATRIX.md": "d2ac919d7839f845792928c86a0ff6c938aa9e39b8829022ddafec90db521610",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_EXECUTIVE_DECISION_BRIEF.md": "faafd09008085fb4d23d6734d7f9c758c5e403c68e84915ae8b646a2702cabd7",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_OPEN_DECISIONS.md": "1763f214075d2ce3885ccbb125d95b1399ca94c99018e6e1987ac123e9e9f205",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONFIGURATION_FORM.md": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_CONTACT_LOG.md": "955f101b5fb6af7d2e10881dde456bfe03ef05536d135e54bf8a38e32b474aca",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_EVALUATION_MATRIX.md": "109534232a6bf9f65919467c2b35a9c720decd3b15f226ae54b1e66667a2e7eb",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_HANDOFF_README.md": "f244a59322970350ae3d58ec5c1f7c980bced9b7402ea5a57c288ebefb5dcd22",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_QUICKSTART.md": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_REQUIREMENTS.md": "b6b1e8868ca3cefdcef849b5a8132f6e1a2b03b6efffbc97e7309300d8017cf3",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_PROVIDER_SHORTLIST.md": "3f34378945201e185e7b52231ce395df1f8c61dfb5041dd76d95c3b4a4fce0ea",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_REQUEST_FOR_INFORMATION.md": "88d74af9a97cbcd54c66d23e143e8483f4c62854a1881076bab4024df8a6c494",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_REQUIREMENTS_TEST_MATRIX.md": "2042b3930ab1a03fb7893f97172f7c554ca5ede746ad03e6a04285e025f6f619",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md": "6f0a45d13c28d82bddf590b8d7fd9f5d06635fc92d05f0c01c48cfbe36220f44",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_SOURCES.md": "18e125634e8a7c8d0cb4dee666d88e987eee9df4acafcdd19484327cab263062",
+    "RRM/RRM-C001-F00-EXT/F00_EXT_VERIFICATION_PLAN.md": "38881621745eb53932da9a39c40f1b2bd18cb295cb55f71ac48e054e657a93b0",
+    "RRM/RRM-C001-F00-EXT/README.md": "ae48fd6d0ecee15a42ab0c05bafe0445f16a7d850f42dc572187a170ca8d01e6",
+    "RRM/RRM-C001-F00-EXT/SHA256SUMS": "5ae3c9cbcabd2434494597641a6e20b9ad6fa3e77fa1e3238b5117785c2526e4",
+    "RRM/RRM-C001-F00-EXT/evidence/C2_AirStack_a6dad8ca_LICENSE.txt": "795c8184ed0d30f7d7b4dcf7f71361e5fefbaa61ac63ff61eb274a70204de466",
+    "RRM/RRM-C001-F00-EXT/evidence/C2_image_6bdb5e2f_isaac-sim_LICENSE.txt": "e8a684e1278cc1de7a4b3fce180228f3195f02c3b208a5722122d95cce29ca20",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/RELEASE_MANIFEST.sha256": "f05473ca609e07d7c732a4067c3b37ed2131fef786faca3b5d5077029c7da74f",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/bridge.launch.xml": "9d224a2c79cf9c93025d7978ffdd7de150a4ce8b65ada4904c325f7245f13020",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/compose.json": "3a6bb0610cf999e8cc1d5f5b784fb175ed8de8502ba8dc3e641b075eeca1b1c6",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/controller.launch.xml": "302fa3f0f3c0ed82cde783ded700d6685086673172453cbccf1d89a9bf06274d",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/fastdds.xml": "70561d8b76dad39595298057dff5febdf8fd4ea703f3565561ebcc78f2fc941c",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/fixedtraj_goal.yaml": "2d099f7168b26a7356d14792ef3343147aed737dee843c900cbc26be875be344",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/assets/config/launch_r8.py": "40120029bd59e923ba7430dc1807c42057d6f84bde19eb7020a6d9bbe7471b0e",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/packages/README.md": "cfcc5c8fdabe8abd1932847dcbbe4f8eaa0d0433b59efdb061b6e88bbf93effc",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_AWS_ACCESS_AND_SECURITY.md": "126ae5a08a4b433afbfd4cc730237c96f5fe1cfebd9e111e5b24930046f49c2c",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_AWS_DATA_LAYOUT.md": "96b472b6c4f5a2e095ef8373465dd6d37886851e0e0712f82b71a592d463607d",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_CONFIGURATION_EQUIVALENCE_MATRIX.md": "37e4a26b54150f36394a28f3f7de993e1084521988c367e810179546ccc432b4",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_DATA_DELIVERY_SPECIFICATION.md": "300db8bd27a517d6ba3371b90442d551aa3b1d3c47394094282cf19cc7da8f1d",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_EVIDENCE_UPLOAD_AND_VALIDATION.md": "ccea948b38ec5f44647861843458b77ff6bca7ff00ac24243416c0f124b2c88d",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_HIL_EXECUTION_AND_ACCEPTANCE.md": "a5360263beaad41e4d6ae02cd99ce1c3371bb804db11ef38f1ad1b76dff29e40",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_CONFIGURATION_FORM.md": "8387b98df6248d424e62385f58d7f25f7a4beea362a077fb9df162f5342fc137",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_HANDOFF_README.md": "6cb037283e02a04ae8d922340e1c004fc1e26b1c7847f26954f5896693e637ea",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_PROVIDER_QUICKSTART.md": "9dcbaa89c20ba8ddc6483dd507cb2c6686ca6963ce0211e8d39ec68aed38664a",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_REAL_EXECUTION_AND_ACCEPTANCE.md": "7c507a996f0009d7d936d9f0a7957cae973eb8ef98cc0dd606b93df8aa44d397",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_REQUIREMENTS_TEST_MATRIX.md": "7909b2800c65b69fb610007c26bc19ce97660cff93fbc74e814fd0a646ab2fa5",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/F00_EXT_SIL_EXECUTION_AND_ACCEPTANCE.md": "b672551d1124e40eefd417c5911b3948f626ddf93036659b7906d665072eb26a",
+    "RRM/RRM-C001-F00-EXT/release_staging/F00X-REL-001/procedures/RELEASE_NOTE.md": "5a52c8fc344d4fd3f260664e15f85d3d435b0981fce456518d9fe227aaaf0d67",
+    "RRM/engineering/M00-G/config_validator.py": "87e5be0ecb7239dece105cb5c9a4631debd8b69967a777d12b53dce3f113f1a3",
+    "RRM/engineering/M00-G/test_offline.py": "6ec20c74c0998b0fcf7a2034050261324632960dcb6f988e950245fe87edf2d4",
+    "RRM/engineering/M00-H/crash_fixture.py": "4c84400ab07a70ba793a3bf8bc3fadb5c08f6494118ad556fdcb34201f217fa6",
+    "RRM/engineering/M00-H/guard_reference.py": "9eec987ec8a98327832a708abc66dba5db2192b0e766790492039ed1f98781bf",
+    "RRM/engineering/M00-H/h_preflight.py": "0bca57b9ba7ad043eff66de75e0373e02fe3eb91a2f4b42fdf3d220a5d7739dc",
+    "RRM/engineering/M00-H/h_support.py": "c53745c7d88bd10c43de6009b354f4640761c06b9aba10e5b5f94b143139dac5",
+    "RRM/engineering/M00-H/integration_harness.py": "f78687b3af9fa73c5f4add26182839475f22ceebd1fc55e8fddb916145e12e04",
+    "RRM/engineering/M00-H/observation_adapters.py": "2a45011901907fd6bfd9dd8c10bbd8677416081091b35488a2cd40af9d3372b5",
+    "RRM/engineering/M00-H/reliable_recorder.py": "00b49ae4a3e93e750825a20385267e2c833a29bbcbcb10a91ba2d50f3f9dab91",
+    "RRM/engineering/M00-H/test_h.py": "33d5fcdd4c0d2db6350a48e5e5a882e8b9ebf213373fd6a93802b32f7214560e",
+    "RRM/engineering/M00-I/build_native.py": "c39f723a4fb37b9ce92227b498606ffa0e38d2719243e2790b003022899cace8",
+    "RRM/engineering/M00-I/guard_host/CMakeLists.txt": "f114928a57ac0d5d63bf86e557485399d1b901a4e008043a9b88b03dc2d6b5af",
+    "RRM/engineering/M00-I/guard_host/package.xml": "2e24af6e7a66fd3dcc5f8ef556639a48e1d68e277615b25119fe03ec4ed66a4f",
+    "RRM/engineering/M00-I/guard_host/src/guard_host.cpp": "53b08eb97c7037425184c4fb8d8e72bfc0acd29ad1a2d54d1b7a6be381b3efb0",
+    "RRM/engineering/M00-I/interface_mapping.py": "2bb34c81b878b589d65526fa63b37235ce71419ef096252aeaa21551564abb20",
+    "RRM/engineering/M00-I/native_environment.py": "646a6e9007dc6aa002ae732eb59f0acfdeaec7146bc36130bdc317a2ba24758c",
+    "RRM/engineering/M00-I/test_regression.py": "07ed8a245f49c32a1a2056b2d0ce6a81e07001edfc7637ff525a68c021a2e601",
+    "RRM/engineering/M00-M/M00M_EVIDENCE_ADMISSION.csv": "77113e17e6aa2faf26fa97b1f7865d4a485981b8fc6796dc63318029b7bf8580",
+    "RRM/engineering/M00-M/M00M_GOVERNING_RECORD_REGISTER.csv": "93c7a4b93623f50775b9d0819c6fa9ad2648b38ac3d583033e8cf42bd6da9f5c",
+    "RRM/engineering/M00-M/M00M_MINIMUM_RESIDUAL_WORK.md": "c86643e58d8423f325eebcd03be2dd3a51344d5e53e5b09a165dbb5cb1b309d0",
+    "RRM/engineering/M00-M/M00M_REQUIREMENT_COVERAGE.csv": "c4cca64f7e8bf4c42e99fafada6b4ac0eb3370fe513910d74680f7f06e23f519",
+    "RRM/engineering/M00-M/recompute_startup_intervals.py": "e745bf3d1243dd267540718b04dd0d07a6126c531a1e1c632b0fea80d764e56b",
+    "RRM/evidence/M00-C/startup-source-records.json": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c",
+    "RRM/evidence/M00-E1A/M00E1A_PREREQUISITE_REGISTER.csv": "c4ad91673a54196ff76c4d481ec187fd0d1d2f6a6891ef3d4fc4ce7e3cdb31f5",
+    "RRM/handoffs/M00L_HANDOFF.md": "9eae6e757a05ec1486389d396f68474d488274e7291e4b6a3c09684551c4bedb",
+    "RRM/handoffs/M00M_HANDOFF.md": "f09d5c739c4c014acb4ef6b743e15a279e674931baed17533ba48e3018de41db",
+    "RRM/verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv": "f84f9b5e1c41ee1ffae4b2a288634d83c998619b8ca815db6d8574f7151339a6",
+    "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+  },
+  "starting_branch": "ore_proj",
+  "starting_commit": "10bccb78a6afaeb5268d0fa90181cbffe90d1b74",
+  "starting_inventory_sha256": "7a0b4befb7bb217cdce723db919d8de9a13b2e10c450e8a71f0caaa38b091da6",
+  "starting_tree": "CLEAN before mutation",
+  "test_commands_and_results": [
+    {
+      "chunk_id": "4c781c",
+      "cmd": "PYTHONPATH=RRM/engineering/M00-I:RRM/engineering/M00-H python3 -B -m unittest -v test_h.GuardTests test_h.ReliabilityTests test_h.AdapterTests test_regression.FocusedTests",
+      "exit_code": 0,
+      "label": "guard_recorder_adapters_environment",
+      "original_token_count": 1253,
+      "output": "test_app_and_graph_are_not_guard_inputs (test_h.GuardTests.test_app_and_graph_are_not_guard_inputs) ... ok\ntest_config_rejected (test_h.GuardTests.test_config_rejected) ... ok\ntest_deadline_exact_boundary_wins (test_h.GuardTests.test_deadline_exact_boundary_wins) ... ok\ntest_failed_transaction_latches_regression (test_h.GuardTests.test_failed_transaction_latches_regression) ... ok\ntest_freshness (test_h.GuardTests.test_freshness) ... ok\ntest_in_air_latches (test_h.GuardTests.test_in_air_latches) ... ok\ntest_original_identity_and_correspondence (test_h.GuardTests.test_original_identity_and_correspondence) ... ok\ntest_query_busy_delays_evaluation (test_h.GuardTests.test_query_busy_delays_evaluation) ... ok\ntest_readback_can_recover_only_after_initial_success (test_h.GuardTests.test_readback_can_recover_only_after_initial_success) ... ok\ntest_transaction_exception_latches (test_h.GuardTests.test_transaction_exception_latches) ... ok\ntest_unsafe_latch_priority (test_h.GuardTests.test_unsafe_latch_priority) ... ok\ntest_waiting_service_does_not_attempt (test_h.GuardTests.test_waiting_service_does_not_attempt) ... ok\ntest_buffered_clock_types_rejected (test_h.ReliabilityTests.test_buffered_clock_types_rejected) ... ok\ntest_corruption (test_h.ReliabilityTests.test_corruption) ... ok\ntest_duplicate_records (test_h.ReliabilityTests.test_duplicate_records) ... ok\ntest_exclusive_creation_preserves_prior (test_h.ReliabilityTests.test_exclusive_creation_preserves_prior) ... ok\ntest_explicit_data_loss_indicator (test_h.ReliabilityTests.test_explicit_data_loss_indicator) ... ok\ntest_failed_attempt_does_not_resume_writer (test_h.ReliabilityTests.test_failed_attempt_does_not_resume_writer) ... ok\ntest_initialization_failure (test_h.ReliabilityTests.test_initialization_failure) ... ok\ntest_interrupted_sync (test_h.ReliabilityTests.test_interrupted_sync) ... ok\ntest_invalid_event_kind (test_h.ReliabilityTests.test_invalid_event_kind) ... ok\ntest_invalid_schema (test_h.ReliabilityTests.test_invalid_schema) ... ok\ntest_missing_record (test_h.ReliabilityTests.test_missing_record) ... ok\ntest_out_of_order_records (test_h.ReliabilityTests.test_out_of_order_records) ... ok\ntest_partial_writes_complete (test_h.ReliabilityTests.test_partial_writes_complete) ... ok\ntest_producer_gap_and_duplicate (test_h.ReliabilityTests.test_producer_gap_and_duplicate) ... ok\ntest_real_offline_child_abrupt_exit (test_h.ReliabilityTests.test_real_offline_child_abrupt_exit) ... ok\ntest_record_size_bound (test_h.ReliabilityTests.test_record_size_bound) ... ok\ntest_repeated_interruption_bounded (test_h.ReliabilityTests.test_repeated_interruption_bounded) ... ok\ntest_retry_interrupted_write (test_h.ReliabilityTests.test_retry_interrupted_write) ... ok\ntest_shutdown_sync_failure (test_h.ReliabilityTests.test_shutdown_sync_failure) ... ok\ntest_structural_health_not_runtime_durability (test_h.ReliabilityTests.test_structural_health_not_runtime_durability) ... ok\ntest_terminal_missing (test_h.ReliabilityTests.test_terminal_missing) ... ok\ntest_wall_clock_steps_do_not_fake_monotonic_failure (test_h.ReliabilityTests.test_wall_clock_steps_do_not_fake_monotonic_failure) ... ok\ntest_zero_progress (test_h.ReliabilityTests.test_zero_progress) ... ok\ntest_cross_clock_late_connection_unmeasurable (test_h.AdapterTests.test_cross_clock_late_connection_unmeasurable) ... ok\ntest_graph_missing_required_interface (test_h.AdapterTests.test_graph_missing_required_interface) ... ok\ntest_no_control_interfaces (test_h.AdapterTests.test_no_control_interfaces) ... ok\ntest_blocked_build_never_invokes_native_tools (test_regression.FocusedTests.test_blocked_build_never_invokes_native_tools) ... ok\ntest_broken_cmake_config_not_available (test_regression.FocusedTests.test_broken_cmake_config_not_available) ... ok\ntest_cmake_and_guard_body_preserved (test_regression.FocusedTests.test_cmake_and_guard_body_preserved) ... ok\ntest_config_metadata_cannot_replace_generated_interfaces (test_regression.FocusedTests.test_config_metadata_cannot_replace_generated_interfaces) ... ok\ntest_isolated_workspace_prefix_discovery (test_regression.FocusedTests.test_isolated_workspace_prefix_discovery) ... ok\ntest_landed_enums_unknown_and_transition (test_regression.FocusedTests.test_landed_enums_unknown_and_transition) ... ok\ntest_no_alias_or_ambiguous_graph_type (test_regression.FocusedTests.test_no_alias_or_ambiguous_graph_type) ... ok\ntest_runtime_resource_not_native_requirement (test_regression.FocusedTests.test_runtime_resource_not_native_requirement) ... ok\ntest_state_types_and_receipt_clock (test_regression.FocusedTests.test_state_types_and_receipt_clock) ... ok\ntest_typed_graph_scope_and_persisted_journal (test_regression.FocusedTests.test_typed_graph_scope_and_persisted_journal) ... ok\ntest_version_evidence_and_unresolved_version (test_regression.FocusedTests.test_version_evidence_and_unresolved_version) ... ok\n\n----------------------------------------------------------------------\nRan 49 tests in 0.615s\n\nOK\n",
+      "wall_time_seconds": 0.563327756
+    },
+    {
+      "chunk_id": "eb28f9",
+      "cmd": "PYTHONPATH=RRM/engineering/M00-G python3 -B -m unittest -v test_offline.ConfigurationTests",
+      "exit_code": 0,
+      "label": "configuration_policy",
+      "original_token_count": 568,
+      "output": "test_01_valid_synthetic_configuration (test_offline.ConfigurationTests.test_01_valid_synthetic_configuration) ... ok\ntest_02_privileged_rejected (test_offline.ConfigurationTests.test_02_privileged_rejected) ... ok\ntest_03_device_mount_rejected (test_offline.ConfigurationTests.test_03_device_mount_rejected) ... ok\ntest_04_host_network_rejected (test_offline.ConfigurationTests.test_04_host_network_rejected) ... ok\ntest_05_unsafe_mavlink_rejected (test_offline.ConfigurationTests.test_05_unsafe_mavlink_rejected) ... ok\ntest_06_unsafe_dds_routing_rejected (test_offline.ConfigurationTests.test_06_unsafe_dds_routing_rejected) ... ok\ntest_07_missing_image_and_asset_identity (test_offline.ConfigurationTests.test_07_missing_image_and_asset_identity) ... ok\ntest_08_missing_required_configuration (test_offline.ConfigurationTests.test_08_missing_required_configuration) ... ok\ntest_19_configuration_checksum_mismatch (test_offline.ConfigurationTests.test_19_configuration_checksum_mismatch) ... ok\ntest_20_upstream_change (test_offline.ConfigurationTests.test_20_upstream_change) ... ok\ntest_boolean_type_not_numeric (test_offline.ConfigurationTests.test_boolean_type_not_numeric) ... ok\ntest_dds_xml_rejects_external_peer_even_with_checksum_metadata (test_offline.ConfigurationTests.test_dds_xml_rejects_external_peer_even_with_checksum_metadata) ... ok\ntest_mavlink_forwarding_rejected (test_offline.ConfigurationTests.test_mavlink_forwarding_rejected) ... ok\ntest_missing_asset_file (test_offline.ConfigurationTests.test_missing_asset_file) ... ok\ntest_missing_provenance (test_offline.ConfigurationTests.test_missing_provenance) ... ok\ntest_missing_required_provenance_path (test_offline.ConfigurationTests.test_missing_required_provenance_path) ... ok\ntest_namespaces_capabilities_devices (test_offline.ConfigurationTests.test_namespaces_capabilities_devices) ... ok\ntest_public_ports (test_offline.ConfigurationTests.test_public_ports) ... ok\ntest_synthetic_mutation_fixtures (test_offline.ConfigurationTests.test_synthetic_mutation_fixtures) ... ok\ntest_unknown_environment_and_overlays (test_offline.ConfigurationTests.test_unknown_environment_and_overlays) ... ok\n\n----------------------------------------------------------------------\nRan 20 tests in 0.228s\n\nOK\n",
+      "wall_time_seconds": 0.174021539
+    },
+    {
+      "chunk_id": "e23074",
+      "cmd": "python3 -B RRM/engineering/M00-M/recompute_startup_intervals.py",
+      "exit_code": 0,
+      "label": "retained_timing_arithmetic",
+      "original_token_count": 407,
+      "output": "{\n  \"captured_context_utc\": \"2026-11-27T21:30:11.260817+00:00\",\n  \"claim\": \"Exact Decimal differences between specified retained text timestamps only\",\n  \"clock_domains\": [\n    \"ROS producer log epoch, continuity uncalibrated\",\n    \"Docker UTC receipts, buffering unbounded\"\n  ],\n  \"input_records\": {\n    \"application\": \"2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete\",\n    \"connection\": \"[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot\",\n    \"deadline\": \"[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE\",\n    \"graph\": \"2026-11-27T18:43:23.924567918Z \\u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph.\"\n  },\n  \"locators\": [\n    \"original_ros_logs/logs/0/text\",\n    \"original_ros_logs/logs/1/text\",\n    \"filtered_logs/0/records/341\",\n    \"filtered_logs/0/records/357\"\n  ],\n  \"new_trials\": 0,\n  \"not_established\": [\n    \"Governing acceptance authority\",\n    \"Calibrated elapsed runtime or exact steady deadline edge\",\n    \"Independent repeated starts/statistical reliability\",\n    \"Production compatibility or successful recovery\",\n    \"Flight/safety acceptance or qualification\"\n  ],\n  \"results\": {\n    \"application_complete_to_recorded_vehicle_graph_s\": \"74.228771713\",\n    \"deadline_error_to_recorded_mavros_connection_s\": \"19.276162179\"\n  },\n  \"retained_startup_episode_count\": 1,\n  \"source\": \"RRM/evidence/M00-C/startup-source-records.json\",\n  \"source_sha256\": \"536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c\"\n}\n",
+      "wall_time_seconds": 1.6675e-05
+    }
+  ],
+  "timing_recomputation": {
+    "captured_context_utc": "2026-11-27T21:30:11.260817+00:00",
+    "claim": "Exact Decimal differences between specified retained text timestamps only",
+    "clock_domains": [
+      "ROS producer log epoch, continuity uncalibrated",
+      "Docker UTC receipts, buffering unbounded"
+    ],
+    "input_records": {
+      "application": "2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete",
+      "connection": "[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot",
+      "deadline": "[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE",
+      "graph": "2026-11-27T18:43:23.924567918Z \u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph."
+    },
+    "locators": [
+      "original_ros_logs/logs/0/text",
+      "original_ros_logs/logs/1/text",
+      "filtered_logs/0/records/341",
+      "filtered_logs/0/records/357"
+    ],
+    "new_trials": 0,
+    "not_established": [
+      "Governing acceptance authority",
+      "Calibrated elapsed runtime or exact steady deadline edge",
+      "Independent repeated starts/statistical reliability",
+      "Production compatibility or successful recovery",
+      "Flight/safety acceptance or qualification"
+    ],
+    "results": {
+      "application_complete_to_recorded_vehicle_graph_s": "74.228771713",
+      "deadline_error_to_recorded_mavros_connection_s": "19.276162179"
+    },
+    "retained_startup_episode_count": 1,
+    "source": "RRM/evidence/M00-C/startup-source-records.json",
+    "source_sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+  },
+  "user_facing_date": "2026-11-28 America/New_York",
+  "validation_scope": "M00-N provisional reconstruction and prospective offline diagnostics only; no F00 acceptance adjudication",
+  "warnings": [
+    "Original baseline not authenticated; B criteria are supported preparation transcriptions only",
+    "No record classified RECOVERABLE; partial reconstruction does not recover unknown boundary/monitor definitions",
+    "No new concrete software defect established; no source/tests modified",
+    "No new system acceptance PASS; historical 28 UNVERIFIED and one survey exclusion remain",
+    "Some system criteria remain As frozen/As above; explicit contract decisions needed",
+    "Native/runtime claims and effective containment remain unverified"
+  ]
+}
