@@ -1,0 +1,29 @@
+{
+  "runtime_inspection_performed": false,
+  "construction_or_deployment_actions": [],
+  "active_operations": [],
+  "external_messages_sent": 0,
+  "external_email_drafts_created": 0,
+  "private_account_or_mailbox_access": false,
+  "credentials_read": false,
+  "push_performed": false,
+  "owners_appointed": 0,
+  "organizational_approval_authorities_verified": 0,
+  "verified_public_routing_channels": 1,
+  "received_owner_responses": 0,
+  "technical_prerequisite_closures": 0,
+  "warnings": [
+    "Published institutional contact supports a limited routing inquiry, not applicable OSMO/configuration/safety delegation",
+    "Routing success, mailbox liveness/current remit and willingness to refer are unobserved; recheck public source at delayed delivery",
+    "Outcome A means readiness to request R1 authorization only; sender/affiliation/PD delivery approval remain absent",
+    "Only minimal source paraphrases and contact/identity facts retained; official public pages may change after acquisition",
+    "Initial content validation expected an explicit no-attachments guard in minimum-contact strategy; added the sentence to make the existing narrow C1 exclusion unambiguous, then reran validation. No contact or source evidence changed."
+  ],
+  "skipped_checks": [
+    "Actual email/message delivery, mailbox testing and reply verification: explicitly unauthorized",
+    "Applicable organizational appointment/change/safety authority: no delegation records or owner response",
+    "Platform/control-plane/runtime/device/network isolation and safety: no assigned target or active authority",
+    "F00 equivalence/qualification: missing originals, approved equivalence and admitted campaign evidence",
+    "Original M00 SHA256SUMS absent under original inventory convention; protected snapshot and inherited checks cover prior files"
+  ]
+}

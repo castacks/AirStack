@@ -1,0 +1,22 @@
+{
+  "outcome": "A",
+  "qualified_candidate_id": "RC01",
+  "verified_organizational_approval_authorities": 0,
+  "verified_routing_channels": 1,
+  "r1_ready_to_request_pd_delivery_authorization": true,
+  "r2_platform_evidence_request_ready": false,
+  "selected_release_option": null,
+  "pd_delivery_authorization_reference": null,
+  "authorized_sender": null,
+  "external_communication_authorized": false,
+  "requests_sent": 0,
+  "owner_appointed": false,
+  "technical_prerequisite_changes": 0,
+  "construction_authorized": false,
+  "deployment_authorized": false,
+  "active_verification_authorized": false,
+  "tier_b_authorized": false,
+  "wp01_authorized": false,
+  "target_designation": "UNVERIFIED",
+  "hold": "EXTERNAL-INPUT HOLD \u2014 ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED"
+}

@@ -1,0 +1,8 @@
+evidence_id,path,evidence_kind,bytes,sha256,limitation
+NEW01,RRM/evidence/GOV-002/EXECUTION_DIRECTIVE.md,NEW_USER_DIRECTIVE,10718,abd820849f856493307e3eed4cdcf1fa6082fe48b437b3cec5b0e1f4ae69826f,Passive release readiness only; no delivery authority
+NEW02,RRM/evidence/GOV-002/public-source-observations.json,NEW_PASSIVE_PUBLIC_DOCUMENT_OBSERVATIONS,3179,f1bfcf8b3306ae82955d5a99f54833532fcf6d37e732557167262c6829616b41,Professional routing authenticity only; authority and mailbox behavior unverified
+NEW03,RRM/evidence/GOV-002/local-record-review.json,NEW_BOUNDED_LOCAL_REVIEW,1850,25dca32bd6fefc649039943d0ffc4bfce18cf7b762121e6c55bce5d49bc4a4e8,No contributor/member-to-safety authority inference
+NEW04,RRM/evidence/GOV-002/release-state.json,NEW_OFFLINE_RELEASE_ASSESSMENT,788,a68fa0b2b578307cff510f7c2426adb6e75ff77d20cd869f6cff47861c9bbe99,Outcome A for requesting R1 decision; actual delivery unauthorized
+HIST01,RRM/evidence/GOV-001A/dispositions.json,INHERITED_PROJECT_DISPOSITIONS,1941,c0a4458f7eb4f1210f89e5c3c06e0d9069ef6eb8cdb9b7997892d39afccba712,D1/D3/D5 retained; D2/D4 unresolved
+HIST02,RRM/evidence/GOV-001B/GOV001B_PREREQUISITE_DELTA.csv,INHERITED_TECHNICAL_BASELINE,6970,51dbb6104a0b3de573844b16e2fe0bfd5ef68ca33d44b6456c9523f5f06ee8fa,20 dispositions unchanged
+HIST03,RRM/README.md,INHERITED_PROJECT_CONTACT_DOCUMENTATION,2197,2a1587b8e050c90c724597507c10993b0e13cf8c11a936d72b7e73abeb1b1f2f,"Public contact direction, not infrastructure/safety delegation"

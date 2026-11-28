@@ -1,0 +1,76 @@
+{
+  "milestone": "GOV-002",
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned GOV-001B start; 2245 protected entries, 333 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "bounded_discovery_and_public_provenance",
+      "status": "PASS",
+      "detail": "Seven pinned local sources,13 registered sources; GitHub connector repo/README identities; four primary public pages, two official CMU contact records corroborate one professional routing address; no live service/mailbox test"
+    },
+    {
+      "check": "recipient_qualification_and_release_outcome",
+      "status": "PASS",
+      "detail": "RC01 authentic published professional routing contact only; zero verified applicable decision authorities; Outcome A for seeking separate R1 approval, R2 not ready; sender and PD fields null; no contact or authority inferred"
+    },
+    {
+      "check": "minimum_contact_and_unselected_pd_sheet",
+      "status": "PASS",
+      "detail": "Narrow C1 ownership/referral-only local text; detailed A\u2013F held and later C2/C3/C4 separated by authority/handling; four PD options unselected; no external draft/message or sender invented"
+    },
+    {
+      "check": "technical_prerequisites_and_g0_continuity",
+      "status": "PASS",
+      "detail": "All20 original identities/statuses unchanged 3 satisfied/8 unsatisfied/9 unverified; no contact-to-closure inference; D1\u2013D5/G0/RA01/WP01/ Tier B controls and implementation hold preserved"
+    },
+    {
+      "check": "evidence_provenance_and_no_external_communications",
+      "status": "PASS",
+      "detail": "Seven byte-bound index records distinguish public source observations/inherited project authority and technical baseline; no owner response, private account access, email draft, appointment or runtime action"
+    },
+    {
+      "check": "package_hashes_and_repository_scope",
+      "status": "PASS",
+      "detail": "25 exact RRM-only paths; PROJECT_STATUS sole prior mutation; sums cover all except recursive sums/results, bound by final Git; no deployment automation or historical edits"
+    }
+  ],
+  "failures": [],
+  "outcome": "A",
+  "verified_organizational_approval_authorities": 0,
+  "verified_public_professional_routing_channels": 1,
+  "qualified_candidate": "RC01",
+  "ownership_confirmation_ready_for_separate_r1_decision": true,
+  "platform_evidence_request_ready": false,
+  "pd_release_selection": null,
+  "external_communication_authorized": false,
+  "requests_sent": 0,
+  "technical_prerequisite_changes": 0,
+  "checksum_verification": "PASS",
+  "repository_scope_verification": "PASS",
+  "target_designation": "UNVERIFIED",
+  "implementation_authorized": false,
+  "hold": "EXTERNAL-INPUT HOLD \u2014 ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED",
+  "warnings": [
+    "Published institutional contact supports a limited routing inquiry, not applicable OSMO/configuration/safety delegation",
+    "Routing success, mailbox liveness/current remit and willingness to refer are unobserved; recheck public source at delayed delivery",
+    "Outcome A means readiness to request R1 authorization only; sender/affiliation/PD delivery approval remain absent",
+    "Only minimal source paraphrases and contact/identity facts retained; official public pages may change after acquisition",
+    "Initial content validation expected an explicit no-attachments guard in minimum-contact strategy; added the sentence to make the existing narrow C1 exclusion unambiguous, then reran validation. No contact or source evidence changed."
+  ],
+  "skipped_checks": [
+    "Actual email/message delivery, mailbox testing and reply verification: explicitly unauthorized",
+    "Applicable organizational appointment/change/safety authority: no delegation records or owner response",
+    "Platform/control-plane/runtime/device/network isolation and safety: no assigned target or active authority",
+    "F00 equivalence/qualification: missing originals, approved equivalence and admitted campaign evidence",
+    "Original M00 SHA256SUMS absent under original inventory convention; protected snapshot and inherited checks cover prior files"
+  ],
+  "limitations": [
+    "Offline checks bind captured source facts and document/decision scope; they cannot authenticate organizational approval powers, prove email delivery or safety, or establish actual routing success. Public pages may change.",
+    "Outcome A is a scoped engineering judgment from published project/lab/institution contact records. Exact sender and separate PD R1 authority remain absent; R2 held.",
+    "No new behavioral tests needed for documentation; prior validator ran before writes. No contact, runtime/active operations or push; stop GOV-002."
+  ]
+}

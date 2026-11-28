@@ -1,0 +1,57 @@
+{
+  "record_type": "NEW_PASSIVE_PUBLIC_DOCUMENT_OBSERVATIONS",
+  "recording_note": "Public pages opened during GOV-002; not received owner testimony or live environment inspection. No contact made.",
+  "repo": {
+    "url": "https://github.com/castacks/AirStack",
+    "id": "812053723",
+    "owner": "castacks",
+    "default_branch": "main",
+    "read_method": "GitHub connector get_repo"
+  },
+  "remote_readme": {
+    "url": "https://github.com/castacks/AirStack/blob/main/README.md",
+    "blob_sha": "45835a804bae6a0ece455c40a3d642a3cffdaacc",
+    "read_method": "GitHub connector fetch_file main README lines130\u2013155",
+    "finding": "Repository documentation associates AirStack with CMU AirLab, names Sebastian Scherer as PI, and directs team contact through the lab website. No infrastructure/safety delegation supplied."
+  },
+  "observations": [
+    {
+      "source_id": "PUB01",
+      "url": "https://theairlab.org/",
+      "method": "web open",
+      "finding": "The project-linked lab homepage identifies its CMU Robotics Institute association.",
+      "authority_limit": "Organizational context, not an execution-platform delegation."
+    },
+    {
+      "source_id": "PUB02",
+      "url": "https://theairlab.org/team/sebastian/",
+      "method": "web open",
+      "finding": "The project-linked lab profile identifies Sebastian Scherer and his CMU research faculty association.",
+      "authority_limit": "Identity/association only; no applicable infrastructure or safety approval statement."
+    },
+    {
+      "source_id": "PUB03",
+      "url": "https://www.ri.cmu.edu/ri-faculty/sebastian-scherer/",
+      "method": "web open after targeted search",
+      "line_locators": "71\u201391",
+      "finding": "CMU RI directory identifies Sebastian Scherer, associates him with AirLab, and publishes the professional contact basti@andrew.cmu.edu.",
+      "contact_name": "Sebastian Scherer",
+      "email": "basti@andrew.cmu.edu",
+      "authority_limit": "Published professional routing contact, not evidence of OSMO/configuration/safety delegation."
+    },
+    {
+      "source_id": "PUB04",
+      "url": "https://engineering.cmu.edu/directory/bios/scherer-sebastian.html",
+      "method": "web open after targeted search",
+      "line_locators": "26\u201342",
+      "finding": "CMU Engineering directory independently repeats the same professional name and email.",
+      "contact_name": "Sebastian Scherer",
+      "email": "basti@andrew.cmu.edu",
+      "authority_limit": "Corroborates channel authenticity; no delivery test or approval power established."
+    }
+  ],
+  "qualification_judgment": "Verified public professional routing contact suitable only for a minimal request to identify or refer the responsible organizational authority. Routing success and exact remit remain unobserved.",
+  "search_limit": "Two queries used solely to locate institutional contact pages; no contributor/membership inference, mailbox access, service/control-plane query or active network probe.",
+  "recorded_utc": "2026-11-28T01:31:39.391302+00:00",
+  "timestamp_limit": "Recording timestamp after this turn public reads; not publisher revision or a mailbox validation time"
+}

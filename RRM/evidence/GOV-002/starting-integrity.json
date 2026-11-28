@@ -1,0 +1,77 @@
+{
+  "milestone": "GOV-001B",
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned GOV-001A start; 2218 protected entries, 307 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "bounded_owner_search_and_minimum_roles",
+      "status": "PASS",
+      "detail": "Six responsibilities/consolidation conditions with independent review;11 bounded source/location checks; zero accountable organizational owners verified; no contribution-to-authority inference or appointment"
+    },
+    {
+      "check": "targeted_request_and_decision_trace",
+      "status": "PASS",
+      "detail": "A\u2013F exact-artifact/authority/purpose/format/acceptance and consequence trace; all17 unresolved CHKs and original G0 IDs linked; requests prepared only"
+    },
+    {
+      "check": "intake_state_guards_and_offline_tests",
+      "status": "PASS",
+      "detail": "Eight-state protocol; six prospective slots/zero received items; ten executed synthetic tests PASS for missing authority, skipped states, insufficient evidence, negative branches and restricted/independent acceptance; metadata only"
+    },
+    {
+      "check": "event_driven_holds_and_governance",
+      "status": "PASS",
+      "detail": "Seven open trigger-based holds, no scheduled recurrence; 20 unchanged CHKs/3 satisfied/8 unsatisfied/9 unverified; D1\u2013D5 and G0/RA01/WP01/Tier B controls retained"
+    },
+    {
+      "check": "provenance_scope_and_sensitive_material_review",
+      "status": "PASS",
+      "detail": "12 byte-bound evidence records distinguish inherited/source/synthetic records; no external artifacts/credentials read or included; high-confidence key-pattern scan plus scoped author review, not a complete secret-detection guarantee"
+    },
+    {
+      "check": "package_hashes_and_repository_scope",
+      "status": "PASS",
+      "detail": "28 exact RRM-only paths; PROJECT_STATUS sole prior mutation; sums cover all except recursive sums/results, bound by final Git; staging/whitespace/protected history checks executed"
+    }
+  ],
+  "failures": [],
+  "offline_tests": {
+    "executed": 10,
+    "passed": 10,
+    "failed": 0,
+    "fixtures": "SYNTHETIC_METADATA_ONLY"
+  },
+  "checksum_verification": "PASS",
+  "repository_scope_verification": "PASS",
+  "organizational_request_status": "PREPARED \u2014 NOT SENT",
+  "verified_accountable_owners": 0,
+  "newly_discovered_authoritative_organizational_records": 0,
+  "actual_received_evidence_items": 0,
+  "accepted_evidence_items": 0,
+  "technical_prerequisite_changes": 0,
+  "technical_prerequisite_closures": 0,
+  "target_designation": "UNVERIFIED",
+  "implementation_authorized": false,
+  "hold": "EXTERNAL-INPUT HOLD \u2014 ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED",
+  "warnings": [
+    "No authoritative organizational appointment/platform evidence found; requested authority remains external",
+    "Intake rows are prospective request slots, not received evidence; synthetic tests are not organizational records",
+    "Source-role/code-governance associations do not grant organizational decision authority"
+  ],
+  "skipped_checks": [
+    "External recipient/authority confirmation and delivery: no actual records; communication explicitly unauthorized",
+    "Runtime/service/network/device/platform safety verification: no designated target or active authority",
+    "Restricted-original verification and independent evidence acceptance: no received organizational artifact",
+    "F00 equivalence/qualification: missing originals, approved exact configuration and admissible campaign evidence",
+    "Original M00 SHA256SUMS absent under original inventory convention; prior files protected by snapshot/inherited checks"
+  ],
+  "limitations": [
+    "Offline consistency/integrity/state checks cannot authenticate organizational authority, verify restricted originals, certify effective isolation or approve operations.",
+    "Ten tests exercise synthetic metadata only; six prepared slots are not actual received evidence. Intake acceptance never automatically closes a prerequisite or decision.",
+    "No external communication, owner appointment, deployment/runtime/hardware/active operation or recurring work. Stop after GOV-001B, no push."
+  ]
+}

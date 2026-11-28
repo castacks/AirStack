@@ -1,0 +1,49 @@
+{
+  "recorded_utc": "2026-11-28T01:28:53.689871+00:00",
+  "question": "Does an explicit project contact route connect to an authentic published organizational contact, distinct from approval authority?",
+  "records": [
+    {
+      "path": "README.md",
+      "bytes": 6369,
+      "sha256": "1f3fb432fb2af20ebe94976628293bc203f318dde0109591bc9b997b707fc130"
+    },
+    {
+      "path": "docs/development/intermediate/contributing.md",
+      "bytes": 5193,
+      "sha256": "caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670"
+    },
+    {
+      "path": "osmo/README.md",
+      "bytes": 14558,
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5"
+    },
+    {
+      "path": ".github/orchestrator/config.example.yaml",
+      "bytes": 4322,
+      "sha256": "4cc9c18106e556d5aae1a6f4eb10f934c02dd5d36bfa6f5e9eef36000619a62e"
+    },
+    {
+      "path": "RRM/governance/GOV-001B/GOV001B_OWNER_RECORD_SEARCH.csv",
+      "bytes": 3356,
+      "sha256": "f4462440fc09a1752c078662236671d8c3c5912cc8255735b92591d07022f51c"
+    },
+    {
+      "path": "RRM/governance/GOV-001A/GOV001A_OWNER_DISCOVERY.csv",
+      "bytes": 5398,
+      "sha256": "4c8fd540f0dfcabbdca98311ca74941e941a9e3d0332def0e4b0801d920f119d"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757"
+    }
+  ],
+  "standard_codeowners_presence": {
+    "CODEOWNERS": false,
+    ".github/CODEOWNERS": false,
+    "docs/CODEOWNERS": false
+  },
+  "bound": "Seven targeted local records, one repo metadata read, one remote README read, four official public pages and one two-query discovery call; search results not used as authority without opening primary pages",
+  "no_runtime_or_controlplane_interrogation": true,
+  "no_external_message": true
+}

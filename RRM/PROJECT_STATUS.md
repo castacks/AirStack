@@ -6,10 +6,10 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | GOV-001B organizational coordination checkpoint, request/trace/intake/hold procedure completed in containing validated local commit; STOPPED for Program Director review on external-input hold |
+| Current milestone | GOV-002 bounded authority/channel discovery and release assessment complete in containing validated local commit; Outcome A limited R1 release-readiness; STOPPED awaiting separate PD delivery decision; implementation hold unchanged |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | GOV-001A: a72b8f412f2567e870903e2f4fec8082bc437e21; GOV-001B completion is the containing local commit; no owner/evidence/technical closure inferred |
-| Last local commit (full SHA verified at snapshot preparation) | a72b8f412f2567e870903e2f4fec8082bc437e21 |
+| Last completed milestone | GOV-001B: 381db1c4dcdd1bb71d047176e681bd18c72e342d; GOV-002 completion is the containing local commit; no owner/technical closure or delivery authority inferred |
+| Last local commit (full SHA verified at snapshot preparation) | 381db1c4dcdd1bb71d047176e681bd18c72e342d |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -17,20 +17,21 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | M00-E1D completion commit | e6f0c81eff15538809b9745cef665de04ba4e796; prior review completed locally, PD decision remains pending |
 | M00-E1E completion commit | 0fa876fd8191be61a3e6724e1a3c93fe64510f01; sealed decision-preparation record preserved |
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
-| GOV-001B completion commit | Containing local commit; full SHA in chat and ignored RRM/evidence/GOV-001B/local-commit-receipt.json; self-reference convention retained |
-| Remote synchronization | No push/fetch/remote update by Codex during GOV-001B; external synchronization unknown |
+| GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
+| GOV-002 completion commit | Containing local commit; full SHA in chat and ignored RRM/evidence/GOV-002/local-commit-receipt.json; self-reference convention retained |
+| Remote synchronization | No Git push/fetch/remote ref update by Codex during GOV-002; read-only public document retrieval performed; external synchronization unknown |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | Six accountable responsibilities/consolidation constraints; one bounded authority-record search; A–F organizational request PREPARED — NOT SENT; six prospective intake slots/zero received artifacts; eight intake states and seven event-driven holds |
+| Current engineering activity | Bounded contact-route discovery, four candidate/channel assessments and R1–R4 release sheet; RC01 authentic published professional route supports minimal ownership/referral question; no broad architecture/platform study |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | CONDITIONALLY APPROVED FOR FURTHER OFFLINE DESIGN. Architecture C preferred; platform feasibility, isolation and equivalence remain unverified; no implementation or target designation |
 | D2 — Material configuration change | DEFERRED. Exact delta, configuration owner, compatibility, isolation verification plan, measurement assessment, rollback/recovery still required |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
 | D5 — Engineering scope | APPROVED — PASSIVE AND OFFLINE WORK ONLY. Source/configuration analysis, ownership discovery, evidence indexing, offline refinement, escalation and validation allowed; no construction/deployment/activation/testing |
-| Primary finding | No authoritative organizational owner/new platform attestation or technical closure found. Generic role and repository governance associations do not establish delegation. Intake preserves provenance/technical/independent acceptance and restricted custody, without fake receipt or skipped states |
-| Next action | Sponsor/PD confirms authorized organizational contact and scoped delegation, especially A/F ownership/safety, then supplies separate recipient/channel/scope delivery authority. Obtain B/C/D capability/security/network and E exact configuration records. No recurring work to restate hold; reassessment only on actual evidence/decision events. WP01 NOT AUTHORIZED |
-| Remaining approvals | D2 DEFERRED and D4 PENDING VERIFICATION; organizational safety/configuration/platform evidence and separate future implementation/active scope absent. RA01 PENDING PD REVIEW |
-| Last update evidence | RRM/handoffs/GOV001B_HANDOFF.md; RRM/governance/GOV-001B/GOV001B_PD_ACTION_SUMMARY.md; GOV001B_EVIDENCE_INTAKE_PROTOCOL.md; GOV001B_DECISION_EVIDENCE_MATRIX.csv; RRM/evidence/GOV-001B/validation-results.json |
+| Primary finding | Outcome A for separate R1 delivery decision only: project README→AirLab→two official CMU directory pages support RC01 Sebastian Scherer/basti@andrew.cmu.edu as published routing contact. No applicable infrastructure/configuration/safety approval authority verified; routing success/remit unobserved |
+| Next action | PD approves or defers narrowed R1/C1 with authorized sender/affiliation, exact recipient/body/email channel/scope and stop conditions. All approval fields unselected. Do not send GOV-001B detailed A–F; R2 not release-ready pending verified authority and handling. No communication occurred. WP01 NOT AUTHORIZED |
+| Remaining approvals | R1 delivery not authorized; D2 DEFERRED/D4 PENDING VERIFICATION, technical/organizational safety/configuration/platform evidence and separate active scope absent. RA01 PENDING PD REVIEW |
+| Last update evidence | RRM/handoffs/GOV002_HANDOFF.md; RRM/governance/GOV-002/GOV002_PD_RELEASE_DECISION.md; GOV002_RECIPIENT_CHANNEL_ASSESSMENT.csv; RRM/evidence/GOV-002/release-state.json; validation-results.json |
 
 ## Milestone history
 
@@ -47,17 +48,18 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | M00-E1D | Guard-host alternatives/measurement/safety/configuration review complete in containing commit; pending independent review/PD decision | e6f0c81eff15538809b9745cef665de04ba4e796; RRM/handoffs/M00E1D_HANDOFF.md |
 | M00-E1E | Decision forms and bounded passive review complete; external owner/technical proof INCOMPLETE; external-input hold | 0fa876fd8191be61a3e6724e1a3c93fe64510f01; RRM/handoffs/M00E1E_HANDOFF.md |
 | GOV-001A | D1/D3/D5 directed project dispositions recorded; D2 deferred/D4 pending; passive discovery/escalation completed; external-input hold | a72b8f412f2567e870903e2f4fec8082bc437e21; RRM/handoffs/GOV001A_HANDOFF.md |
-| GOV-001B | Ownership/request/intake/trace/hold checkpoint complete; zero received organizational records or closures; external-input hold | Containing local commit; RRM/handoffs/GOV001B_HANDOFF.md |
+| GOV-001B | Ownership/request/intake/trace/hold checkpoint complete; zero received organizational records or closures; external-input hold | 381db1c4dcdd1bb71d047176e681bd18c72e342d; RRM/handoffs/GOV001B_HANDOFF.md |
+| GOV-002 | Outcome A: authentic public professional routing contact for limited R1; no verified organizational approval authority or delivery authorization; implementation hold | Containing local commit; RRM/handoffs/GOV002_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in GOV-001B. Subquestion closure does not imply gate passage.
+Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in GOV-002. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|
 | M00-B01 | Critical — baseline authentication | External: FR-01–FR-20 frozen records/approval chains absent. Custodian supplies authenticated read-only originals and full hashes |
 | M00-B02 | Critical — CFG-SIL-01 reproduction | Exact images/source/PX4 binary/Pegasus/entrypoint differ; six property matches do not establish system equivalence. Disposition all differences with approved exact assets |
-| M00-B03 | Critical — execution readiness | Episode missed dependency window and STARTUP_DEADLINE latch established; deeper subcauses/variability unresolved. M00-C had 61 false samples; M00-D/E1/E1A/E1B/E1C/E1D/E1E/GOV-001A/GOV-001B take no new Boolean sample. Tier B is not authorized. Requires reviewed CA01–CA04 and authorized verified startup evidence, not a proposed fix |
+| M00-B03 | Critical — execution readiness | Episode missed dependency window and STARTUP_DEADLINE latch established; deeper subcauses/variability unresolved. M00-C had 61 false samples; M00-D/E1/E1A/E1B/E1C/E1D/E1E/GOV-001A/GOV-001B/GOV-002 take no new Boolean sample. Tier B is not authorized. Requires reviewed CA01–CA04 and authorized verified startup evidence, not a proposed fix |
 | M00-B04 | Critical — evidence admissibility/qualification | F00-01 REC-01 independent supervisor closure evidence/originals absent; future authorized failure-survival tests and independent review |
 | M00-B05 | Critical — boundary qualification | F00-02 horizontal/vertical original/BOUNDARY evidence absent; future native-trigger/recovery/margin/containment verification and adjudication |
 | M00-B06 | Blocking for provider release | Exact image integrity/rights, A3 approval, runnable R4/R5C assets and applicable E9 release approvals pending; does not block read-only document completion |
@@ -69,4 +71,4 @@ Severity labels below are local planning labels, not changed SRS risk classifica
 
 Permanent control documents: [roadmap](ROADMAP_MANDATE.md). Full original-ID dispositions, actions/authorities/closure conditions are in [M00-E1C continuing register](evidence/M00-E1C/M00E1C_BLOCKER_DISPOSITION.csv). A milestone's engineering completion is distinct from gate readiness, independent review and qualification. Future milestones must update this file with new evidence/known full SHA and commit it with their deliverables.
 
-GOV-001B boundary: **EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**. GOV-001A D1 conditional offline design/D3 project evidence policy/D5 passive-offline scope unchanged; D2 DEFERRED, D4 PENDING VERIFICATION. No owner appointed, external coordination initiated, construction/deployment/activation, simulator/PX4/MAVROS service start/restart, active network probe/test, hardware interaction/actuation, Tier B/C or WP01 authority. Tier B target undesignated/UNVERIFIED; execution NOT AUTHORIZED. A–F request PREPARED — NOT SENT; intake has zero actual received/accepted items and six prospective slots. All20 baseline IDs/dispositions retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED;17 unresolved, zero whole closures. Event-driven evidence review never automatically advances a gate or authorizes operations. No recurring engineering work scheduled. Controlled criteria, original24-start proposal and historical19.276162179s/74.228771713s n=1 unchanged. Stop after GOV-001B local commit; no push. Protected history/roadmap unchanged; prior status sums verified at pinned historical commits.
+GOV-002 boundary: **EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**. Outcome A means ready to seek separate R1 permission for minimal ownership/referral contact only, not ready to send. R2 detailed platform-evidence delivery not release-ready. No organizational approval authority/owner appointment or technical prerequisite closure. D1/D3/D5 retained; D2 DEFERRED/D4 PENDING VERIFICATION. Tier B target undesignated/UNVERIFIED; execution NOT AUTHORIZED; WP01 unauthorized. All20 baseline CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED;17 unresolved and zero whole closures. GOV-001B intake/history unchanged; zero actual external requests/responses/acceptances. No messages, private mailbox access, service interrogation, active network probes, runtime/hardware operations or recurring work. Public-document retrieval only, through GitHub/web; no source execution or remote ref update. Stop after GOV-002 local commit; no push. Controlled criteria/original24-start proposal/historical n=1 observations and protected history/roadmap unchanged; prior status sums verified at historical pins.
