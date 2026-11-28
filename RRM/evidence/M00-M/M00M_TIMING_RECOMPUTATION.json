@@ -1,0 +1,35 @@
+{
+  "captured_context_utc": "2026-11-27T21:30:11.260817+00:00",
+  "claim": "Exact Decimal differences between specified retained text timestamps only",
+  "clock_domains": [
+    "ROS producer log epoch, continuity uncalibrated",
+    "Docker UTC receipts, buffering unbounded"
+  ],
+  "input_records": {
+    "application": "2026-11-27T18:42:09.695796205Z [42.678s] Simulation App Startup Complete",
+    "connection": "[INFO] [1795805020.210903826] [robot_1.interface.mavros]: CON: Got HEARTBEAT, connected. FCU: PX4 Autopilot",
+    "deadline": "[ERROR] [1795805000.934741647] [robot_1.interface.robot_interface]: Actuation NOT_READY: STARTUP_DEADLINE",
+    "graph": "2026-11-27T18:43:23.924567918Z \u001b[0mPX4 node at /World/base_link/PX4MultirotorGraph/PX4Multirotor created in on-demand graph."
+  },
+  "locators": [
+    "original_ros_logs/logs/0/text",
+    "original_ros_logs/logs/1/text",
+    "filtered_logs/0/records/341",
+    "filtered_logs/0/records/357"
+  ],
+  "new_trials": 0,
+  "not_established": [
+    "Governing acceptance authority",
+    "Calibrated elapsed runtime or exact steady deadline edge",
+    "Independent repeated starts/statistical reliability",
+    "Production compatibility or successful recovery",
+    "Flight/safety acceptance or qualification"
+  ],
+  "results": {
+    "application_complete_to_recorded_vehicle_graph_s": "74.228771713",
+    "deadline_error_to_recorded_mavros_connection_s": "19.276162179"
+  },
+  "retained_startup_episode_count": 1,
+  "source": "RRM/evidence/M00-C/startup-source-records.json",
+  "source_sha256": "536f9e8b55647d813dd5be532a4444ccb2639482f74f449229413958588f859c"
+}

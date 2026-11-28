@@ -1,0 +1,13 @@
+# Acceptance-critical cores — determination withheld
+
+**No authenticated governing baseline exists here, so M00M-06 cannot establish any of these as an authenticated mandatory F00 acceptance condition.** L's potentially critical cores remain hypotheses supported by supplied EXT clauses, not new signed applicability rulings. No historical status changes.
+
+| ID / original historical disposition | Core needing confirmation / method-specific part | Precise missing authority/evidence / current conclusion |
+|---|---|---|
+| CHK03 — UNSATISFIED | Original configuration/provenance and approved deltas versus P1 overlay/launcher choice | FR-06/07/14/15/18 original baseline/deployment/qualifying manifests and approval chain; current source hashes do not establish frozen CFG-SIL-01. Mandatory core UNRESOLVED |
+| CHK11 — UNVERIFIED | Defensible metric timebase/window and uncertainty versus specific startup probes | FR-07/16/17/19 exact original criteria/scoring/windows and raw clock maps. EV01's two same-domain textual differences do not authenticate a5ms skew criterion, source clock continuity or a complete acceptance interval. Mandatory core UNRESOLVED |
+| CHK14 — UNVERIFIED | Independent supervision and every recorder OS exit under executor failure versus journal/guard-host architecture | FR-08/09/11 REC-01/R11 C1/DR-01/02 and original supervisor/run records. H synthetic/fault tests are not independent operational REC-01 proof. Mandatory core UNRESOLVED |
+| CHK18 — SATISFIED | Preserve retained diagnostic history versus authority/authenticity/completeness of original acceptance evidence | Existing historical identity preservation remains its documentation-only historical SATISFIED; full original seals, provenance, qualifying data and independent admission absent. SAT does not become acceptance-data admission. Mandatory acceptance scope UNRESOLVED |
+| CHK19 — UNSATISFIED | Original governing scope/criteria/exclusions/sign-offs versus alleged startup timing allocation | FR-01..12/16/17/19 originals and custodian/PD authority confirmation. No original startup requirement or budget authenticated; draft criteria cannot supply it. Authentication blocker remains OPEN |
+
+All20 original IDs and requirement wording remain in the unchanged M00-E1A register; historical3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED retained. L's separate A/B/E applicability assessment is preserved unchanged. The new coverage/inventory grants no prerequisite closure, guard-build obligation, execution authority or qualification. Method-specific safety/host/stop conditions remain binding if a later authorized action selects that method. Runtime containment NOT VERIFIED.
