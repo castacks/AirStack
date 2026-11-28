@@ -6,10 +6,10 @@ Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates Ch
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | M00-J passive development-environment/native-build readiness preparation complete in containing validated local commit; J4 host/access blocker; STOP for PD review |
+| Current milestone | M00-K passive host access resolution/handoff complete in containing validated local commit; K-C current container availability uninspectable; single Path2 request BLOCKED; STOP for PD review |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | M00-I:d678846801e859c68902bbb9c2e6f0c77760e8b0; M00-J completion is containing local commit |
-| Last local commit (full SHA verified at snapshot preparation) | d678846801e859c68902bbb9c2e6f0c77760e8b0 |
+| Last completed milestone | M00-J:f72d9515fef39f16d8620fb9326abb42e35f6350; M00-K completion is containing local commit |
+| Last local commit (full SHA verified at snapshot preparation) | f72d9515fef39f16d8620fb9326abb42e35f6350 |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -19,19 +19,19 @@ Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates Ch
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
 | GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
 | GOV-002 completion commit | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; historical handoff preserved |
-| Remote synchronization | No push/fetch/remote ref updates or external network access in M00-J; local files/stat and Docker client-only version observation |
+| Remote synchronization | No push/fetch/remote ref updates or external/operational network access in M00-K; no daemon endpoint contacted |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | Exact declared development tag and historical config ID traced; current image/dependency availability NOT INSPECTABLE; blocked non-actuating compilation-only policy and host/access decision package |
+| Current engineering activity | Minimal K-C access classification and one blocked Path2 compilation-only request; fresh host PATH/ROS/workspace/socket observations, earlier I/J evidence referenced |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | Reduced desktop Architecture C basis retained; M00-G explicitly approves RRM-only offline implementation. Deployment and effective isolation not approved or verified |
 | D2 — Material configuration change | M00-G approves this offline prototype only; protected integration/deployment/runtime material changes remain deferred pending exact review |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
-| D5 — Engineering scope | M00-J authorizes passive inspection, offline verification and build-readiness preparation only. Privileged-daemon inspection path stopped under section4; no container/ROS execution, image build/pull, install, native compile, network/hardware access |
-| Primary finding | J4 HOST OR ACCESS BLOCKER: current host lacks nine native prerequisites; privileged local daemon inventory path not used under directive; historical matching image is not current availability proof. Proposed build isolation static only; runtime NOT VERIFIED |
-| Next action | PD review M00-J. Obtain selected existing image/startup/package export and exact daemon host/mount/resource/stop permission from actual local controller, or separately authorize narrow read-only local inventory; resolve blocked build-only package before execution approval |
+| D5 — Engineering scope | M00-K passive inspection, offline source analysis and compilation-only handoff preparation only. No container/daemon execution, native compile, image pull/build, install, simulator/ROS/hardware/network operation |
+| Primary finding | K-C: required image identified historically; current local availability cannot be verified under permitted nonprivileged scope. Host has Python3.12.3 and Docker/ctr clients but no compiler/CMake/build utilities/Jazzy native package set |
+| Next action | Single Path2: actual local runtime controller supplies selected current image/package/host/access metadata; PD separately reviews one restricted compilation-only run. No build without further authorization; no provisioning or transfer initiated |
 | Remaining approvals | No runtime target or bounded execution authority. Effective devices/network/DDS/GPU, host resource/stop scope and independent recorder evidence missing. RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED |
-| Last update evidence | RRM/handoffs/M00J_HANDOFF.md; RRM/evidence/M00-J/M00J_VALIDATION_RESULTS.json; M00J_PASSIVE_HOST_SNAPSHOT.json; M00J_HISTORICAL_IMAGE_REFERENCE.json; RRM/engineering/M00-J/M00J_NATIVE_BUILD_AUTHORIZATION_PACKAGE.md |
+| Last update evidence | RRM/handoffs/M00K_HANDOFF.md; RRM/evidence/M00-K/M00K_VALIDATION_RESULTS.json; RRM/engineering/M00-K/M00K_HOST_ACCESS_FINDINGS.md; M00K_BUILD_EXECUTION_REQUEST.md; M00K_NEXT_ACTION.md |
 
 ## Milestone history
 
@@ -54,11 +54,12 @@ Status snapshot: 2026-11-28 UTC; author Codex. GOV-001A explicitly designates Ch
 | M00-G | Offline simulation configuration/source/recorder implementation complete; synthetic validation PASS, execution BLOCKED | 45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac; RRM/handoffs/M00G_HANDOFF.md |
 | M00-H | Native build blockers precisely identified; corrected synthetic guard correspondence/adapters/durable recorder implemented,60 offline tests PASS; runtime BLOCKED | f5b14e08cbf0ef54bfe3c986ea377fbe50adbf61; RRM/handoffs/M00H_HANDOFF.md |
 | M00-I | I2 supported container build path/source contracts established; nine native blockers;14 focused tests PASS; no native compilation/linking/runtime verification | d678846801e859c68902bbb9c2e6f0c77760e8b0; RRM/handoffs/M00I_HANDOFF.md |
-| M00-J | J4 passive native-build environment readiness complete; current image/package inventory and scoped host access unavailable; compilation-only proposal BLOCKED | Containing local commit; RRM/handoffs/M00J_HANDOFF.md |
+| M00-J | J4 passive native-build environment readiness complete; current image/package inventory and scoped host access unavailable; compilation-only proposal BLOCKED | f72d9515fef39f16d8620fb9326abb42e35f6350; RRM/handoffs/M00J_HANDOFF.md |
+| M00-K | K-C; single Path2 build-only request blocked on current local image/access verification and separate approval; passive preparation complete | Containing local commit; RRM/handoffs/M00K_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-J. Subquestion closure does not imply gate passage.
+Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-K. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|
@@ -104,7 +105,7 @@ H successor preflight reads sealed G policy without modifying it: BUILD BLOCKED;
 
 Proposed next technical scope: exact local C++/CMake/ROS/message/YAML dependency identity handoff and original-header compile/link/production-binding review, then remaining named image/scene/GPU/containment/recorder supervisor gaps under separate scope. No generic organizational authority hunt. M00-H completion is containing local commit; actual SHA in chat/ignored receipt. PROJECT_STATUS sole prior-file mutation; all protected/history/F00/RRM-transfer preserved. No installs/pulls/Docker/Isaac/PX4/MAVROS/ROS-node/device/actuation/active network/deployment/Tier B/C/WP01 operations. Stop after M00-H for PD review; no push.
 
-## M00-J current engineering disposition
+## Historical M00-J engineering disposition
 
 M00-I outcome I2 is preserved: supported robot development container/Jazzy build path identified, original guard source preserved,14 focused regressions PASS; native compile/link and production event bindings unverified. See the sealed M00-I handoff for source/interface findings; M00-J did not repeat broad analysis or synthetic suites.
 
@@ -113,3 +114,9 @@ M00-J outcome J4: `.env` and desktop compose resolve development tag airlab-dock
 Observed workspace has Kubernetes/OSMO enclosure indicators, Ubuntu24.04/x86_64 and no compiler/CMake/Jazzy package set. Actual daemon host/controller/exclusivity, current image/package manifest, bind namespace visibility and compilation resource/stop permission remain unknown. Local daemon.json declares default-runtime=nvidia. Proposed non-GPU runtime, clean entrypoint, three restricted binds, network none, non-root/read-only-root/capability/security/private namespace/resource bounds remain design-only and BLOCKED. Exact proposed resource figures are not entitlement or a measured build estimate. No organizational contact workflow initiated.
 
 All20 CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED and zero closures;29 mappings remain28 NOT_TESTED/1 OUT_OF_SCOPE, zero verification/qualification. G0 BLOCKED; RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED. Tier B target undesignated; execution NOT AUTHORIZED; runtime gate NOT PASSED; runtime containment NOT VERIFIED. Obtain narrowly specified existing local image/package/host evidence, then separately review compilation-only scope. Stop after M00-J local commit for PD review; no push.
+
+## M00-K current engineering disposition
+
+K-C — current container availability cannot be inspected through the permitted nonprivileged path; required image/tag and exact historical ID retained from I/J. Current active Codex workspace has Python3.12.3 and Docker/ctr clients, no compiler/CMake/build utilities/Jazzy native dependencies, and unset checked ROS environment. Existing UID0 can access system socket filesystem permissions; that does not establish nonprivileged daemon authority. No daemon request/escalation or current image presence/absence claim.
+
+Exactly one recommendation: Path2, a blocked bounded container-build request. Actual local controller supplies selected current image/startup/package/host/access metadata; PD then separately reviews fixed non-GPU, non-root, network-none compilation-only invocation, restricted sources/private output and enforced resource/stop scope. No provisioning/transfer, broad discovery or execution initiated. All20 original CHKs/29 mappings preserved; G0 BLOCKED; RA01 PENDING; WP01 NOT AUTHORIZED; Tier B target undesignated and execution NOT AUTHORIZED; runtime gate NOT PASSED; runtime containment NOT VERIFIED. Stop for PD review after local commit; no push.

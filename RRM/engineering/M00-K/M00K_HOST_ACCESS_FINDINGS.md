@@ -1,0 +1,15 @@
+# M00-K host access findings
+
+**K-C — Container availability cannot be inspected.** Starting ore_proj HEAD `f72d9515fef39f16d8620fb9326abb42e35f6350` and clean tree verified. Fresh local file/stat/PATH observations are embedded in `RRM/evidence/M00-K/M00K_VALIDATION_RESULTS.json`; prior M00-J validator passed before K writes.
+
+Candidate context is active `/root/AirStack` on workspace node `4585761b76004bc7-696082aefb054d52`, Ubuntu24.04.5 LTS/x86_64. The actual daemon execution host/controller remains unverified; M00-J's Kubernetes/OSMO enclosure evidence is referenced rather than repeated.
+
+Python3.12.3 is present. No c++/g++/clang++/cc/gcc, CMake, make, ninja, ld, ar, pkg-config or colcon was found in PATH. Python's historical GCC build string is not an installed C++ compiler. `/opt/ros/jazzy` is absent; checked ROS_DISTRO/ROS_VERSION/ament/CMake/colcon/RMW environment variables are unset. `robot/ros_ws/{src,build,install,log}` exist but their historical artifacts do not supply the nine native prerequisites. The unchanged I resolver still reports compiler, CMake, ament_cmake, rclcpp, ament_index_cpp, mavros_msgs, rcl_interfaces, std_msgs and yaml-cpp missing. No new dependency survey was performed.
+
+Docker and ctr clients exist; podman/nerdctl were not found. Default Docker context, no endpoint overrides, and a system socket at `/var/run/docker.sock` are observed. Socket root:999/mode0660 is filesystem-accessible under existing UID0/GID0; no sudo, identity/group change or escalation was attempted. **Filesystem access does not establish permitted nonprivileged use of the daemon.** No rootless endpoint was identified in the checked standard location. Under K01's privileged-endpoint restriction, no daemon connection/test or remote probe was made. No access-denied response or image absence is claimed.
+
+Required declared image remains `airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev`, from `.env:11–21` and `robot/docker/docker-compose.yaml:12`. Definition: `robot/docker/Dockerfile.robot`, desktop CUDA13.0.2/Ubuntu24.04/Jazzy args, `/root/AirStack/robot/ros_ws` layout. C++17, CMake>=3.16 and the seven ROS/ament/message/YAML packages are required by I's guard_host CMake. Reference I's dependency/interface matrices and J's coverage/policy; declarations are not installed-image proof.
+
+Historical image config ID `sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290` was recorded at E1A2026-11-27 and referenced in J; no robot RepoDigest was recorded. Current local presence, startup config, package versions/generated interfaces and non-GPU runtime availability remain unverified. The system NVIDIA default declared in J makes an explicit verified non-GPU runtime necessary for the proposed build.
+
+K-A is unsupported by missing host tools; K-B requires current image/host verification not yet supplied; K-D requires actual absence evidence; K-E is not established. **Only K-C is selected.** Recommended continuation is the single blocked Path2 request, not provisioning or transfer. Runtime containment NOT VERIFIED; no native compilation can begin under K authorization.

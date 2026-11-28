@@ -1,0 +1,173 @@
+{
+  "captured_observations": {
+    "captured_utc": "2026-11-28T04:25:09.808534+00:00",
+    "cpu": "x86_64",
+    "daemon_contacted": false,
+    "daemon_current_context": "default",
+    "daemon_endpoint": "unix:///var/run/docker.sock; default client context; no server query",
+    "daemon_overrides_present": {
+      "CONTAINER_HOST": false,
+      "DOCKER_CONTEXT": false,
+      "DOCKER_HOST": false,
+      "XDG_RUNTIME_DIR": false
+    },
+    "gid": 0,
+    "groups": [
+      0
+    ],
+    "host_native_missing": [
+      "cxx",
+      "cmake",
+      "ament_cmake",
+      "rclcpp",
+      "ament_index_cpp",
+      "mavros_msgs",
+      "rcl_interfaces",
+      "std_msgs",
+      "yaml-cpp"
+    ],
+    "inspection_limit": "Filesystem access under existing UID0 is observed; nonprivileged daemon permission is not established and socket inspection is not a daemon access test.",
+    "node": "4585761b76004bc7-696082aefb054d52",
+    "os": "Ubuntu 24.04.5 LTS",
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "rootless_socket_exists": false,
+    "ros_environment": {
+      "AMENT_PREFIX_PATH": null,
+      "CMAKE_PREFIX_PATH": null,
+      "COLCON_PREFIX_PATH": null,
+      "RMW_IMPLEMENTATION": null,
+      "ROS_DISTRO": null,
+      "ROS_VERSION": null
+    },
+    "socket": {
+      "filesystem_rw_for_current_uid": true,
+      "gid": 999,
+      "is_socket": true,
+      "mode": "0o660",
+      "uid": 0
+    },
+    "tools": {
+      "ar": null,
+      "c++": null,
+      "cc": null,
+      "clang++": null,
+      "cmake": null,
+      "colcon": null,
+      "ctr": "/usr/bin/ctr",
+      "docker": "/usr/bin/docker",
+      "g++": null,
+      "gcc": null,
+      "ld": null,
+      "make": null,
+      "nerdctl": null,
+      "ninja": null,
+      "pkg-config": null,
+      "podman": null,
+      "python3": "/usr/bin/python3"
+    },
+    "uid": 0,
+    "workspace": "/root/AirStack",
+    "workspace_directories": {
+      "/opt/ros/jazzy": false,
+      "robot/ros_ws/build": true,
+      "robot/ros_ws/install": true,
+      "robot/ros_ws/log": true,
+      "robot/ros_ws/src": true
+    },
+    "workspace_matches": true
+  },
+  "changed_file_sha256_excluding_self": {
+    "RRM/PROJECT_STATUS.md": "c5703cc0891bf0cec2761a7766c61076e53cd63cf579f7285537cd2f0285b14a",
+    "RRM/engineering/M00-K/M00K_BUILD_EXECUTION_REQUEST.md": "2a3b148553854116c18c4990fd76f7ba18b1749fa22b5560a17c96459ef6c7a4",
+    "RRM/engineering/M00-K/M00K_HOST_ACCESS_FINDINGS.md": "c4b18abbf8b8f032e078ba862626b13836d34e8ab43676e7fc5b885c2f0060af",
+    "RRM/engineering/M00-K/M00K_NEXT_ACTION.md": "875bb2d533f62fb9b02a96226af1dc9e9b913e8fa8ae8833a00977f7848f260e",
+    "RRM/handoffs/M00K_HANDOFF.md": "4c84d57a0e4d1148ea0c78b184bb03e1d1264d60503d542ef1708313664820a5"
+  },
+  "changed_files": [
+    "RRM/PROJECT_STATUS.md",
+    "RRM/engineering/M00-K/M00K_BUILD_EXECUTION_REQUEST.md",
+    "RRM/engineering/M00-K/M00K_HOST_ACCESS_FINDINGS.md",
+    "RRM/engineering/M00-K/M00K_NEXT_ACTION.md",
+    "RRM/evidence/M00-K/M00K_VALIDATION_RESULTS.json",
+    "RRM/handoffs/M00K_HANDOFF.md"
+  ],
+  "checks": [
+    {
+      "check": "pinned_start_and_protected_files",
+      "detail": "Clean ore_proj start f72d9515fef39f16d8620fb9326abb42e35f6350; prior J validator PASS; 2479 prior entries unchanged except authorized PROJECT_STATUS",
+      "result": "PASS"
+    },
+    {
+      "check": "historical_and_controlled_evidence",
+      "detail": "561 historical checksums verified at original milestone pins; 48 controlled files unchanged; no protected writes",
+      "result": "PASS"
+    },
+    {
+      "check": "original_prerequisite_and_mapping_continuity",
+      "detail": "20 original identifiers/requirements/closure evidence unchanged,3 SAT/8 UNSAT/9 UNVER;29 mappings unchanged28 NOT_TESTED/1 OUT_OF_SCOPE; no new closure/qualification",
+      "result": "PASS"
+    },
+    {
+      "check": "passive_host_and_access_classification",
+      "detail": "K-C: current workspace identity and missing host tools recorded; historical image distinguished from unknown current availability; no privileged/remote daemon test; filesystem accessibility is not daemon execution permission",
+      "result": "PASS"
+    },
+    {
+      "check": "blocked_single_path_and_invocation_review",
+      "detail": "Exactly Path2 selected and blocked until image/host/access verification plus PD approval; documentary invocation tokenized only, three restricted binds/clean entrypoint/nonprivileged network-none target build match J policy; output not created",
+      "result": "PASS"
+    },
+    {
+      "check": "governance_and_operations_record",
+      "detail": "G0 blocked;RA01 pending;WP01 unauthorized;Tier B undesignated/unauthorized;runtime containment NOT VERIFIED. Executed-action record: no daemon/container/service start/exec, pulls/builds/installs, native compilation, ROS/simulator/hardware/operational-network access, transfer or push",
+      "result": "PASS"
+    },
+    {
+      "check": "deliverable_scope",
+      "detail": "Exactly6 RRM-only changed files;3 requested engineering documents, handoff, validation and current status;PROJECT_STATUS sole prior-file mutation",
+      "result": "PASS"
+    }
+  ],
+  "classification": "K-C",
+  "controlled_file_count": 48,
+  "execution_authorized": false,
+  "failures": [],
+  "historical_pinned_checksum_count": 561,
+  "limitations": [
+    "No software behavior changed; validation is documentary/static/integrity checking, not runtime or qualification testing.",
+    "No forbidden action occurred is an executed-tool-action record, not provable solely from hashes.",
+    "Validation JSON excludes its own hash to avoid circularity; containing Git commit binds it."
+  ],
+  "native_compilation_authorized": false,
+  "protected_entry_count": 2479,
+  "recommended_path": 2,
+  "request_status": "BLOCKED",
+  "result": "PASS",
+  "runtime_containment": "NOT VERIFIED",
+  "skipped_checks": [
+    "Daemon/image/container inspection beyond local file metadata: privileged or remote endpoint not contacted under K01.",
+    "Native compiler/configure/link, container/ROS/simulator execution, installation/provisioning/transfer and physical/operational network checks: not authorized, not performed.",
+    "Broad source/dependency/governance/synthetic test repetition: unnecessary for small passive handoff."
+  ],
+  "source_sha256": {
+    ".env": "ce3bb389420f80d3614cfd7f2957ac1a9ab2b60a02e6a6095d9c0a3bbcf33380",
+    "RRM/engineering/M00-I/M00I_NATIVE_DEPENDENCY_MATRIX.csv": "7c56636fd256ff21c906e508c1e3b8b4edebc14b8e01141eddb9e84e08702063",
+    "RRM/engineering/M00-J/M00J_COMPILATION_ONLY_POLICY.json": "4476410b8dc68136132475fcc495c582be834bdf05141dc3c264a473ff925bcc",
+    "RRM/evidence/M00-J/M00J_HISTORICAL_IMAGE_REFERENCE.json": "1a9864cfa05bf1805901953d1c83d16c0a290c7582d5f083553da2e664c3a548",
+    "RRM/evidence/M00-J/M00J_PREREQUISITE_CONTINUITY.csv": "ff3c737444a4cf289f158a9ce9f2b5c5ef8308c2491f0aa6755e679f34591cad",
+    "RRM/handoffs/M00J_HANDOFF.md": "0ef82ae0ce6fa16b49ebd46192fe7af35e366f4d074d79641de0f64fcc106c0e",
+    "RRM/verification/matrices/M00_REQUIREMENTS_RECONCILIATION.csv": "f84f9b5e1c41ee1ffae4b2a288634d83c998619b8ca815db6d8574f7151339a6",
+    "robot/docker/Dockerfile.robot": "d238c9ae9ee8c2338a7991b2b4efe40e7a564cd3a95411be818cb302f80960c4",
+    "robot/docker/docker-compose.yaml": "f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0"
+  },
+  "starting_branch": "ore_proj",
+  "starting_commit": "f72d9515fef39f16d8620fb9326abb42e35f6350",
+  "starting_tracked_inventory_sha256": "64bed44299be4b29363cf03c7e94b687d8567a5d08c583e2c7f778b255078154",
+  "starting_tree": "CLEAN",
+  "warnings": [
+    "Current UID0 has socket filesystem access; permitted nonprivileged daemon use not established; no denial/server query fabricated.",
+    "Historical exact image config ID is not current local availability or a registry manifest digest.",
+    "Actual daemon host/access, genuine native dependency inventory and security/UID/mount/resource/stop enforcement remain unverified.",
+    "The displayed command is a blocked documentary proposal; wall/quota supervision is a separate mandatory control, not enforced by the command alone."
+  ]
+}
