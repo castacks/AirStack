@@ -1,0 +1,195 @@
+{
+  "installed_message_definitions": "NOT LOCALLY AVAILABLE; generated headers/typesupport cannot be supplied by documentation",
+  "intended_environment": "AirStack robot desktop development container; ROS2 Jazzy underlay",
+  "native_missing": [
+    "cxx",
+    "cmake",
+    "ament_cmake",
+    "rclcpp",
+    "ament_index_cpp",
+    "mavros_msgs",
+    "rcl_interfaces",
+    "std_msgs",
+    "yaml-cpp"
+  ],
+  "original_guard_identity": "PASS",
+  "packages": {
+    "ament_cmake": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "ament_cmake",
+      "required_headers": {},
+      "required_libraries": {},
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "ament_index_cpp": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "ament_index_cpp",
+      "required_headers": {
+        "ament_index_cpp/get_package_share_directory.hpp": []
+      },
+      "required_libraries": {
+        "libament_index_cpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "mavros_msgs": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "mavros_msgs",
+      "required_headers": {
+        "mavros_msgs/msg/extended_state.hpp": [],
+        "mavros_msgs/msg/state.hpp": []
+      },
+      "required_libraries": {
+        "libmavros_msgs__rosidl_typesupport_cpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "rcl_interfaces": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "rcl_interfaces",
+      "required_headers": {
+        "rcl_interfaces/msg/parameter_type.hpp": [],
+        "rcl_interfaces/srv/get_parameters.hpp": [],
+        "rcl_interfaces/srv/set_parameters.hpp": []
+      },
+      "required_libraries": {
+        "librcl_interfaces__rosidl_typesupport_cpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "rclcpp": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "rclcpp",
+      "required_headers": {
+        "rclcpp/rclcpp.hpp": []
+      },
+      "required_libraries": {
+        "librclcpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "std_msgs": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "std_msgs",
+      "required_headers": {
+        "std_msgs/msg/bool.hpp": [],
+        "std_msgs/msg/string.hpp": []
+      },
+      "required_libraries": {
+        "libstd_msgs__rosidl_typesupport_cpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    },
+    "yaml-cpp": {
+      "availability": "DECLARED BUT NOT LOCALLY AVAILABLE",
+      "configs": [],
+      "package": "yaml-cpp",
+      "required_headers": {
+        "yaml-cpp/yaml.h": []
+      },
+      "required_libraries": {
+        "libyaml-cpp.so*": []
+      },
+      "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+      "versions": []
+    }
+  },
+  "preferred_path": "B_CONTAINER_BUILD; narrow RRM-only CMake build using existing underlay",
+  "prefixes": [
+    "/opt/ros/jazzy",
+    "/usr",
+    "/usr/local",
+    "/root/AirStack/robot/ros_ws/install",
+    "/root/AirStack/robot/ros_ws/install/airstack_common",
+    "/root/AirStack/robot/ros_ws/install/airstack_msgs",
+    "/root/AirStack/robot/ros_ws/install/autonomy_bringup",
+    "/root/AirStack/robot/ros_ws/install/bag_record_pid",
+    "/root/AirStack/robot/ros_ws/install/behavior_tree_msgs",
+    "/root/AirStack/robot/ros_ws/install/coordination_bringup",
+    "/root/AirStack/robot/ros_ws/install/coordination_msgs",
+    "/root/AirStack/robot/ros_ws/install/cost_map_interface",
+    "/root/AirStack/robot/ros_ws/install/desktop_bringup",
+    "/root/AirStack/robot/ros_ws/install/disparity_expansion",
+    "/root/AirStack/robot/ros_ws/install/disparity_graph",
+    "/root/AirStack/robot/ros_ws/install/disparity_graph_cost_map",
+    "/root/AirStack/robot/ros_ws/install/droan_gl",
+    "/root/AirStack/robot/ros_ws/install/droan_local_planner",
+    "/root/AirStack/robot/ros_ws/install/drone_safety_monitor",
+    "/root/AirStack/robot/ros_ws/install/exploration_planner",
+    "/root/AirStack/robot/ros_ws/install/global_bringup",
+    "/root/AirStack/robot/ros_ws/install/interface_bringup",
+    "/root/AirStack/robot/ros_ws/install/lidar_point_cloud_filter",
+    "/root/AirStack/robot/ros_ws/install/logging_bringup",
+    "/root/AirStack/robot/ros_ws/install/mav_comm",
+    "/root/AirStack/robot/ros_ws/install/mav_msgs",
+    "/root/AirStack/robot/ros_ws/install/mav_planning_msgs",
+    "/root/AirStack/robot/ros_ws/install/mav_state_machine_msgs",
+    "/root/AirStack/robot/ros_ws/install/mav_system_msgs",
+    "/root/AirStack/robot/ros_ws/install/mavros_interface",
+    "/root/AirStack/robot/ros_ws/install/perception_bringup",
+    "/root/AirStack/robot/ros_ws/install/pid_controller",
+    "/root/AirStack/robot/ros_ws/install/pid_controller_msgs",
+    "/root/AirStack/robot/ros_ws/install/random_walk_planner",
+    "/root/AirStack/robot/ros_ws/install/robot_descriptions",
+    "/root/AirStack/robot/ros_ws/install/robot_interface",
+    "/root/AirStack/robot/ros_ws/install/rqt_py_template",
+    "/root/AirStack/robot/ros_ws/install/rviz_polygon_selection_tool",
+    "/root/AirStack/robot/ros_ws/install/rviz_tasks_panel",
+    "/root/AirStack/robot/ros_ws/install/takeoff_landing_planner",
+    "/root/AirStack/robot/ros_ws/install/task_msgs",
+    "/root/AirStack/robot/ros_ws/install/trajectory_controller",
+    "/root/AirStack/robot/ros_ws/install/trajectory_library",
+    "/root/AirStack/robot/ros_ws/install/vdb_mapping",
+    "/root/AirStack/robot/ros_ws/install/vdb_mapping_interfaces",
+    "/root/AirStack/robot/ros_ws/install/vdb_mapping_ros2",
+    "/root/AirStack/robot/ros_ws/install/waypoint_rviz2_plugin"
+  ],
+  "readiness": "BLOCKED",
+  "runtime_containment": "NOT VERIFIED",
+  "runtime_resource": {
+    "availability": "AVAILABLE AND VERIFIED",
+    "configs": [
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/cmake/interface_bringupConfig.cmake",
+        "sha256": "bec4f49eb9d038dfac03ab2214f1554ac14e3873ee2bc83850d892fdfd876d99",
+        "symlink_target": "/root/AirStack/robot/ros_ws/build/interface_bringup/ament_cmake_core/interface_bringupConfig.cmake"
+      }
+    ],
+    "explicit_config_file": "/root/AirStack/robot/ros_ws/src/interface/interface_bringup/config/px4_config.yaml",
+    "explicit_config_sha256": "74ea843ca1949dc7244e91e8beb3cf4116f87d9587d90c518ea21f8536b2f60c",
+    "native_build_requirement": false,
+    "package": "interface_bringup",
+    "required_headers": {},
+    "required_libraries": {},
+    "verification_limit": "Read-only identity evidence; no configure/link/ABI/runtime proof",
+    "versions": [
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/package.xml",
+        "sha256": "c96bc48b5299c38f48aad956d0926e15dc64a1ff14b709359ab0bbfe11d45604",
+        "version": "0.0.0"
+      },
+      {
+        "path": "/root/AirStack/robot/ros_ws/install/interface_bringup/share/interface_bringup/cmake/interface_bringupConfig-version.cmake",
+        "sha256": "1a056d80bda48cd54cf8af2013b223bfedc1cb17655e3a97b3aeae2c09a37c4c",
+        "version": "0.0.0"
+      }
+    ]
+  },
+  "tools": {
+    "cmake": null,
+    "colcon_optional_for_direct_cmake": null,
+    "cxx": null
+  }
+}

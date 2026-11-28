@@ -1,0 +1,54 @@
+{
+  "files": [
+    {
+      "bytes": 23,
+      "path": ".gitignore",
+      "sha256": "4cf3e7a6ee808dd766287408a411c60323dd640f56398160b217cfa23404a1a5"
+    },
+    {
+      "bytes": 3929,
+      "path": "M00J_COMPILATION_ISOLATION_DESIGN.md",
+      "sha256": "ca89db60cebbf1f62b7f2a02417d8975306968afa9cf5c798bffdad3728eaf9c"
+    },
+    {
+      "bytes": 5253,
+      "path": "M00J_COMPILATION_ONLY_POLICY.json",
+      "sha256": "4476410b8dc68136132475fcc495c582be834bdf05141dc3c264a473ff925bcc"
+    },
+    {
+      "bytes": 6734,
+      "path": "M00J_DEPENDENCY_COVERAGE.csv",
+      "sha256": "92fd52384d0ecd37fb08f968ecd45ab3e9a198826e6e117d63e5adaaea2e6e41"
+    },
+    {
+      "bytes": 2753,
+      "path": "M00J_DEVELOPMENT_ENVIRONMENT_IDENTITY.md",
+      "sha256": "159bdaf7153a20c72c16d35b2de53c9e6ba25e06ac57fa18dce7ff9437356ae1"
+    },
+    {
+      "bytes": 3102,
+      "path": "M00J_HOST_SUITABILITY.md",
+      "sha256": "87deddcb62d9809b8a5efa00aa7959140c7918e71108df52c8706ab5f1807faf"
+    },
+    {
+      "bytes": 2879,
+      "path": "M00J_LOCAL_AVAILABILITY_REPORT.md",
+      "sha256": "c15d7378a9332ac5a2e9ababc9634a3f9bfce5f725ffb5261524a095383d9b26"
+    },
+    {
+      "bytes": 5519,
+      "path": "M00J_NATIVE_BUILD_AUTHORIZATION_PACKAGE.md",
+      "sha256": "a39f013d514f56084dfc98601c5fd3560829a75cb0ffcf18aa593b142d7a2fe6"
+    },
+    {
+      "bytes": 2093,
+      "path": "M00J_PD_READINESS_DECISION.md",
+      "sha256": "66d407cd02d774c5cda3244b836e85b765c1327e91a72a0185ba897ef7bc4c4b"
+    },
+    {
+      "bytes": 20482,
+      "path": "validate_milestone.py",
+      "sha256": "f7b757724f457c417e4bc211f002c96dd95f7c667f5724f1a2f261dabb4c5f62"
+    }
+  ]
+}

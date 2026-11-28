@@ -1,0 +1,67 @@
+{
+  "changed_file_count": 35,
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "detail": "Clean pinned M00-H start; 2418 protected entries, 502 pinned sealed checksums and 48 unchanged controlled input files",
+      "status": "PASS"
+    },
+    {
+      "check": "native_path_dependency_and_interface_resolution",
+      "detail": "B supported robot development container/Jazzy path; nine actual native blockers; runtime-only interface_bringup resolved;14 dependency rows/12 interface rows; source PASS/configure compile link BLOCKED/runtime NOT VERIFIED; no native command or stubs",
+      "status": "PASS"
+    },
+    {
+      "check": "targeted_regression_and_guard_preservation",
+      "detail": "Saved14 focused tests PASS (11 I plus3 affected H adapters), source hashes current; original guard and G host body/declarations unchanged; H baseline60 PASS captured before edits; unchanged recorder/failure suites retained without broad rerun",
+      "status": "PASS"
+    },
+    {
+      "check": "prerequisite_requirement_and_governance_continuity",
+      "detail": "20 original CHKs unchanged3 SAT/8 UNSAT/9 UNVER; 29 mappings unchanged28 NOT_TESTED/1 OUT_OF_SCOPE; G0 blocked/RA01 pending/WP01 unauthorized; Tier B undesignated/unauthorized; runtime isolation gate NOT PASSED; PD fields blank",
+      "status": "PASS"
+    },
+    {
+      "check": "package_scope_and_deliverable_integrity",
+      "detail": "35 RRM-only changed files; PROJECT_STATUS sole prior-file mutation; source/package/current evidence integrity verified",
+      "status": "PASS"
+    }
+  ],
+  "dependency_free_python": "PASS",
+  "errors": 0,
+  "execution_authorized": false,
+  "failures": 0,
+  "full_guard_equivalence": "NOT VERIFIED",
+  "limitations": [
+    "Source contract checks and14 focused offline tests are not native compilation, integration or qualification.",
+    "No frozen F00 equivalence, G0 closure, prerequisite closure or execution authority inferred.",
+    "No active operations is an executed-action record, not something file hashes alone can prove."
+  ],
+  "native_build": "BLOCKED",
+  "native_compilation": false,
+  "native_linking": false,
+  "original_guard_sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+  "outcome": "I2",
+  "overall_execution_readiness": "BLOCKED",
+  "production_interfaces": "SOURCE ASSESSED; INSTALLED ABI/NATIVE BINDINGS UNVERIFIED",
+  "result": "PASS",
+  "runtime_containment": "NOT VERIFIED",
+  "skipped_checks": [
+    "Native configure/compile/link: nine explicit missing dependencies; no further build attempts/stubs.",
+    "Unchanged broad H synthetic suites: baseline60 PASS captured before edits; only affected3 adapter tests repeated.",
+    "Production runtime/ROS/simulator/container/device/probe/deployment/Tier B/C/WP01: unauthorized; none performed.",
+    "Original M00 has no SHA256SUMS; protected baseline inventory covers unchanged history."
+  ],
+  "target_designation": "UNDESIGNATED",
+  "test_count": 14,
+  "test_skipped": 0,
+  "warnings": [
+    "No C++/CMake/ROS native package set available; no native configuration, compilation or linking.",
+    "Installed workspace configs and historical GNU13.3.0/CMake3.28.3 metadata are not current tool/ABI proof.",
+    "Exact apt versions/image digest unresolved; remote source tags/branches do not identify installed binaries.",
+    "Kit application-complete/OmniGraph events, native ROS bindings, effective QoS/provider identity and clock mapping remain unresolved.",
+    "Schema2 legacy vehicle_graph_ready event is explicitly scoped to ROS interface presence, not simulator/guard/safety readiness.",
+    "Initial focused test setup/source-comment comparison failures corrected before final14-test PASS; no outstanding failures.",
+    "docs.ros.org rendered pages blocked by Anubis; primary ROS raw source fallback used."
+  ]
+}

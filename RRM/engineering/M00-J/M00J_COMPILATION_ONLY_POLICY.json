@@ -1,0 +1,144 @@
+{
+  "approval_blockers": [
+    "Approved current local image ID and package/header/typesupport/version inventory absent",
+    "Approved exact daemon host and compilation-only resource/stop authority absent",
+    "Non-GPU runtime runc availability and effective confinement/mount path visibility unverified",
+    "UID mapping/private output quota and approved security/cgroup enforcement unverified",
+    "Separate PD build-only execution approval absent"
+  ],
+  "command": "mkdir -p /output/tmp /output/home && cmake -S /inputs/guard_host -B /output/native -DRRM_UPSTREAM_INCLUDE_DIR=/inputs/upstream/include -DCMAKE_PREFIX_PATH=/opt/ros/jazzy -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build /output/native --target rrm_startup_guard --parallel 2",
+  "container": {
+    "apparmor_or_equivalent": "host-supported confinement required; effective profile UNVERIFIED",
+    "cap_add": [],
+    "cap_drop": [
+      "ALL"
+    ],
+    "cgroup_namespace": "private",
+    "daemon_socket_mount": false,
+    "device_cgroup_rules": [],
+    "device_requests": [],
+    "devices": [],
+    "gpus": false,
+    "host_config_inheritance": false,
+    "image_command_overridden": true,
+    "image_entrypoint_overridden": true,
+    "image_healthcheck_disabled": true,
+    "image_volumes": "Inspect image Config.Volumes first; anonymous/inherited mounts forbidden",
+    "ipc": "private",
+    "network": "none",
+    "pid": "private default; no host or container sharing",
+    "privileged": false,
+    "publish_ports": [],
+    "read_only_root": true,
+    "restart": "no",
+    "runtime": "runc",
+    "runtime_availability_verified": false,
+    "seccomp": "default confinement required; effective host/runtime profile UNVERIFIED; never unconfined",
+    "security_opt": [
+      "no-new-privileges:true"
+    ],
+    "stdin_open": false,
+    "tty": false,
+    "user": "10001:10001",
+    "user_mapping_permissions_verified": false,
+    "uts": "private"
+  },
+  "entrypoint": [
+    "/usr/bin/env",
+    "-i",
+    "PATH=/opt/ros/jazzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "HOME=/output/home",
+    "TMPDIR=/output/tmp",
+    "LANG=C.UTF-8",
+    "ROS_DISTRO=jazzy",
+    "AMENT_PREFIX_PATH=/opt/ros/jazzy",
+    "CMAKE_PREFIX_PATH=/opt/ros/jazzy",
+    "LD_LIBRARY_PATH=/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/lib",
+    "PYTHONPATH=/opt/ros/jazzy/local/lib/python3.12/dist-packages:/opt/ros/jazzy/lib/python3.12/site-packages",
+    "PYTHONDONTWRITEBYTECODE=1",
+    "/bin/bash",
+    "--noprofile",
+    "--norc",
+    "-c"
+  ],
+  "execution_authorized": false,
+  "host": {
+    "approved_daemon_host_identity": null,
+    "daemon_mount_namespace_visibility": "UNVERIFIED",
+    "observed_enclosure": "Kubernetes cgroup; PID1 osmo_exec",
+    "observed_workspace_node": "4585761b76004bc7-696082aefb054d52",
+    "permission_reference": null
+  },
+  "image": {
+    "approved_current_local_image_id": null,
+    "declared_tag": "airlab-docker.andrew.cmu.edu/airstack/airstack:v0.20.8_robot-x86-64_dev",
+    "historical_config_id": "sha256:3b98f4333f33dbbe734363f19f9ea65f52f4af8a98f4ac3e78f724124af9c290",
+    "pull_policy": "never",
+    "registry_manifest_digest": null
+  },
+  "mounts": [
+    {
+      "propagation": "rprivate",
+      "read_only": true,
+      "recursive_submounts": "forbidden",
+      "source": "/root/AirStack/RRM/engineering/M00-I/guard_host",
+      "target": "/inputs/guard_host",
+      "type": "bind"
+    },
+    {
+      "propagation": "rprivate",
+      "read_only": true,
+      "recursive_submounts": "forbidden",
+      "source": "/root/AirStack/robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "target": "/inputs/upstream/include/mavros_interface/px4_actuation_guard.hpp",
+      "type": "bind"
+    },
+    {
+      "propagation": "rprivate",
+      "read_only": false,
+      "recursive_submounts": "forbidden",
+      "source": "/root/AirStack/RRM/build-output/M00-native-guard-next",
+      "target": "/output",
+      "type": "bind"
+    }
+  ],
+  "output": {
+    "container_build_dir": "/output/native",
+    "created_in_m00j": false,
+    "directory_permission": "Host controller to prepare private empty non-symlink directory writable only by mapped10001:10001 before future run",
+    "home": "/output/home",
+    "host_path": "/root/AirStack/RRM/build-output/M00-native-guard-next",
+    "only_writable_host_mount": true,
+    "source_paths_resolve_under_reviewed_repository": true,
+    "temporary_dir": "/output/tmp"
+  },
+  "prohibited_commands": [
+    "guard binary execution",
+    "install targets",
+    "colcon full workspace build",
+    "bws",
+    "sws",
+    "source setup shell",
+    ".bashrc",
+    "ROS nodes",
+    "PX4",
+    "MAVROS",
+    "Isaac Sim",
+    "service restart",
+    "network fetch",
+    "package install"
+  ],
+  "resource_proposal_not_measured": {
+    "cpus": 2,
+    "limits_enforcement_verified": false,
+    "memory_bytes": 4294967296,
+    "memory_swap_bytes": 4294967296,
+    "output_quota_bytes": 2147483648,
+    "pids_limit": 256,
+    "stop_grace_seconds": 10,
+    "wall_time_seconds": 600
+  },
+  "schema": "M00J_COMPILATION_ONLY_DESIGN_V1_NOT_A_DEPLOYMENT_MANIFEST",
+  "status": "BLOCKED; DESIGN ONLY; NOT EXECUTED",
+  "workdir": "/output"
+}

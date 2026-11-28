@@ -1,0 +1,151 @@
+{
+  "baseline": "d678846801e859c68902bbb9c2e6f0c77760e8b0",
+  "files": [
+    {
+      "bytes": 466,
+      "path": ".devcontainer/robot/devcontainer.json",
+      "sha256": "2e9e0454f2db8b6eb4d83629c139321cb4f181b3305d7ab6725b82b6428f0b6b"
+    },
+    {
+      "bytes": 4690,
+      "path": ".env",
+      "sha256": "ce3bb389420f80d3614cfd7f2957ac1a9ab2b60a02e6a6095d9c0a3bbcf33380"
+    },
+    {
+      "bytes": 13273,
+      "path": ".github/workflows/docker-build.yml",
+      "sha256": "e59e5d8c76e7af6219edb009f140482cec18b0a729aaff61ea979f2c7c215655"
+    },
+    {
+      "bytes": 2161,
+      "path": ".github/workflows/unit-tests.yml",
+      "sha256": "a0613b0b733f0c00971028cb0f50167fbf7f04f51882199d4bbab768c219bb91"
+    },
+    {
+      "bytes": 12640,
+      "path": "RRM/ROADMAP_MANDATE.md",
+      "sha256": "34e7cd834ac9ce7d920df1926314d09ba1f1149eace424b80faac7c9572c7f57"
+    },
+    {
+      "bytes": 3511,
+      "path": "RRM/engineering/M00-F/M00F_ISOLATION_ACCEPTANCE_GATE.csv",
+      "sha256": "ea27687c75fc6fad2f56a438ff33d826c24bee30d6aeb8111f9f38ef10f78c7e"
+    },
+    {
+      "bytes": 4117,
+      "path": "RRM/engineering/M00-G/README.md",
+      "sha256": "3df0102e20fa9f23570394ffffc84267f1281973ba594573fa3808f4b96dda61"
+    },
+    {
+      "bytes": 7565,
+      "path": "RRM/engineering/M00-G/config/compose.json",
+      "sha256": "5025e8bbb967ef02dc80ce71df09135ede06e6cdd6d5a2c4bdd36184d2b07d8e"
+    },
+    {
+      "bytes": 2713,
+      "path": "RRM/engineering/M00-G/preflight.py",
+      "sha256": "aacd443ebfb56c3c1f48da62505c16613ee3e56b0529df620f0da70a894292dd"
+    },
+    {
+      "bytes": 3202,
+      "path": "RRM/engineering/M00-I/M00I_BUILD_ENVIRONMENT_ASSESSMENT.md",
+      "sha256": "c6554242159a331d9c33e04eba40b53907cdee4d707d94a16e5f8ca713000c29"
+    },
+    {
+      "bytes": 3507,
+      "path": "RRM/engineering/M00-I/M00I_BUILD_HANDOFF.md",
+      "sha256": "0c910c993ef84f594de652e640a135ffd32cffbeebcb58082322998bfc326224"
+    },
+    {
+      "bytes": 3438,
+      "path": "RRM/engineering/M00-I/M00I_BUILD_PROCEDURE.md",
+      "sha256": "0511188edde45330a9ad4202819aa930964f335e27d714b698177e83b5c5e100"
+    },
+    {
+      "bytes": 9698,
+      "path": "RRM/engineering/M00-I/M00I_NATIVE_BUILD_RESULTS.json",
+      "sha256": "1c64047e6faba04431f3a8d0c0cfbda5013ac0ca5cd1e7ca7dd47d3ec84e8910"
+    },
+    {
+      "bytes": 7337,
+      "path": "RRM/engineering/M00-I/M00I_NATIVE_DEPENDENCY_MATRIX.csv",
+      "sha256": "7c56636fd256ff21c906e508c1e3b8b4edebc14b8e01141eddb9e84e08702063"
+    },
+    {
+      "bytes": 7158,
+      "path": "RRM/engineering/M00-I/M00I_PRODUCTION_INTERFACE_MATRIX.csv",
+      "sha256": "2bf361d748dea6c40d6e09ee9e610b973acc627036568a1fc07bb78299b2bb62"
+    },
+    {
+      "bytes": 1255,
+      "path": "RRM/engineering/M00-I/guard_host/CMakeLists.txt",
+      "sha256": "f114928a57ac0d5d63bf86e557485399d1b901a4e008043a9b88b03dc2d6b5af"
+    },
+    {
+      "bytes": 636,
+      "path": "RRM/engineering/M00-I/guard_host/package.xml",
+      "sha256": "2e24af6e7a66fd3dcc5f8ef556639a48e1d68e277615b25119fe03ec4ed66a4f"
+    },
+    {
+      "bytes": 718,
+      "path": "RRM/engineering/M00-I/guard_host/src/guard_host.cpp",
+      "sha256": "53b08eb97c7037425184c4fb8d8e72bfc0acd29ad1a2d54d1b7a6be381b3efb0"
+    },
+    {
+      "bytes": 5881,
+      "path": "RRM/engineering/M00-I/native_environment.py",
+      "sha256": "646a6e9007dc6aa002ae732eb59f0acfdeaec7146bc36130bdc317a2ba24758c"
+    },
+    {
+      "bytes": 29935,
+      "path": "RRM/evidence/M00-E1A/passive-before.json",
+      "sha256": "08db9b5410adb8dcc1ebb315f26707503ed24ff1707713f8475abf9425a3f3fb"
+    },
+    {
+      "bytes": 4184,
+      "path": "RRM/evidence/M00-E1B/M00E1B_PASSIVE_EVIDENCE_INDEX.csv",
+      "sha256": "ebdc0c4b3fe081ebb3900f1ae7690bd74c463d629047aac0525b351dd12d299b"
+    },
+    {
+      "bytes": 364488,
+      "path": "RRM/evidence/M00-E1B/passive-discovery.json",
+      "sha256": "57b0873ab95d99875d17c44d0548f8d23260d8def630329d54e296e33a9df149"
+    },
+    {
+      "bytes": 12705,
+      "path": "RRM/evidence/M00-H/build/BUILD_RESULT.json",
+      "sha256": "469c708d371c13eacf75e44596431f9af5e26ee930dd2e8833f3f4f170c94f8e"
+    },
+    {
+      "bytes": 3507,
+      "path": "RRM/handoffs/M00I_HANDOFF.md",
+      "sha256": "0c910c993ef84f594de652e640a135ffd32cffbeebcb58082322998bfc326224"
+    },
+    {
+      "bytes": 13895,
+      "path": "robot/docker/.bashrc",
+      "sha256": "53de32ca0fa6ca627dd2ed78e86671e6777c40a02e309caa750d3275ca44769e"
+    },
+    {
+      "bytes": 14006,
+      "path": "robot/docker/Dockerfile.robot",
+      "sha256": "d238c9ae9ee8c2338a7991b2b4efe40e7a564cd3a95411be818cb302f80960c4"
+    },
+    {
+      "bytes": 14012,
+      "path": "robot/docker/docker-compose.yaml",
+      "sha256": "f11af365baae3b9ea638dc1f2c4ce2ab325d6de550f7b39574d4e863b36c79d0"
+    },
+    {
+      "bytes": 2908,
+      "path": "robot/docker/robot-base-docker-compose.yaml",
+      "sha256": "c7f4c0ebbd39011e06c3cfb7fb94b0ee411f5752ae493eea458a9d5fa86753ac"
+    },
+    {
+      "bytes": 9493,
+      "path": "robot/ros_ws/src/interface/mavros_interface/include/mavros_interface/px4_actuation_guard.hpp",
+      "sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2"
+    }
+  ],
+  "limit": "Repository declarations and sealed historical observations; current daemon/image/package state not inspected"
+}

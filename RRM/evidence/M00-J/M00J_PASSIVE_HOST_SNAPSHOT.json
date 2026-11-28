@@ -1,0 +1,162 @@
+{
+  "acquisition": "Local file/stat/client-version inspection only; no daemon/API calls; no remote/network/device/container execution",
+  "captured_utc": "2026-11-28T04:13:57.636898+00:00",
+  "cgroup": "0::/kubepods/burstable/pod0079c1e1-7e1a-4f81-aeea-ba18542de640/45b73065bf664be5f2027b458076230e030d10cecb5214f79011832751570a70",
+  "client_context": "default",
+  "context_scope": "Current-context field observed locally; credentials excluded; no context endpoint queried",
+  "daemon_configuration": {
+    "declared_runtime_names": [
+      "nvidia"
+    ],
+    "default-runtime": "nvidia",
+    "effective_settings": "NOT VERIFIED",
+    "file_sha256": "a33aaa59ec2836667bfc8ef4dc33f7420bd58b65fdcd7ffa8f6441968ddef2d5",
+    "rootless_declared": null,
+    "source": "/etc/docker/daemon.json"
+  },
+  "daemon_inspection": {
+    "current_containers": null,
+    "current_image_dependency_manifest": null,
+    "current_images": null,
+    "reason": "Root-owned system Unix socket mode0660, group999; no unprivileged endpoint identified. M00-J section4 stops privileged/unavailable daemon inspection paths. No server request attempted; permission denial not fabricated.",
+    "server_version": null,
+    "status": "STOPPED_AT_PRIVILEGED_CONTROL_SOCKET"
+  },
+  "docker_client_version": "Docker version 29.8.2, build 7fc2dff",
+  "enclosing_cgroup_limits": {
+    "cpu.max": "FileNotFoundError",
+    "memory.current": "FileNotFoundError",
+    "memory.max": "FileNotFoundError",
+    "pids.max": "FileNotFoundError"
+  },
+  "external_operations_performed": false,
+  "filesystem_capacity_limit": "Visible filesystem capacity, not project quota/reservation or container daemon output-path visibility",
+  "host_control": "Kubernetes/OSMO enclosure indicated; physical host/controller/exclusive ownership and quota entitlement UNVERIFIED",
+  "identity": {
+    "gid": 0,
+    "groups": [
+      0
+    ],
+    "uid": 0
+  },
+  "os_release": {
+    "ID": "ubuntu",
+    "PRETTY_NAME": "Ubuntu 24.04.5 LTS",
+    "VERSION_CODENAME": "noble",
+    "VERSION_ID": "24.04"
+  },
+  "paths": {
+    "/opt/ros/jazzy": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/root/.docker/contexts/meta": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/root/.local/share/docker": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/run/docker.sock": {
+      "exists": true,
+      "gid": 999,
+      "mode": "0o660",
+      "readable": true,
+      "socket": true,
+      "uid": 0,
+      "writable": true
+    },
+    "/run/user": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/run/user/0/docker.sock": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/run/user/0/podman/podman.sock": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/usr/bin/c++": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/usr/bin/cmake": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/var/lib/containerd": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/var/lib/docker": {
+      "error": "FileNotFoundError",
+      "exists": false
+    },
+    "/var/run/docker.sock": {
+      "exists": true,
+      "gid": 999,
+      "mode": "0o660",
+      "readable": true,
+      "socket": true,
+      "uid": 0,
+      "writable": true
+    },
+    "/var/run/podman/podman.sock": {
+      "error": "FileNotFoundError",
+      "exists": false
+    }
+  },
+  "pid1_comm": "osmo_exec",
+  "repository_access": {
+    "RRM_write": true,
+    "mode": "0o755",
+    "owner_uid": 0,
+    "path": "/root/AirStack",
+    "read": true
+  },
+  "repository_filesystem_capacity": {
+    "free": 4295271313408,
+    "total": 5044579373056,
+    "used": 534530940928
+  },
+  "runtime_environment_presence": {
+    "CONTAINER_HOST": false,
+    "DOCKER_CERT_PATH": false,
+    "DOCKER_CONTEXT": false,
+    "DOCKER_HOST": false,
+    "DOCKER_TLS_VERIFY": false,
+    "XDG_RUNTIME_DIR": false
+  },
+  "security_fields": [
+    "Uid:\t0\t0\t0\t0",
+    "Gid:\t0\t0\t0\t0",
+    "Groups:\t0 ",
+    "CapEff:\t000001ffffffffff",
+    "CapBnd:\t000001ffffffffff",
+    "NoNewPrivs:\t0",
+    "Seccomp:\t0",
+    "Seccomp_filters:\t0"
+  ],
+  "tools": {
+    "c++": null,
+    "clang++": null,
+    "cmake": null,
+    "colcon": null,
+    "ctr": "/usr/bin/ctr",
+    "docker": "/usr/bin/docker",
+    "g++": null,
+    "nerdctl": null,
+    "podman": null
+  },
+  "uname": {
+    "machine": "x86_64",
+    "node": "4585761b76004bc7-696082aefb054d52",
+    "processor": "x86_64",
+    "release": "6.8.0-111-generic",
+    "system": "Linux",
+    "version": "#111-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 11 23:16:02 UTC 2026"
+  }
+}

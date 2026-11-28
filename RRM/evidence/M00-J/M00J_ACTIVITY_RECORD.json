@@ -1,0 +1,23 @@
+{
+  "actions_performed": [
+    "Repository branch/HEAD/status and prior I validator checks",
+    "Read-only repository/document/historical evidence inspection; no source execution",
+    "Local proc/cgroup/security/OS/client-config selected fields and filesystem/socket/path stat",
+    "Docker --version client-only",
+    "Python stdlib host dependency inventory using unchanged I resolver; no CMake/compiler invocation",
+    "RRM-only documentation/policy/evidence/status generation; offline validation; explicit staging/local commit"
+  ],
+  "claim_limit": "Executed-action declaration supported by tool transcript; file hashes alone cannot prove absence of runtime operations",
+  "container_execution": false,
+  "external_network_access": false,
+  "image_build_pull": false,
+  "native_compile_link": false,
+  "package_install_download": false,
+  "physical_device_access": false,
+  "privileged_daemon_api_requests": false,
+  "protected_writes": false,
+  "push": false,
+  "remote_daemon_connection": false,
+  "scope": "M00-J only; 2026-11-28 UTC",
+  "service_or_container_start_restart": false
+}
