@@ -6,10 +6,10 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | M00-G offline AirStack-native simulation prototype implemented and validated in containing local commit; STOP for PD review; runtime configuration BLOCKED |
+| Current milestone | M00-H guard-build feasibility, source correspondence, pure adapters and recorder reliability complete in containing validated local commit; native guard build BLOCKED; STOP for PD review |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | M00-F: dc17fa3918c5e8af12ecabade3cee3efdc223f85; M00-G completion is containing local commit |
-| Last local commit (full SHA verified at snapshot preparation) | dc17fa3918c5e8af12ecabade3cee3efdc223f85 |
+| Last completed milestone | M00-G:45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac; M00-H completion is containing local commit |
+| Last local commit (full SHA verified at snapshot preparation) | 45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -19,19 +19,19 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
 | GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
 | GOV-002 completion commit | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; historical handoff preserved |
-| Remote synchronization | No push/fetch/remote ref updates; read-only official AirStack/Docker/Fast DDS documentation consulted in M00-G |
+| Remote synchronization | No push/fetch/remote ref updates; official AirStack /0.20/ documentation consulted read-only in M00-H |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | RRM-only standalone Compose/MAVROS/DDS config, original-header guard wrapper source, observational event recorder/schema, provenance/isolation validators and synthetic offline tests |
+| Current engineering activity | Deterministic host dependency/build check, original-header semantic matrix/corrected synthetic reference, lifecycle/MAVROS/graph/recorder adapters, durable local journal and60 offline tests |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | Reduced desktop Architecture C basis retained; M00-G explicitly approves RRM-only offline implementation. Deployment and effective isolation not approved or verified |
 | D2 — Material configuration change | M00-G approves this offline prototype only; protected integration/deployment/runtime material changes remain deferred pending exact review |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
-| D5 — Engineering scope | M00-G authorized offline implementation/static analysis/tests under RRM only; no Docker/build/ROS/simulator/device/network operations; routine organizational discovery terminated |
-| Primary finding | Concrete isolated-by-intent package exists; static compliance PASS and synthetic tests pass; all services blocked by unresolved images/entrypoints/assets/GPU/adapters and runtime containment NOT VERIFIED |
-| Next action | PD review M00-G; proposed M00-H targeted offline image/asset/entrypoint provenance closure and original-header guard build/adapter review. No organizational discovery loop; no runtime action authorized |
-| Remaining approvals | Exact next technical scope and later bounded execution decision absent; actual host entitlement/device/network/stop evidence required if selected. RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED |
-| Last update evidence | RRM/handoffs/M00G_HANDOFF.md; RRM/engineering/M00-G/COMPLETION_REPORT.md; RRM/evidence/M00-G/M00G_VALIDATION_RESULTS.json; M00G_PREFLIGHT_RESULTS.json |
+| D5 — Engineering scope | M00-H authorizes offline implementation/compilation/synthetic tests/evidence only under RRM. No dependency installs/pulls or robot/simulator/device/network operations |
+| Primary finding | Full guard build BLOCKED: cxx,CMake and8 ROS/ament/message/YAML packages absent in checked local prefixes. Python compile and60 tests PASS; guard source correspondence synthetic-only, production ROS/runtime containment NOT VERIFIED |
+| Next action | PD review M00-H; separately scope exact local native toolchain/package handoff and full guard compile/link/ROS-binding verification plus named image/asset gaps; no organizational-discovery loop |
+| Remaining approvals | No runtime target or bounded execution authority. Effective devices/network/DDS/GPU, host resource/stop scope and independent recorder evidence missing. RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED |
+| Last update evidence | RRM/handoffs/M00H_HANDOFF.md; RRM/evidence/M00-H/M00H_VALIDATION_RESULTS.json; M00H_PREFLIGHT_RESULTS.json; build/BUILD_RESULT.json; M00H_TEST_RESULTS.json |
 
 ## Milestone history
 
@@ -51,11 +51,12 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | GOV-001B | Ownership/request/intake/trace/hold checkpoint complete; zero received organizational records or closures; external-input hold | 381db1c4dcdd1bb71d047176e681bd18c72e342d; RRM/handoffs/GOV001B_HANDOFF.md |
 | GOV-002 | Outcome A: authentic public professional routing contact for limited R1; no verified organizational approval authority or delivery authorization; historical checkpoint | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; RRM/handoffs/GOV002_HANDOFF.md |
 | M00-F | Offline AirStack simulation feasibility/isolation design and validation complete; F1 recommended; no execution gate pass | dc17fa3918c5e8af12ecabade3cee3efdc223f85; RRM/handoffs/M00F_HANDOFF.md |
-| M00-G | Offline simulation configuration/source/recorder implementation complete; synthetic validation PASS, execution BLOCKED | Containing local commit; RRM/handoffs/M00G_HANDOFF.md |
+| M00-G | Offline simulation configuration/source/recorder implementation complete; synthetic validation PASS, execution BLOCKED | 45d026e2b8c46b0e1c44013d8dd9d7ed49e3d5ac; RRM/handoffs/M00G_HANDOFF.md |
+| M00-H | Native build blockers precisely identified; corrected synthetic guard correspondence/adapters/durable recorder implemented,60 offline tests PASS; runtime BLOCKED | Containing local commit; RRM/handoffs/M00H_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-G. Subquestion closure does not imply gate passage.
+Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-H. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|
@@ -83,10 +84,20 @@ M00-F complete in containing local commit; full SHA reported in chat and ignored
 
 All20 baseline CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED; scope effects explicitly recorded, zero closures. All29 requirements mappings intact:28 in-scope NOT_TESTED/1 OUT_OF_SCOPE, zero verified/failed/qualified. G0 BLOCKED BY EXTERNAL INPUT with engineering blockers; RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED. D1 conditional offline Architecture C, D2 DEFERRED, D3 diagnostic policy retained; D4 pending verification only where applicable. Tier B target undesignated/UNVERIFIED and execution NOT AUTHORIZED. Original historical timing n=1 and24-start proposal unchanged. No construction/deployment/simulator/service/container start/restart/hardware/device read/actuation/active probe/Tier B/C/WP01 occurred. Stop after M00-F for PD technical review. No push.
 
-## M00-G current technical disposition
+## Historical M00-G technical disposition
 
 M00-G explicitly authorizes the RRM-only offline prototype implementation, superseding the prior next-offline-implementation stop. Original source/config/history/controlled input unchanged. Concrete standalone Compose and MAVROS/DDS configs, minimal original-header C++ guard host source (unbuilt), stable event schema and independent observational writer/auditor, static validator/preflight and synthetic stdlib-only tests implemented. Runtime collector, readiness observer and all Compose services remain BLOCKED. Every entrypoint explicitly unresolved; no image digests invented or assets substituted; pull_policy never; no root reference profile inheritance.
 
 Static compliance PASS; offline tests PASS; runtime containment NOT VERIFIED and runtime gate NOT PASSED. All14 IG rows remain unpassed. DEP01–DEP11 record exact missing images/assets/build/entrypoints/GPU/plugin permissions/effective confinement/native event/durable recorder/P1 observer/host stop-resource evidence/separate execution scope. Proposed M00-H is targeted offline technical closure/build-adapter review, requiring separate PD scope; no universal organizational authority prerequisite or contact loop.
 
 All20 original CHKs remain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED with no whole closures. All29 original mappings remain28 in-scope NOT_TESTED/1 OUT_OF_SCOPE, verified0/failed0/qualified0. G0 BLOCKED BY EXTERNAL INPUT with engineering blockers; RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED. Tier B target undesignated/UNVERIFIED and execution NOT AUTHORIZED. M00-G completion is the containing local commit; full SHA in chat and ignored local receipt. No Docker invocation, install, image pull, C++ build, service/container/simulator/ROS/PX4/MAVROS start/restart, device read, hardware/actuation or active network probe occurred. Stop after M00-G local commit for PD review; no push.
+
+## M00-H current engineering disposition
+
+M00-H approves the bounded offline build/adapter/recorder work and supersedes G's next-milestone stop only for that scope. Full native guard compile/link BLOCKED with exact missing cxx,cmake,ament_cmake,rclcpp,ament_index_cpp,mavros_msgs,rcl_interfaces,std_msgs,interface_bringup,yaml-cpp evidence; none installed, downloaded or substituted. Dependency-free H Python compilation and60 synthetic/local-file tests PASS. Original guard hash/anchors and minimal host include preserved; H corrects G's narrow synthetic failed-transaction attempt-latch omission. No original/G source modified; full native guard compatibility remains NOT VERIFIED.
+
+Lifecycle, MAVROS-state, graph and recorder observation adapters implemented, with cross-clock lateness UNMEASURABLE where mapping absent; production ROS binding unverified. Journal schema2 complete writes/fsync/local health, immutable interrupted originals and linked recovery preserve loss rather than resetting state. One offline Python child exit tests abrupt termination; no simulator/ROS/service startup. Local reliability tests are not independent runtime recorder/REC-01 qualification. All25 dependency records distinguish missing host tools, verified source identity, historical installed/images/assets and unverified execution capabilities.
+
+H successor preflight reads sealed G policy without modifying it: BUILD BLOCKED; OFFLINE TEST PASS; STATIC ISOLATION PASS; RUNTIME CONTAINMENT NOT VERIFIED; OVERALL EXECUTION READINESS BLOCKED. All14 IGs unpassed. All20 CHKs unchanged3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED;29 mappings unchanged28 NOT_TESTED/1 OUT_OF_SCOPE, zero verified/failed/qualified. G0 BLOCKED BY EXTERNAL INPUT with engineering blockers; RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED. Tier B target undesignated/UNVERIFIED and execution NOT AUTHORIZED; runtime gate NOT PASSED.
+
+Proposed next technical scope: exact local C++/CMake/ROS/message/YAML dependency identity handoff and original-header compile/link/production-binding review, then remaining named image/scene/GPU/containment/recorder supervisor gaps under separate scope. No generic organizational authority hunt. M00-H completion is containing local commit; actual SHA in chat/ignored receipt. PROJECT_STATUS sole prior-file mutation; all protected/history/F00/RRM-transfer preserved. No installs/pulls/Docker/Isaac/PX4/MAVROS/ROS-node/device/actuation/active network/deployment/Tier B/C/WP01 operations. Stop after M00-H for PD review; no push.

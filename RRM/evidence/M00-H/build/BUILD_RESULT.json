@@ -1,0 +1,283 @@
+{
+  "build_status": "BLOCKED",
+  "commands": [],
+  "dependencies": {
+    "dependencies": [
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/ament_cmake/cmake/ament_cmakeConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/ament_cmake/ament_cmake-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/ament_cmake/ament_cmake-config.cmake",
+          "/usr/share/ament_cmake/cmake/ament_cmakeConfig.cmake",
+          "/usr/lib/cmake/ament_cmake/ament_cmake-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/ament_cmake/ament_cmake-config.cmake",
+          "/usr/local/share/ament_cmake/cmake/ament_cmakeConfig.cmake",
+          "/usr/local/lib/cmake/ament_cmake/ament_cmake-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/ament_cmake/ament_cmake-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "ament_cmake",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/rclcpp/cmake/rclcppConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/rclcpp/rclcpp-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/rclcpp/rclcpp-config.cmake",
+          "/usr/share/rclcpp/cmake/rclcppConfig.cmake",
+          "/usr/lib/cmake/rclcpp/rclcpp-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/rclcpp/rclcpp-config.cmake",
+          "/usr/local/share/rclcpp/cmake/rclcppConfig.cmake",
+          "/usr/local/lib/cmake/rclcpp/rclcpp-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/rclcpp/rclcpp-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/rclcpp/rclcpp.hpp",
+          "/opt/ros/jazzy/include/rclcpp/rclcpp/rclcpp.hpp",
+          "/usr/include/rclcpp/rclcpp.hpp",
+          "/usr/include/rclcpp/rclcpp/rclcpp.hpp",
+          "/usr/local/include/rclcpp/rclcpp.hpp",
+          "/usr/local/include/rclcpp/rclcpp/rclcpp.hpp"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "rclcpp",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/ament_index_cpp/cmake/ament_index_cppConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/ament_index_cpp/ament_index_cpp-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/ament_index_cpp/ament_index_cpp-config.cmake",
+          "/usr/share/ament_index_cpp/cmake/ament_index_cppConfig.cmake",
+          "/usr/lib/cmake/ament_index_cpp/ament_index_cpp-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/ament_index_cpp/ament_index_cpp-config.cmake",
+          "/usr/local/share/ament_index_cpp/cmake/ament_index_cppConfig.cmake",
+          "/usr/local/lib/cmake/ament_index_cpp/ament_index_cpp-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/ament_index_cpp/ament_index_cpp-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/ament_index_cpp/get_package_share_directory.hpp",
+          "/opt/ros/jazzy/include/ament_index_cpp/ament_index_cpp/get_package_share_directory.hpp",
+          "/usr/include/ament_index_cpp/get_package_share_directory.hpp",
+          "/usr/include/ament_index_cpp/ament_index_cpp/get_package_share_directory.hpp",
+          "/usr/local/include/ament_index_cpp/get_package_share_directory.hpp",
+          "/usr/local/include/ament_index_cpp/ament_index_cpp/get_package_share_directory.hpp"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "ament_index_cpp",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/mavros_msgs/cmake/mavros_msgsConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/mavros_msgs/mavros_msgs-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/mavros_msgs/mavros_msgs-config.cmake",
+          "/usr/share/mavros_msgs/cmake/mavros_msgsConfig.cmake",
+          "/usr/lib/cmake/mavros_msgs/mavros_msgs-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/mavros_msgs/mavros_msgs-config.cmake",
+          "/usr/local/share/mavros_msgs/cmake/mavros_msgsConfig.cmake",
+          "/usr/local/lib/cmake/mavros_msgs/mavros_msgs-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/mavros_msgs/mavros_msgs-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/mavros_msgs/msg/state.hpp",
+          "/opt/ros/jazzy/include/mavros_msgs/mavros_msgs/msg/state.hpp",
+          "/usr/include/mavros_msgs/msg/state.hpp",
+          "/usr/include/mavros_msgs/mavros_msgs/msg/state.hpp",
+          "/usr/local/include/mavros_msgs/msg/state.hpp",
+          "/usr/local/include/mavros_msgs/mavros_msgs/msg/state.hpp"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "mavros_msgs",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/rcl_interfaces/cmake/rcl_interfacesConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/rcl_interfaces/rcl_interfaces-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/rcl_interfaces/rcl_interfaces-config.cmake",
+          "/usr/share/rcl_interfaces/cmake/rcl_interfacesConfig.cmake",
+          "/usr/lib/cmake/rcl_interfaces/rcl_interfaces-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/rcl_interfaces/rcl_interfaces-config.cmake",
+          "/usr/local/share/rcl_interfaces/cmake/rcl_interfacesConfig.cmake",
+          "/usr/local/lib/cmake/rcl_interfaces/rcl_interfaces-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/rcl_interfaces/rcl_interfaces-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/rcl_interfaces/srv/get_parameters.hpp",
+          "/opt/ros/jazzy/include/rcl_interfaces/rcl_interfaces/srv/get_parameters.hpp",
+          "/usr/include/rcl_interfaces/srv/get_parameters.hpp",
+          "/usr/include/rcl_interfaces/rcl_interfaces/srv/get_parameters.hpp",
+          "/usr/local/include/rcl_interfaces/srv/get_parameters.hpp",
+          "/usr/local/include/rcl_interfaces/rcl_interfaces/srv/get_parameters.hpp"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "rcl_interfaces",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/std_msgs/cmake/std_msgsConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/std_msgs/std_msgs-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/std_msgs/std_msgs-config.cmake",
+          "/usr/share/std_msgs/cmake/std_msgsConfig.cmake",
+          "/usr/lib/cmake/std_msgs/std_msgs-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/std_msgs/std_msgs-config.cmake",
+          "/usr/local/share/std_msgs/cmake/std_msgsConfig.cmake",
+          "/usr/local/lib/cmake/std_msgs/std_msgs-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/std_msgs/std_msgs-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/std_msgs/msg/bool.hpp",
+          "/opt/ros/jazzy/include/std_msgs/std_msgs/msg/bool.hpp",
+          "/usr/include/std_msgs/msg/bool.hpp",
+          "/usr/include/std_msgs/std_msgs/msg/bool.hpp",
+          "/usr/local/include/std_msgs/msg/bool.hpp",
+          "/usr/local/include/std_msgs/std_msgs/msg/bool.hpp"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "std_msgs",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/interface_bringup/cmake/interface_bringupConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/interface_bringup/interface_bringup-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/interface_bringup/interface_bringup-config.cmake",
+          "/usr/share/interface_bringup/cmake/interface_bringupConfig.cmake",
+          "/usr/lib/cmake/interface_bringup/interface_bringup-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/interface_bringup/interface_bringup-config.cmake",
+          "/usr/local/share/interface_bringup/cmake/interface_bringupConfig.cmake",
+          "/usr/local/lib/cmake/interface_bringup/interface_bringup-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/interface_bringup/interface_bringup-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "interface_bringup",
+        "status": "MISSING"
+      },
+      {
+        "cmake_config_candidates": [
+          "/opt/ros/jazzy/share/yaml-cpp/cmake/yaml-cppConfig.cmake",
+          "/opt/ros/jazzy/lib/cmake/yaml-cpp/yaml-cpp-config.cmake",
+          "/opt/ros/jazzy/lib/x86_64-linux-gnu/cmake/yaml-cpp/yaml-cpp-config.cmake",
+          "/usr/share/yaml-cpp/cmake/yaml-cppConfig.cmake",
+          "/usr/lib/cmake/yaml-cpp/yaml-cpp-config.cmake",
+          "/usr/lib/x86_64-linux-gnu/cmake/yaml-cpp/yaml-cpp-config.cmake",
+          "/usr/local/share/yaml-cpp/cmake/yaml-cppConfig.cmake",
+          "/usr/local/lib/cmake/yaml-cpp/yaml-cpp-config.cmake",
+          "/usr/local/lib/x86_64-linux-gnu/cmake/yaml-cpp/yaml-cpp-config.cmake"
+        ],
+        "config_evidence": [],
+        "header_candidates": [
+          "/opt/ros/jazzy/include/yaml-cpp/yaml.h",
+          "/opt/ros/jazzy/include/yaml-cpp/yaml-cpp/yaml.h",
+          "/usr/include/yaml-cpp/yaml.h",
+          "/usr/include/yaml-cpp/yaml-cpp/yaml.h",
+          "/usr/local/include/yaml-cpp/yaml.h",
+          "/usr/local/include/yaml-cpp/yaml-cpp/yaml.h"
+        ],
+        "header_evidence": [],
+        "library_evidence": [],
+        "package": "yaml-cpp",
+        "status": "MISSING"
+      }
+    ],
+    "limitation": "Config-file presence is not compile/link/ABI proof; no installed library is substituted.",
+    "minimum_cmake": "3.16",
+    "missing": [
+      "cxx",
+      "cmake",
+      "ament_cmake",
+      "rclcpp",
+      "ament_index_cpp",
+      "mavros_msgs",
+      "rcl_interfaces",
+      "std_msgs",
+      "interface_bringup",
+      "yaml-cpp"
+    ],
+    "original_guard_identity": "PASS",
+    "prefixes": [
+      "/opt/ros/jazzy",
+      "/usr",
+      "/usr/local"
+    ],
+    "python_compiler_setting": "x86_64-linux-gnu-gcc",
+    "python_version": "3.12.3",
+    "required_language": "C++17",
+    "status": "BLOCKED",
+    "tools": {
+      "cmake": null,
+      "cxx": null
+    }
+  },
+  "dependency_free_python": "PASS",
+  "guard_executed": false,
+  "production_build_verified": false,
+  "python_sources": [
+    {
+      "path": "RRM/engineering/M00-H/build_guard.py",
+      "sha256": "018e1ae1daa1e1f5cd0d32d5d2ff620fa1f39b81ab3ed43053c1c9e9f35bd0fb"
+    },
+    {
+      "path": "RRM/engineering/M00-H/check_build_dependencies.py",
+      "sha256": "9c3041712c6b34e1bd502f165a3b5d2aebc22a6cfbcce74a25d4e9e1dd3dbe58"
+    },
+    {
+      "path": "RRM/engineering/M00-H/crash_fixture.py",
+      "sha256": "4c84400ab07a70ba793a3bf8bc3fadb5c08f6494118ad556fdcb34201f217fa6"
+    },
+    {
+      "path": "RRM/engineering/M00-H/guard_reference.py",
+      "sha256": "9eec987ec8a98327832a708abc66dba5db2192b0e766790492039ed1f98781bf"
+    },
+    {
+      "path": "RRM/engineering/M00-H/h_preflight.py",
+      "sha256": "0bca57b9ba7ad043eff66de75e0373e02fe3eb91a2f4b42fdf3d220a5d7739dc"
+    },
+    {
+      "path": "RRM/engineering/M00-H/h_support.py",
+      "sha256": "c53745c7d88bd10c43de6009b354f4640761c06b9aba10e5b5f94b143139dac5"
+    },
+    {
+      "path": "RRM/engineering/M00-H/integration_harness.py",
+      "sha256": "f78687b3af9fa73c5f4add26182839475f22ceebd1fc55e8fddb916145e12e04"
+    },
+    {
+      "path": "RRM/engineering/M00-H/observation_adapters.py",
+      "sha256": "2a45011901907fd6bfd9dd8c10bbd8677416081091b35488a2cd40af9d3372b5"
+    },
+    {
+      "path": "RRM/engineering/M00-H/reliable_recorder.py",
+      "sha256": "00b49ae4a3e93e750825a20385267e2c833a29bbcbcb10a91ba2d50f3f9dab91"
+    },
+    {
+      "path": "RRM/engineering/M00-H/run_offline.py",
+      "sha256": "6b8b788eeeb0ebafc364ea91af6cdabe5ebe3371ab2efdd3ca4bfd3acf163ecf"
+    },
+    {
+      "path": "RRM/engineering/M00-H/test_h.py",
+      "sha256": "33d5fcdd4c0d2db6350a48e5e5a882e8b9ebf213373fd6a93802b32f7214560e"
+    },
+    {
+      "path": "RRM/engineering/M00-H/validate_milestone.py",
+      "sha256": "ade08ed909559dd8ca83dc4e6df3bc3791757e7d3d0e62d4e48729215c814a87"
+    }
+  ]
+}

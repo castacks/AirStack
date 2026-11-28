@@ -1,0 +1,39 @@
+{
+  "synthetic": true,
+  "shared_clock_assumed_only_in_fixture": true,
+  "events": [
+    {
+      "kind": "process_start",
+      "time_ns": 1
+    },
+    {
+      "kind": "application_complete",
+      "time_ns": 2
+    },
+    {
+      "kind": "connection",
+      "time_ns": 3,
+      "connected": true
+    },
+    {
+      "kind": "graph",
+      "time_ns": 4,
+      "interfaces": [
+        "mavros/state",
+        "mavros/extended_state",
+        "get_parameters",
+        "set_parameters"
+      ]
+    },
+    {
+      "kind": "connection",
+      "time_ns": 5,
+      "connected": false
+    },
+    {
+      "kind": "graph",
+      "time_ns": 6,
+      "interfaces": []
+    }
+  ]
+}

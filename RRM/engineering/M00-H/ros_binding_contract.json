@@ -1,0 +1,11 @@
+{
+  "status": "NOT VERIFIED",
+  "production_binding_implemented": false,
+  "inputs": {
+    "state": {"topic": "/robot_1/interface/mavros/state", "type": "mavros_msgs/msg/State", "field": "connected"},
+    "extended_state": {"topic": "/robot_1/interface/mavros/extended_state", "type": "mavros_msgs/msg/ExtendedState", "field": "landed_state"},
+    "graph": {"interface": "future read-only ROS graph snapshot", "required": ["mavros/state", "mavros/extended_state", "get_parameters", "set_parameters"]},
+    "lifecycle": {"interface": "future producer event/log translation", "markers": ["process_start", "application_complete", "deadline_failure", "startup_failure", "recovery"]}
+  },
+  "limits": "Pure adapters accept supplied observations only. Graph names are diagnostic aliases, not service discovery proof. ROS callbacks/GIDs/QoS/source-to-receipt timing/native app/graph markers remain unbound and unverified. No ROS node or subscription is started."
+}

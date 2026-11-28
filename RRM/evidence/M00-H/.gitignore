@@ -1,0 +1,4 @@
+local-commit-receipt.json
+!build/
+build/*
+!build/BUILD_RESULT.json

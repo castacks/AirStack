@@ -1,0 +1,10 @@
+{
+  "language": "C++17",
+  "minimum_cmake": "3.16",
+  "source_directory": "RRM/engineering/M00-G/guard_host",
+  "include_directory": "robot/ros_ws/src/interface/mavros_interface/include",
+  "header_sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+  "runtime_configuration": "G Compose timeout10.0 + read-only upstream px4_config.yaml; no execution",
+  "output_directory": "RRM/evidence/M00-H/build",
+  "dependency_policy": "Use existing host packages only; no substitutes/downloads/stubs; absent toolchain blocks integration build"
+}

@@ -1,0 +1,49 @@
+{
+  "synthetic": true,
+  "shared_clock_assumed_only_in_fixture": true,
+  "events": [
+    {
+      "kind": "process_start",
+      "time_ns": 1
+    },
+    {
+      "kind": "application_complete",
+      "time_ns": 2
+    },
+    {
+      "kind": "tick",
+      "time_ns": 10000000000
+    },
+    {
+      "kind": "deadline_failure",
+      "time_ns": 10000000001
+    },
+    {
+      "kind": "recovery_requested",
+      "time_ns": 11000000000
+    },
+    {
+      "kind": "evidence_sealed",
+      "time_ns": 11000000001
+    },
+    {
+      "kind": "recovery_isolated",
+      "time_ns": 11000000002
+    },
+    {
+      "kind": "recovery_approved",
+      "time_ns": 11000000003
+    },
+    {
+      "kind": "connection",
+      "time_ns": 12000000000,
+      "connected": true
+    },
+    {
+      "kind": "tick",
+      "time_ns": 12000000001,
+      "grounded": true,
+      "transaction": true
+    }
+  ]
+}

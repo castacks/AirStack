@@ -1,0 +1,121 @@
+{
+  "BUILD STATUS": "BLOCKED",
+  "OFFLINE TEST STATUS": "PASS",
+  "OVERALL EXECUTION READINESS": "BLOCKED",
+  "RUNTIME CONTAINMENT STATUS": "NOT VERIFIED",
+  "STATIC ISOLATION STATUS": "PASS",
+  "adapters": "OFFLINE_IMPLEMENTED; ROS_BINDING_NOT_VERIFIED",
+  "dependency_free_python": "PASS",
+  "dependency_identity_completeness": "PARTIAL; HOST_TOOLCHAIN_MISSING; RUNTIME_IDENTITIES_UNRESOLVED",
+  "execution_authorized": false,
+  "execution_ready": false,
+  "guard_compatibility": {
+    "full_guard_compatibility": "NOT VERIFIED",
+    "guard_sha256": "e522a5f6ac10e293e6985b1aaca52d59fad7d80f91a5d5eed0aca0876f785ea2",
+    "limitation": "Anchors/hash and synthetic tests do not compile/execute the original C++ guard.",
+    "source_identity": "PASS",
+    "synthetic_source_correspondence": "PASS"
+  },
+  "limits": "Static/test/source correspondence cannot establish full guard ABI/runtime behavior or physical containment.",
+  "missing_build_dependencies": [
+    "cxx",
+    "cmake",
+    "ament_cmake",
+    "rclcpp",
+    "ament_index_cpp",
+    "mavros_msgs",
+    "rcl_interfaces",
+    "std_msgs",
+    "interface_bringup",
+    "yaml-cpp"
+  ],
+  "original_isolation_gate": [
+    {
+      "criterion": "No physical-device mounts",
+      "gate_id": "IG01",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "No privileged access",
+      "gate_id": "IG02",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "No serial or USB passthrough",
+      "gate_id": "IG03",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "No MAVLink route to physical FC",
+      "gate_id": "IG04",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Confined DDS",
+      "gate_id": "IG05",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Command services cannot reach actuators",
+      "gate_id": "IG06",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Host network and external ports understood",
+      "gate_id": "IG07",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "No silent hardware entrypoint",
+      "gate_id": "IG08",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Image and dependency identity",
+      "gate_id": "IG09",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Probes preserve safety-critical behavior",
+      "gate_id": "IG10",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Independent shutdown and containment",
+      "gate_id": "IG11",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Execution host and resource permissions known",
+      "gate_id": "IG12",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Clocks and recorder readiness",
+      "gate_id": "IG13",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    },
+    {
+      "criterion": "Separate exact execution authorization",
+      "gate_id": "IG14",
+      "result": "NOT PASSED",
+      "status": "NOT VERIFIED"
+    }
+  ],
+  "recorder": "LOCAL_SYNTHETIC_FAILURE_TESTS_ONLY; RUNTIME_RELIABILITY_NOT_VERIFIED",
+  "target": "UNDESIGNATED",
+  "wp01_authorized": false
+}

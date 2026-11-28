@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "shared_clock_assumed_only_in_fixture": true,
+  "events": [
+    {
+      "kind": "process_start",
+      "time_ns": 1
+    }
+  ]
+}

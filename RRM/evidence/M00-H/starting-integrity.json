@@ -1,0 +1,66 @@
+{
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned M00-F start; 2322 protected entries, 408 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "full_offline_suite",
+      "status": "PASS",
+      "detail": "42 tests PASS;0 failures;0 errors;0 skipped; all20 directive cases covered, synthetic events/identities only"
+    },
+    {
+      "check": "static_policy_and_runtime_preflight",
+      "status": "PASS",
+      "detail": "Static policy PASS; package/execution BLOCKED; all14 original isolation rows NOT VERIFIED/NOT PASSED; disabled entrypoints retained"
+    },
+    {
+      "check": "prerequisite_and_requirement_continuity",
+      "status": "PASS",
+      "detail": "All20 original identifiers/dispositions3/8/9 and closure conditions preserved;29 mappings28 NOT_TESTED/1 OUT_OF_SCOPE;0 qualification"
+    },
+    {
+      "check": "implementation_provenance_and_dependencies",
+      "status": "PASS",
+      "detail": "37 hashed source references; 31 package inputs;11 unresolved dependencies; all runtime images unassigned"
+    },
+    {
+      "check": "repository_scope_and_deliverables",
+      "status": "PASS",
+      "detail": "47 RRM-only changed files; PROJECT_STATUS sole prior edit; all new sums valid; historical evidence/protected files unchanged"
+    }
+  ],
+  "test_count": 42,
+  "test_failures": 0,
+  "test_errors": 0,
+  "test_skipped": 0,
+  "changed_file_count": 47,
+  "static_configuration_compliance": "PASS",
+  "configuration_dependency_readiness": "BLOCKED",
+  "execution_readiness": "BLOCKED",
+  "runtime_containment": "NOT VERIFIED",
+  "runtime_isolation_gate": "NOT PASSED",
+  "tier_b_target": "UNDESIGNATED",
+  "execution_authorized": false,
+  "warnings": [
+    "Static policy and synthetic test PASS are not runtime safety, guard equivalence or qualification.",
+    "C++ original-header host source is unbuilt; Python deadline reference covers a subset only.",
+    "Recorder is an observational writer/auditor; runtime adapters, fsync durability and independent supervisor are unresolved.",
+    "Images/assets, GPU/user/filesystem compatibility, effective DDS/device/network isolation and P1 readiness are unresolved.",
+    "Official documentation URLs are retrieved references, not authenticated pinned deployment identities."
+  ],
+  "skipped_checks": [
+    "All container/simulator/ROS/PX4/MAVROS/service startup or restart and active network/device/hardware checks prohibited; none performed.",
+    "C++ compile/link and ROS executor integration: exact build dependencies/install/image identity unresolved; no build invoked.",
+    "Actual recorder failure survival, overhead/drop/resource/clock calibration and independent stop: require later explicit scope.",
+    "Formal F00 equivalence/qualification and original records: not supplied or tested.",
+    "Original M00 has no own SHA256SUMS; protected baseline inventory covers it."
+  ],
+  "limitations": [
+    "Static validator handles only this closed JSON Compose subset, not general YAML merging/interpolation or running configuration.",
+    "Caller-supplied event provenance and approval labels are untrusted observations; hash chain proves stream consistency, not authentic clocks or authority.",
+    "No active operations occurred based on recorded tool actions; file checksums alone cannot attest absence of runtime actions."
+  ]
+}
