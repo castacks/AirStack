@@ -1,0 +1,15 @@
+test_authentic_but_insufficient_is_not_accepted (test_gov001b_intake.IntakeTests.test_authentic_but_insufficient_is_not_accepted) ... ok
+test_boolean_is_not_a_document_identifier (test_gov001b_intake.IntakeTests.test_boolean_is_not_a_document_identifier) ... ok
+test_cannot_skip_delivery_or_receipt (test_gov001b_intake.IntakeTests.test_cannot_skip_delivery_or_receipt) ... ok
+test_complete_synthetic_chain_grants_no_authority (test_gov001b_intake.IntakeTests.test_complete_synthetic_chain_grants_no_authority) ... ok
+test_no_independence_no_acceptance (test_gov001b_intake.IntakeTests.test_no_independence_no_acceptance) ... ok
+test_rejected_revision_cannot_be_accepted_in_place (test_gov001b_intake.IntakeTests.test_rejected_revision_cannot_be_accepted_in_place) ... ok
+test_rejection_after_receipt_needs_no_fictional_provenance_pass (test_gov001b_intake.IntakeTests.test_rejection_after_receipt_needs_no_fictional_provenance_pass) ... ok
+test_restricted_access_alone_is_not_integrity_verification (test_gov001b_intake.IntakeTests.test_restricted_access_alone_is_not_integrity_verification) ... ok
+test_restricted_receipt_can_replace_undisclosed_original_hash (test_gov001b_intake.IntakeTests.test_restricted_receipt_can_replace_undisclosed_original_hash) ... ok
+test_unverified_owner_cannot_be_accepted (test_gov001b_intake.IntakeTests.test_unverified_owner_cannot_be_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.000s
+
+OK

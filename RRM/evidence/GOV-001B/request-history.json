@@ -1,0 +1,38 @@
+{
+  "A": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ],
+  "B": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ],
+  "C": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ],
+  "D": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ],
+  "E": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ],
+  "F": [
+    {
+      "state": "REQUEST PREPARED",
+      "reference": "RRM/governance/GOV-001B/GOV001B_ORGANIZATIONAL_REQUEST.md"
+    }
+  ]
+}

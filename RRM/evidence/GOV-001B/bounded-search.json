@@ -1,0 +1,61 @@
+{
+  "acquired_utc": "2026-11-28T00:57:49.076372+00:00",
+  "new_question": "What delegation permits combining accountabilities, and is any actual organizational appointment in existing records?",
+  "records": [
+    {
+      "path": "osmo/README.md",
+      "bytes": 14558,
+      "sha256": "5b6710ae65a6c616df23de03b19b44f4cbd20a5363c96f6bc1645f3178d1abf5",
+      "line": 24,
+      "excerpt": "README is the **lab admin / operator** reference: pool requirements,"
+    },
+    {
+      "path": "docs/tutorials/airstack_on_osmo.md",
+      "bytes": 26434,
+      "sha256": "10ec37234b3bd5139858697f5edbd4e90ff289ba9540e7d93472e6b8587499be",
+      "line": 89,
+      "excerpt": "> **Lab admin prerequisites (someone else's job, once).** A lab admin"
+    },
+    {
+      "path": "docs/development/intermediate/contributing.md",
+      "bytes": 5193,
+      "sha256": "caa67e71f7136190fc0564554896ef6f714d024d95d5c9707f0bc447a12a2670",
+      "line": 81,
+      "excerpt": "To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main`. The workflow bypasses `develop`'s ruleset using a `SYNC_PAT` secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases."
+    },
+    {
+      "path": "RRM/governance/GOV-001A/GOV001A_OWNER_DISCOVERY.csv",
+      "bytes": 5398,
+      "sha256": "4c8fd540f0dfcabbdca98311ca74941e941a9e3d0332def0e4b0801d920f119d",
+      "line": null,
+      "excerpt": null
+    },
+    {
+      "path": "RRM/evidence/GOV-001A/dispositions.json",
+      "bytes": 1941,
+      "sha256": "c0a4458f7eb4f1210f89e5c3c06e0d9069ef6eb8cdb9b7997892d39afccba712",
+      "line": null,
+      "excerpt": null
+    },
+    {
+      "path": "RRM/verification/reports/M00-E1A/M00E1A_SAFETY_READINESS.md",
+      "bytes": 6388,
+      "sha256": "c5a6556355ea9ad60bc95435d698c5ba686ae2b9487db720b9916b20a296eb10",
+      "line": 14,
+      "excerpt": "| AB08 operator/safety uncertainty or absent oversight | CHK01/15: no signed operation authority or named operator/stop owner | PD appoints operator and independent safety owner; supply supervision/escalation contacts and expiry; stop immediately when safe ownership or authority is uncertain |"
+    },
+    {
+      "path": "RRM-transfer/rrm-9d26a58/README.md",
+      "bytes": 54345,
+      "sha256": "c5c2c73b8e285be0c8759db4ecf2c104c17a7642dbb8d1fa8bf47e5981b44757",
+      "line": null,
+      "excerpt": null
+    }
+  ],
+  "standard_codeowners_absent": true,
+  "authoritative_organizational_records_found": 0,
+  "verified_accountable_owners": 0,
+  "new_platform_attestations": 0,
+  "controlled_input_unchanged": true,
+  "scope": "One bounded local review; no contributor-history inference, runtime interrogation, external communication or credentials"
+}
