@@ -1,0 +1,74 @@
+{
+  "kind": "NON_EXECUTABLE_UNVALIDATED_DESIGN",
+  "runtime_verified": false,
+  "components": [
+    "isaac_pegasus_px4_sitl",
+    "mavros",
+    "original_guard_host",
+    "independent_recorder"
+  ],
+  "network": {
+    "mode": "private_bridge",
+    "internal": true,
+    "external_routes": [],
+    "peers": [
+      "172.30.50.2",
+      "172.30.50.3"
+    ],
+    "dds_external_discovery": false
+  },
+  "environment": {
+    "AUTOLAUNCH": "false",
+    "SIM_TYPE": "isaac",
+    "FCU_URL": "udp://:14541@172.30.50.2:14581",
+    "GCS_URL": "",
+    "ROS_DOMAIN_ID": "1",
+    "AIRSTACK_STACK_ENTRY": "startup_only",
+    "AIRSTACK_STACK_DIR": "/rrm/design-stack",
+    "SIM_IP": "172.30.50.2",
+    "DDS_POLICY": "explicit-confined-peers-only",
+    "PLAY_SIM_ON_START": "false"
+  },
+  "privileged": 0,
+  "pid": "private",
+  "ipc": "private",
+  "cap_add": [],
+  "cap_drop": [
+    "ALL"
+  ],
+  "security_opt": [
+    "no-new-privileges:true"
+  ],
+  "devices": [],
+  "device_cgroup_rules": [],
+  "ports": [],
+  "entrypoint_policy": "reviewed-explicit-SITL-only-no-fallback",
+  "overlays": [],
+  "gpu_policy": "UNVERIFIED_MINIMUM_COMPUTE_GRANT_NOT_APPROVED",
+  "mounts": [
+    {
+      "source": "pinned_source",
+      "target": "/rrm/source",
+      "type": "named_design_volume",
+      "read_only": true
+    },
+    {
+      "source": "pinned_assets",
+      "target": "/rrm/assets",
+      "type": "named_design_volume",
+      "read_only": true
+    },
+    {
+      "source": "private_cache",
+      "target": "/rrm/cache",
+      "type": "named_design_volume",
+      "read_only": false
+    },
+    {
+      "source": "private_evidence",
+      "target": "/rrm/evidence",
+      "type": "named_design_volume",
+      "read_only": false
+    }
+  ]
+}

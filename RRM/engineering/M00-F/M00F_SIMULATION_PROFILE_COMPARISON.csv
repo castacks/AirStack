@@ -1,0 +1,12 @@
+aspect,desktop,desktop_split,classification,sources,diagnostic_implication
+Services,robot-desktop plus gcs; Isaac separately selected via isaac-sim profile,robot-desktop-onboard plus robot-offboard plus gcs; Isaac separately selected,OBSERVED,ROBOT;GCS;ISAAC,Prefer unsplit basis; no supplied profile accepted unchanged
+Autonomy,full_default unless stack overridden,onboard lite_default; offboard lite_offload_global:offboard,OBSERVED,ROBOT;DISPATCH,Split defaults are not automatically a verified paired bridge configuration
+PX4,Pegasus launches software PX4 when selected; external FCU override possible,Same selected simulator path; external FCU override possible,OBSERVED,SCENE;BACKEND;INTERFACE,Neither profile label excludes real FCU
+MAVROS,Computed UDP to SIM_IP; XML serial default if used directly,Same onboard interface; offboard is global planning,OBSERVED,INTERFACE;MAVROS;ROBOT,Pin endpoint; forbid serial and silent fallback
+ROS interfaces,Full planners controllers interface and services,Lite vehicle graph plus global/offboard bridge,OBSERVED,FULL;SPLIT;ROBOT,Remove command producers and routers; guard is not a firewall
+Simulation time,Shared dispatcher sets use_sim_time when sim true,Same dispatcher; offboard also dispatched,OBSERVED,DISPATCH,Need calibrated native clocks; /clock cannot time guard steady deadline
+GCS requirement,Included by profile; unnecessary for proposed startup-only question,Included by profile; no need for offboard planner or GCS in minimal diagnostic,INFERRED,GCS;D;E1C,Exclude GCS and command relays
+Network,Shared non-internal bridge; SSH2223-2243 and GCS2222/8766,Same bridge; offboard domain0 and SSH reset; onboard inherits publication,OBSERVED,ROOT;ROBOT;GCS,Replace with confined network and no published ports
+Physical access,privileged inherited from robot_base; GPU runtime; writable source/X11,Same privileged base and GPU/runtime exposure,OBSERVED,BASE;ROBOT;ISAAC,No isolation advantage from split
+Startup dependencies,Independent component commands do not gate interface on actual PX4 readiness,Additional offboard/router dependencies; no resolution of guard ordering,INFERRED,ROBOT;D;E1C,Application ready is insufficient; observe graph Play spawn and MAVROS callbacks
+Effective deployment,Not inspected this milestone,Not inspected this milestone,UNKNOWN,E1B;E1E,Historical exposed workspace is reference only; target remains undesignated

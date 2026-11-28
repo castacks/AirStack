@@ -1,0 +1,58 @@
+{
+  "result": "PASS",
+  "checks": [
+    {
+      "check": "starting_and_protected_integrity",
+      "status": "PASS",
+      "detail": "Clean pinned GOV-002 start; 2269 protected entries, 356 pinned sealed checksums and 48 unchanged controlled input files"
+    },
+    {
+      "check": "offline_security_policy_tests",
+      "status": "PASS",
+      "detail": "4 test methods;28 fixture subcases (one positive,27 negative),22 missing-field cases and4 malformed roots; privilege/network/devices/namespaces/caps/ports/entrypoints/env/duplicate keys rejected"
+    },
+    {
+      "check": "future_execution_gate",
+      "status": "PASS",
+      "detail": "14 explicit methods/evidence/pass conditions/reviewer roles; none assigned or runtime verified; static intent never grants execution"
+    },
+    {
+      "check": "prerequisite_and_requirement_continuity",
+      "status": "PASS",
+      "detail": "All20 original CHKs traceable, dispositions3/8/9 unchanged;29 mapping rows28 NOT_TESTED/1 OUT_OF_SCOPE, zero verification/qualification"
+    },
+    {
+      "check": "source_and_profile_trace",
+      "status": "PASS",
+      "detail": "35 registered source records with4 retrieved official /0.20/ pages; modern site commit unknown, checked-out configs hashed separately;11 comparison dimensions"
+    },
+    {
+      "check": "deliverables_scope_governance_checksums",
+      "status": "PASS",
+      "detail": "54 exact RRM-only paths; PROJECT_STATUS sole prior-file edit; new checksums valid; original criteria/history unchanged"
+    }
+  ],
+  "changed_file_count": 54,
+  "execution_gate": "NOT PASSED",
+  "target_designation": "UNVERIFIED",
+  "runtime_isolation": "NOT YET VERIFIED",
+  "recommendation": "F1",
+  "warnings": [
+    "Static source observations establish configuration intent, not effective runtime isolation.",
+    "Nonprivileged GPU compatibility, exact images/assets, host policy and measurement overhead unverified.",
+    "A prior-validator rerun after creating the new snapshot correctly rejected the successor file horizon; the new snapshot was temporarily withheld and the prior clean-horizon PASS was captured before other writes.",
+    "No immutable website build commit available; retrieval times recorded; no version-equivalence assumption.",
+    "Initial staged whitespace check found CSV CRLF and directive Markdown hard-break spaces; normalized new files to LF without trailing spaces and rechecked."
+  ],
+  "skipped_checks": [
+    "All Docker/Compose/ROS/PX4/MAVROS/Isaac execution, image pulls, installs, service/container starts/restarts, device reads, hardware interaction and active network probes: unauthorized and not performed.",
+    "Effective physical/network/GPU/host isolation and recorder failure survival: no execution scope/target.",
+    "F00 qualification/equivalence: missing authentic originals and admitted approved campaign evidence.",
+    "Original M00 has no SHA256SUMS; full protected snapshot preserves it."
+  ],
+  "limitations": [
+    "Policy validator accepts only a closed non-executable JSON design schema; it is not a general Compose resolver or deployed-policy auditor. Synthetic positives are not runnable configurations.",
+    "No active operations occurred in this milestone; this statement is based on the executed tool actions, not a claim that file hashes can prove absence of runtime activity.",
+    "Roles are required reviewers, not appointed people. No contact or universal organizational prerequisite introduced."
+  ]
+}

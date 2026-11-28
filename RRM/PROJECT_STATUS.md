@@ -6,10 +6,10 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 |---|---|
 | Current baseline | F00 successor engineering campaign; original F00 CLOSED / FROZEN / QUALIFICATION BLOCKED. Supplied EXT preparation input assessed; upstream originals unauthenticated |
 | Repository / branch | castacks/AirStack / ore_proj |
-| Current milestone | GOV-002 bounded authority/channel discovery and release assessment complete in containing validated local commit; Outcome A limited R1 release-readiness; STOPPED awaiting separate PD delivery decision; implementation hold unchanged |
+| Current milestone | M00-F AirStack-native software-only simulation feasibility/design complete in containing validated local commit; STOP for PD technical review; no execution |
 | Current gate | G0 — BLOCKED BY EXTERNAL INPUT with engineering blockers; no gate-pass recommendation |
-| Last completed milestone | GOV-001B: 381db1c4dcdd1bb71d047176e681bd18c72e342d; GOV-002 completion is the containing local commit; no owner/technical closure or delivery authority inferred |
-| Last local commit (full SHA verified at snapshot preparation) | 381db1c4dcdd1bb71d047176e681bd18c72e342d |
+| Last completed milestone | GOV-002: 6c63054b2d1ac0dee0c5840ed3d4c31083874177; M00-F completion is containing local commit |
+| Last local commit (full SHA verified at snapshot preparation) | 6c63054b2d1ac0dee0c5840ed3d4c31083874177 |
 | M00-E1 completion commit | 31e33893ef2fa0f724862a980f6b5db0d62509d2; RRM/handoffs/M00E1_HANDOFF.md |
 | M00-E1A completion commit | df8ebd18a6e16909cca461e18dfba882b53c8120; RRM/handoffs/M00E1A_HANDOFF.md |
 | M00-E1B completion commit | 4326dd079a2d80518983a5b793b9bab7f751a5db; RRM/handoffs/M00E1B_HANDOFF.md |
@@ -18,20 +18,20 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | M00-E1E completion commit | 0fa876fd8191be61a3e6724e1a3c93fe64510f01; sealed decision-preparation record preserved |
 | GOV-001A completion commit | a72b8f412f2567e870903e2f4fec8082bc437e21; actual D1/D3/D5 project dispositions preserved |
 | GOV-001B completion commit | 381db1c4dcdd1bb71d047176e681bd18c72e342d; sealed request/intake checkpoint |
-| GOV-002 completion commit | Containing local commit; full SHA in chat and ignored RRM/evidence/GOV-002/local-commit-receipt.json; self-reference convention retained |
-| Remote synchronization | No Git push/fetch/remote ref update by Codex during GOV-002; read-only public document retrieval performed; external synchronization unknown |
+| GOV-002 completion commit | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; historical handoff preserved |
+| Remote synchronization | No push/fetch/remote ref updates; read-only official AirStack /0.20/ documentation retrieval during M00-F |
 | Requirements coverage | 29 mapped D2 rows: 28 in-scope NOT_TESTED, 1 OUT_OF_SCOPE; verified 0, failed 0, qualification 0. Blocked 28 is an overlay on NOT_TESTED, not another denominator |
-| Current engineering activity | Bounded contact-route discovery, four candidate/channel assessments and R1–R4 release sheet; RC01 authentic published professional route supports minimal ownership/referral question; no broad architecture/platform study |
+| Current engineering activity | Static AirStack architecture/profile/isolation review; RRM minimum startup design, 14-item future gate, fail-closed offline policy validator and synthetic fixtures |
 | Current project PD | ChatGPT — RRM engineering-program decision authority, explicitly designated by user directive RRM-C001-F00-GOV-001A, received 2026-11-27; no signature/external organizational authority invented |
 | D1 — Architecture selection | CONDITIONALLY APPROVED FOR FURTHER OFFLINE DESIGN. Architecture C preferred; platform feasibility, isolation and equivalence remain unverified; no implementation or target designation |
 | D2 — Material configuration change | DEFERRED. Exact delta, configuration owner, compatibility, isolation verification plan, measurement assessment, rollback/recovery still required |
 | D3 — Evidence policy | APPROVED AS PROJECT EVIDENCE POLICY. Diagnostic observations do not automatically qualify F00, prove equivalence/root cause/repeatability, close G0 or authorize operational use |
 | D4 — Ownership | PENDING VERIFICATION. No accountable infrastructure/safety owner appointed; authorized organizational representative must confirm actual delegation |
-| D5 — Engineering scope | APPROVED — PASSIVE AND OFFLINE WORK ONLY. Source/configuration analysis, ownership discovery, evidence indexing, offline refinement, escalation and validation allowed; no construction/deployment/activation/testing |
-| Primary finding | Outcome A for separate R1 delivery decision only: project README→AirLab→two official CMU directory pages support RC01 Sebastian Scherer/basti@andrew.cmu.edu as published routing contact. No applicable infrastructure/configuration/safety approval authority verified; routing success/remit unobserved |
-| Next action | PD approves or defers narrowed R1/C1 with authorized sender/affiliation, exact recipient/body/email channel/scope and stop conditions. All approval fields unselected. Do not send GOV-001B detailed A–F; R2 not release-ready pending verified authority and handling. No communication occurred. WP01 NOT AUTHORIZED |
-| Remaining approvals | R1 delivery not authorized; D2 DEFERRED/D4 PENDING VERIFICATION, technical/organizational safety/configuration/platform evidence and separate active scope absent. RA01 PENDING PD REVIEW |
-| Last update evidence | RRM/handoffs/GOV002_HANDOFF.md; RRM/governance/GOV-002/GOV002_PD_RELEASE_DECISION.md; GOV002_RECIPIENT_CHANNEL_ASSESSMENT.csv; RRM/evidence/GOV-002/release-state.json; validation-results.json |
+| D5 — Engineering scope | M00-F authorizes passive inspection, offline analysis/configuration design and offline validation. Routine organizational discovery terminated; no rig construction/deployment/activation/runtime testing |
+| Primary finding | desktop unsplit topology preferred as design basis; stock profiles fail isolation intent through inherited privilege, host IPC, external-capable networking and command surfaces. Software-only design feasible in principle; runtime proof absent |
+| Next action | PD review F1 recommendation: separately authorize M00-F1 offline RRM stack/manifest/event-schema implementation and exact security resolver tests. No universal organizational approval required for offline software engineering; no organizational contact requested |
+| Remaining approvals | Exact next offline implementation scope pending; future executable material changes require D2 review and exact bounded execution authorization. Actual chosen host permissions/isolation evidence required; D4 not a universal offline software-development gate. RA01 PENDING PD REVIEW |
+| Last update evidence | RRM/handoffs/M00F_HANDOFF.md; RRM/engineering/M00-F/M00F_PD_TECHNICAL_DECISION.md; RRM/evidence/M00-F/M00F_VALIDATION_RESULTS.json |
 
 ## Milestone history
 
@@ -49,11 +49,12 @@ Status snapshot: 2026-11-27 America/New_York; author Codex. GOV-001A explicitly 
 | M00-E1E | Decision forms and bounded passive review complete; external owner/technical proof INCOMPLETE; external-input hold | 0fa876fd8191be61a3e6724e1a3c93fe64510f01; RRM/handoffs/M00E1E_HANDOFF.md |
 | GOV-001A | D1/D3/D5 directed project dispositions recorded; D2 deferred/D4 pending; passive discovery/escalation completed; external-input hold | a72b8f412f2567e870903e2f4fec8082bc437e21; RRM/handoffs/GOV001A_HANDOFF.md |
 | GOV-001B | Ownership/request/intake/trace/hold checkpoint complete; zero received organizational records or closures; external-input hold | 381db1c4dcdd1bb71d047176e681bd18c72e342d; RRM/handoffs/GOV001B_HANDOFF.md |
-| GOV-002 | Outcome A: authentic public professional routing contact for limited R1; no verified organizational approval authority or delivery authorization; implementation hold | Containing local commit; RRM/handoffs/GOV002_HANDOFF.md |
+| GOV-002 | Outcome A: authentic public professional routing contact for limited R1; no verified organizational approval authority or delivery authorization; historical checkpoint | 6c63054b2d1ac0dee0c5840ed3d4c31083874177; RRM/handoffs/GOV002_HANDOFF.md |
+| M00-F | Offline AirStack simulation feasibility/isolation design and validation complete; F1 recommended; no execution gate pass | Containing local commit; RRM/handoffs/M00F_HANDOFF.md |
 
 ## Open blockers
 
-Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in GOV-002. Subquestion closure does not imply gate passage.
+Severity labels below are local planning labels, not changed SRS risk classifications. There are **no whole original blocker closures** in M00-F. Subquestion closure does not imply gate passage.
 
 | ID | Severity / applicability | Disposition and closure evidence required |
 |---|---|---|
@@ -71,4 +72,12 @@ Severity labels below are local planning labels, not changed SRS risk classifica
 
 Permanent control documents: [roadmap](ROADMAP_MANDATE.md). Full original-ID dispositions, actions/authorities/closure conditions are in [M00-E1C continuing register](evidence/M00-E1C/M00E1C_BLOCKER_DISPOSITION.csv). A milestone's engineering completion is distinct from gate readiness, independent review and qualification. Future milestones must update this file with new evidence/known full SHA and commit it with their deliverables.
 
-GOV-002 boundary: **EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**. Outcome A means ready to seek separate R1 permission for minimal ownership/referral contact only, not ready to send. R2 detailed platform-evidence delivery not release-ready. No organizational approval authority/owner appointment or technical prerequisite closure. D1/D3/D5 retained; D2 DEFERRED/D4 PENDING VERIFICATION. Tier B target undesignated/UNVERIFIED; execution NOT AUTHORIZED; WP01 unauthorized. All20 baseline CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED;17 unresolved and zero whole closures. GOV-001B intake/history unchanged; zero actual external requests/responses/acceptances. No messages, private mailbox access, service interrogation, active network probes, runtime/hardware operations or recurring work. Public-document retrieval only, through GitHub/web; no source execution or remote ref update. Stop after GOV-002 local commit; no push. Controlled criteria/original24-start proposal/historical n=1 observations and protected history/roadmap unchanged; prior status sums verified at historical pins.
+Historical GOV-002 boundary (superseded as the next-work instruction by M00-F; historical evidence unchanged): **EXTERNAL-INPUT HOLD — ARCHITECTURE C IMPLEMENTATION NOT AUTHORIZED**. Outcome A means ready to seek separate R1 permission for minimal ownership/referral contact only, not ready to send. R2 detailed platform-evidence delivery not release-ready. No organizational approval authority/owner appointment or technical prerequisite closure. D1/D3/D5 retained; D2 DEFERRED/D4 PENDING VERIFICATION. Tier B target undesignated/UNVERIFIED; execution NOT AUTHORIZED; WP01 unauthorized. All20 baseline CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED;17 unresolved and zero whole closures. GOV-001B intake/history unchanged; zero actual external requests/responses/acceptances. No messages, private mailbox access, service interrogation, active network probes, runtime/hardware operations or recurring work. Public-document retrieval only, through GitHub/web; no source execution or remote ref update. Stop after GOV-002 local commit; no push. Controlled criteria/original24-start proposal/historical n=1 observations and protected history/roadmap unchanged; prior status sums verified at historical pins.
+
+## M00-F current technical disposition
+
+M00-F terminates routine organizational-governance discovery. No contact with Sebastian or others. Prior professional routing evidence does not designate an infrastructure/safety authority, and organization-wide authorization is not a universal prerequisite for software-only development. Applicable permissions are specific to the actual execution host, protected integration changes, physical operations or qualification claim.
+
+M00-F complete in containing local commit; full SHA reported in chat and ignored evidence/M00-F/local-commit-receipt.json. Seven engineering documents/matrices, source register, 20-CHK continuity, non-executable design policy, synthetic security fixtures and offline validator prepared. desktop preferred as a reduced unsplit basis; neither stock desktop nor desktop_split is isolated unchanged. Minimal design: Isaac/Pegasus with one PX4 SITL, MAVROS, original guard host, independent recorder/observer and external containment. GPU least privilege, image/asset identity, endpoint confinement and runtime failure survival remain unverified. All14 future execution gate rows NOT YET VERIFIED / NOT PASSED. F1 recommended: separate offline implementation milestone; no approval or runtime safety claim.
+
+All20 baseline CHKs retain3 SATISFIED/8 UNSATISFIED/9 UNVERIFIED; scope effects explicitly recorded, zero closures. All29 requirements mappings intact:28 in-scope NOT_TESTED/1 OUT_OF_SCOPE, zero verified/failed/qualified. G0 BLOCKED BY EXTERNAL INPUT with engineering blockers; RA01 PENDING PD REVIEW; WP01 NOT AUTHORIZED. D1 conditional offline Architecture C, D2 DEFERRED, D3 diagnostic policy retained; D4 pending verification only where applicable. Tier B target undesignated/UNVERIFIED and execution NOT AUTHORIZED. Original historical timing n=1 and24-start proposal unchanged. No construction/deployment/simulator/service/container start/restart/hardware/device read/actuation/active probe/Tier B/C/WP01 occurred. Stop after M00-F for PD technical review. No push.
